@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dental & ENT Clinic System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; margin:0; background:#f4f6f9; }
+        header { background:#0f172a; color:white; padding:15px; text-align:center; }
+        nav { background:#1e293b; padding:10px; display:flex; gap:10px; }
+        nav button { padding:8px 12px; border:none; background:#3b82f6; color:white; cursor:pointer; border-radius:5px; }
+        nav button:hover { background:#2563eb; }
+        section { padding:20px; display:none; }
+        table { width:100%; border-collapse: collapse; margin-top:10px; background:white; }
+        table, th, td { border:1px solid #ddd; }
+        th, td { padding:8px; text-align:left; }
+        input, select { padding:6px; margin:5px; }
+        .card { background:white; padding:15px; margin:10px 0; box-shadow:0 0 5px #ccc; border-radius:8px; }
+        #loginPage { display:flex; justify-content:center; align-items:center; height:100vh; }
+        .login-box { background:white; padding:30px; box-shadow:0 0 10px #aaa; border-radius:8px; }
+        .hidden { display:none; }
+    </style>
+</head>
+<body>
+
+<div id="loginPage">
+    <div class="login-box">
+        <h3>Clinic Login</h3>
+        <select id="role">
+            <option value="Director">Medical Director</option>
+            <option value="Doctor">Doctor</option>
+            <option value="Receptionist">Receptionist</option>
+            <option value="Pharmacist">Pharmacist</option>
+        </select><br>
+        <input type="password" id="password" placeholder="Password"><br>
+        <button onclick="login()">Login</button>
+    </div>
+</div>
+
+<div id="mainApp" class="hidden">
+
+<header>
+    <h2>Dental & ENT Online Management System</h2>
+    <div id="userInfo"></div>
+</header>
+
+<nav id="navMenu"></nav>
+
+<section id="dashboard">
+    <h3>Dashboard</h3>
+    <div class="card">Total Patients: <span id="totalPatients">0</span></div>
+    <div class="card">Total Inventory Items: <span id="totalItems">0</span></div>
+    <div class="card">Total Revenue: $<span id="totalRevenue">0</span></div>
+</section>
+
+<section id="patients">
+    <h3>Register Patient</h3>
+    <input id="pname" placeholder="Patient Name">
+    <input id="page" placeholder="Age">
+    <select id="pbranch">
+        <option value="Main Branch">Main Branch</option>
+    </select>
+    <button onclick="addPatient()">Add</button>
+
+    <h4>Patient List</h4>
+    <table id="patientTable">
+        <tr><th>Name</th><th>Age</th><th>Branch</th></tr>
+    </table>
+</section>
+
+<section id="inventory">
+    <h3>Add Inventory Item</h3>
+    <input id="iname" placeholder="Item Name">
+    <input id="iqty" placeholder="Quantity">
+    <button onclick="addItem()">Add</button>
+
+    <h4>Inventory List</h4>
+    <table id="inventoryTable">
+        <tr><th>Item</th><th>Quantity</th></tr>
+    </table>
+</section>
+
+<section id="billing">
+    <h3>Create Invoice</h3>
+    <input id="bpatient" placeholder="Patient Name">
+    <input id="bamount" placeholder="Amount">
+    <button onclick="addBill()">Add</button>
+
+    <h4>Invoices</h4>
+    <table id="billingTable">
+        <tr><th>Patient</th><th>Amount</th></tr>
+    </table>
+</section>
+
+</div>
+
+<script>
+let currentRole = "";
+let patients = JSON.parse(localStorage.getItem("patients")) || [];
+let inventory = JSON.parse(localStorage.getItem("inventory")) || [];
+let bills = JSON.parse(localStorage.getItem("bills")) || [];
+
+function login() {
+    let password = document.getElementById("password").value;
+    if(password !== "1234") { alert("Wrong password"); return; }
+    currentRole = document.getElementById("role").value;
+    document.getElementById("loginPage").classList.add("hidden");
+    document.getElementById("mainApp").classList.remove("hidden");
+    document.getElementById("userInfo").innerText = "Logged in as: " + currentRole;
+    setupNavigation();
+    showSection("dashboard");
+}
+
+function setupNavigation() {
+    let nav = document.getElementById("navMenu");
+    nav.innerHTML = "";
+    nav.innerHTML += `<button onclick="showSection('dashboard')">Dashboard</button>`;
+    if(currentRole === "Director" || currentRole === "Receptionist") {
+        nav.innerHTML += `<button onclick="showSection('patients')">Patients</button>`;
+    }
+    if(currentRole === "Director" || currentRole === "Pharmacist") {
+        nav.innerHTML += `<button onclick="showSection('inventory')">Inventory</button>`;
+    }
+    if(currentRole === "Director" || currentRole === "Receptionist") {
+        nav.innerHTML += `<button onclick="showSection('billing')">Billing</button>`;
+    }
+    nav.innerHTML += `<button onclick="logout()">Logout</button>`;
+}
+
+function logout() {
+    location.reload();
+}
+
+function showSection(id) {
+    document.querySelectorAll("section").forEach(s => s.style.display="none");
+    document.getElementById(id).style.display="block";
+    updateDashboard();
+}
+
+function addPatient() {
+    let name = pname.value;
+    let age = page.value;
+    let branch = pbranch.value;
+    patients.push({name, age, branch});
+    localStorage.setItem("patients", JSON.stringify(patients));
+    renderPatients();
+}
+
+function renderPatients() {
+    let table = patientTable;
+    table.innerHTML = "<tr><th>Name</th><th>Age</th><th>Branch</th></tr>";
+    patients.forEach(p => {
+        table.innerHTML += `<tr><td>${p.name}</td><td>${p.age}</td><td>${p.branch}</td></tr>`;
+    });
+}
+
+function addItem() {
+    let name = iname.value;
+    let qty = iqty.value;
+    inventory.push({name, qty});
+    localStorage.setItem("inventory", JSON.stringify(inventory));
+    renderInventory();
+}
+
+function renderInventory() {
+    let table = inventoryTable;
+    table.innerHTML = "<tr><th>Item</th><th>Quantity</th></tr>";
+    inventory.forEach(i => {
+        table.innerHTML += `<tr><td>${i.name}</td><td>${i.qty}</td></tr>`;
+    });
+}
+
+function addBill() {
+    let patient = bpatient.value;
+    let amount = parseFloat(bamount.value);
+    bills.push({patient, amount});
+    localStorage.setItem("bills", JSON.stringify(bills));
+    renderBills();
+}
+
+function renderBills() {
+    let table = billingTable;
+    table.innerHTML = "<tr><th>Patient</th><th>Amount</th></tr>";
+    bills.forEach(b => {
+        table.innerHTML += `<tr><td>${b.patient}</td><td>${b.amount}</td></tr>`;
+    });
+}
+
+function updateDashboard() {
+    totalPatients.innerText = patients.length;
+    totalItems.innerText = inventory.length;
+    let revenue = bills.reduce((sum,b)=> sum + (b.amount || 0),0);
+    totalRevenue.innerText = revenue;
+}
+
+renderPatients();
+renderInventory();
+renderBills();
+</script>
+
+</body>
+</html>
