@@ -2,299 +2,393 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>TALI MEDICALS | Pro Cloud</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TALI MEDICALS | HIMS Enterprise</title>
     <style>
-        :root { --primary: #065f46; --danger: #991b1b; --warn: #b45309; --bg: #f8fafc; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg); }
+        :root { 
+            --primary: #166534; --secondary: #15803d; --accent: #22c55e; 
+            --danger: #b91c1c; --warn: #d97706; --bg: #f8fafc; --text: #1e293b;
+        }
+        body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); line-height: 1.5; }
         
-        /* UI Components */
-        header { background: var(--primary); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; }
-        nav { background: white; padding: 0.5rem; border-bottom: 1px solid #ddd; display: flex; gap: 5px; }
-        .nav-btn { padding: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; border-radius: 4px; }
+        /* Layout */
+        header { background: var(--primary); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        nav { background: white; padding: 0.5rem 2rem; display: flex; gap: 10px; border-bottom: 1px solid #e2e8f0; overflow-x: auto; position: sticky; top: 0; z-index: 100; }
+        .container { padding: 20px; max-width: 1400px; margin: auto; }
+        
+        /* Components */
+        .card { background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        section { display: none; animation: fadeIn 0.3s ease; }
+        .active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Buttons & Inputs */
+        button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #14532d; }
+        .nav-btn { background: #f1f5f9; color: #64748b; }
         .nav-btn.active { background: var(--primary); color: white; }
         
-        .container { padding: 20px; display: grid; grid-template-columns: 1fr; gap: 20px; }
-        .card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px; border: 1px solid #e2e8f0; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; margin: 8px 0; font-size: 14px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
         
-        /* Table Styles */
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
-        tr:hover { background: #f1f5f9; }
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+        th { background: #f8fafc; color: #64748b; font-size: 12px; text-transform: uppercase; }
         
-        /* Alerts & Badges */
-        .crit-flag { color: white; background: var(--danger); padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-        .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-        .bg-lab { background: #dbeafe; color: #1e40af; }
-        .bg-ready { background: #dcfce7; color: #166534; animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.5; } }
-
-        /* Form Layout */
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-        input, select, textarea { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; }
-        .hidden { display: none; }
+        /* Badges */
+        .badge { padding: 4px 8px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+        .bg-crit { background: #fee2e2; color: #b91c1c; border: 1px solid #ef4444; }
+        .bg-ready { background: #dcfce7; color: #166534; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
-<div id="loginSection" style="text-align:center; padding-top:100px;">
-    <div class="card" style="width:300px; margin:auto;">
-        <h2>TALI MEDICALS</h2>
-        <select id="userRole">
-            <option value="Director">Director</option>
-            <option value="Reception">Receptionist / Nurse</option>
+<div id="loginPage" style="display:flex; justify-content:center; align-items:center; height:100vh; background: var(--primary);">
+    <div class="card" style="width:380px; text-align:center;">
+        <h1 style="color:var(--primary); margin-bottom:5px;">TALI MEDICALS</h1>
+        <p style="color:#64748b; margin-bottom:25px;">Clinic Management System</p>
+        <select id="roleSelect">
+            <option value="Reception">Receptionist</option>
+            <option value="Nurse">Nurse / Triage</option>
             <option value="Doctor">General Doctor</option>
             <option value="ENT">ENT Specialist</option>
             <option value="Dental">Dentist</option>
             <option value="Lab">Lab Technician</option>
             <option value="Pharmacy">Pharmacist</option>
+            <option value="Director">Director</option>
         </select>
-        <input type="password" id="pass" placeholder="Password" style="margin-top:10px;">
-        <button onclick="doLogin()" style="width:100%; margin-top:10px; background:var(--primary); color:white; border:none; padding:10px; cursor:pointer;">Login</button>
+        <input type="password" id="loginPass" placeholder="Password (1234)">
+        <button onclick="login()" class="btn-primary" style="width:100%; margin-top:10px;">Login</button>
     </div>
 </div>
 
-<div id="mainApp" class="hidden">
+<div id="app" style="display:none;">
     <header>
-        <h3 id="brand">TALI MEDICALS</h3>
-        <span id="roleLabel"></span>
+        <h2 style="margin:0;">TALI MEDICALS</h2>
+        <div>
+            <span id="displayUser" style="margin-right:15px; font-weight:600;"></span>
+            <button onclick="location.reload()" style="background:rgba(255,255,255,0.2); color:white; padding:5px 12px;">Logout</button>
+        </div>
     </header>
-    <nav id="menu"></nav>
+    <nav id="dynamicNav"></nav>
 
     <div class="container">
-        <section id="sec-registration" class="hidden">
+        
+        <section id="sec-registration">
             <div class="card">
-                <h3>Patient Enrollment</h3>
-                <div class="form-grid">
-                    <input id="pName" placeholder="Full Name">
-                    <input id="pPhone" placeholder="Phone Number">
-                    <input id="pAge" placeholder="Age/DOB">
-                    <select id="pGender"><option>Male</option><option>Female</option></select>
-                    <input id="pKin" placeholder="Next of Kin & Contact">
+                <h3>Patient Registration</h3>
+                <div class="grid-3">
+                    <div><label>Full Name</label><input id="pName"></div>
+                    <div><label>Phone Number</label><input id="pPhone"></div>
+                    <div><label>Age</label><input id="pAge"></div>
+                    <div><label>Gender</label><select id="pGender"><option>Male</option><option>Female</option></select></div>
+                    <div><label>Physical Address</label><input id="pAddress"></div>
+                    <div><label>Next of Kin & Contact</label><input id="pKin"></div>
                 </div>
-                <button onclick="savePatient()" style="margin-top:15px; background:var(--primary); color:white; border:none; padding:10px 20px; border-radius:4px;">Register & Start Visit</button>
+                <button onclick="registerPatient()" class="btn-primary">Register & Queue for Triage</button>
+            </div>
+            <div class="card">
+                <h3>All Registered Patients</h3>
+                <table id="table-pats"></table>
             </div>
         </section>
 
-        <section id="sec-triage" class="hidden">
+        <section id="sec-triage">
             <div class="card">
-                <h3>Vitals & Triage Queue</h3>
-                <table id="triageTable"></table>
+                <h3>Triage Waiting List</h3>
+                <table id="table-triage"></table>
             </div>
-            <div id="triageForm" class="card hidden">
-                <h4 id="triageTarget"></h4>
-                <div class="form-grid">
-                    <input id="vBP" placeholder="BP (e.g. 150/90)">
-                    <input id="vTemp" placeholder="Temp (°C)">
-                    <input id="vWeight" placeholder="Weight (kg)">
-                    <select id="vDest">
-                        <option value="Doctor">General Medicine</option>
-                        <option value="ENT">ENT Unit</option>
-                        <option value="Dental">Dental Unit</option>
-                        <option value="Lab">Direct to Lab</option>
-                    </select>
-                </div>
-                <button onclick="submitTriage()" style="margin-top:10px;">Send to Next Station</button>
-            </div>
-        </section>
-
-        <section id="sec-consultation" class="hidden">
-            <div class="card">
-                <h3>Consultation Queue</h3>
-                <table id="consTable"></table>
-            </div>
-            <div id="consForm" class="card hidden">
-                <h3 id="cName"></h3>
-                <div id="cVitalsSummary" style="padding:10px; background:#f8fafc; border-radius:5px; margin-bottom:10px;"></div>
-                
-                <label>Presenting Complaints</label><textarea id="cComplaints"></textarea>
-                <label>History & Examination</label><textarea id="cHist"></textarea>
-                
-                <div class="form-grid">
+            <div id="triage-form" class="card" style="display:none; border-left: 5px solid var(--accent);">
+                <h3 id="triage-target"></h3>
+                <div class="grid-3">
+                    <div><label>BP (mmHg)</label><input id="vBP"></div>
+                    <div><label>Temp (°C)</label><input id="vTemp"></div>
+                    <div><label>Weight (kg)</label><input id="vWeight"></div>
+                    <div><label>Pulse (bpm)</label><input id="vPulse"></div>
                     <div>
-                        <label>Order Lab</label>
-                        <select id="cLabSelect"><option value="">--Select Test--</option><option>Malaria RDT</option><option>CBC</option><option>Urinalysis</option></select>
-                    </div>
-                    <div>
-                        <label>Prescribe</label>
-                        <select id="cMedSelect"><option value="">--Select Drug--</option><option>Amoxicillin</option><option>Paracetamol</option><option>Ciprofloxacin</option></select>
+                        <label>Destination</label>
+                        <select id="vDest">
+                            <option value="Doctor">General Medicine</option>
+                            <option value="ENT">ENT Unit</option>
+                            <option value="Dental">Dental Unit</option>
+                            <option value="Lab">Direct to Laboratory</option>
+                        </select>
                     </div>
                 </div>
-                <button onclick="submitConsultation()" style="margin-top:15px; background:var(--primary); color:white; border:none; padding:10px 20px;">Complete Visit</button>
+                <button onclick="submitTriage()" class="btn-primary">Send to Next Station</button>
             </div>
         </section>
 
-        <section id="sec-lab" class="hidden">
+        <section id="sec-consultation">
             <div class="card">
-                <h3>Lab Requests</h3>
-                <table id="labTable"></table>
+                <h3>Consulation Queue</h3>
+                <table id="table-cons"></table>
             </div>
-            <div id="labForm" class="card hidden">
-                <h4 id="labTarget"></h4>
-                <input id="labResult" placeholder="Enter Findings/Results">
-                <button onclick="submitLab()" style="margin-top:10px;">Send Results to Doctor</button>
+            <div id="cons-form" class="card" style="display:none;">
+                <h2 id="c-pat-name"></h2>
+                <div id="c-vitals-box" class="grid-3" style="background:#f1f5f9; padding:15px; border-radius:8px; margin-bottom:15px;"></div>
+                
+                <label>Presenting Complaints</label><textarea id="cComplaints" rows="3"></textarea>
+                <label>History & Examination</label><textarea id="cHistory" rows="3"></textarea>
+                
+                <div class="grid-3">
+                    <div>
+                        <label>Order Lab Investigation</label>
+                        <select id="cLabOrder"><option value="">-- No Test --</option><option>Malaria RDT</option><option>CBC</option><option>Urinalysis</option><option>H.Pylori</option></select>
+                        <input id="cLabIndication" placeholder="Indication/Reason">
+                    </div>
+                    <div>
+                        <label>Prescribe Medication</label>
+                        <select id="cMedPresc"><option value="">-- No Medication --</option><option>Amoxicillin</option><option>Paracetamol</option><option>Metronidazole</option><option>Omeprazole</option></select>
+                        <input id="cMedDose" placeholder="Dosage e.g. 1x3">
+                    </div>
+                </div>
+                <button onclick="submitConsultation()" class="btn-primary" style="margin-top:20px;">Complete Consultation</button>
             </div>
         </section>
 
-        <section id="sec-pharmacy" class="hidden">
+        <section id="sec-lab">
             <div class="card">
-                <h3>Pharmacy Queue</h3>
-                <table id="pharmTable"></table>
+                <h3>Lab Requests Worklist</h3>
+                <table id="table-lab"></table>
+            </div>
+            <div id="lab-entry" class="card" style="display:none;">
+                <h3 id="lab-pat-header"></h3>
+                <div class="grid-3">
+                    <div>
+                        <label>Lifecycle Status</label>
+                        <select id="labStep">
+                            <option value="SAMPLE_COLLECTED">Sample Collected</option>
+                            <option value="PROCESSING">In Laboratory/Processing</option>
+                            <option value="COMPLETED">Completed (Release Results)</option>
+                        </select>
+                    </div>
+                    <div style="grid-column: span 2;">
+                        <label>Results / Findings</label>
+                        <textarea id="labResults" placeholder="Enter findings..."></textarea>
+                    </div>
+                </div>
+                <button onclick="updateLab()" class="btn-primary">Update Laboratory Record</button>
             </div>
         </section>
+
+        <section id="sec-pharmacy">
+            <div class="card">
+                <h3>Pharmacy Dispensing Queue</h3>
+                <table id="table-pharm"></table>
+            </div>
+            <div class="card">
+                <h3>Drug Inventory Management</h3>
+                <table id="table-inv"></table>
+            </div>
+        </section>
+
     </div>
 </div>
 
 <script>
-    let patients = JSON.parse(localStorage.getItem('tp_patients')) || [];
-    let visits = JSON.parse(localStorage.getItem('tp_visits')) || [];
-    let role = "";
-    let activeID = null;
+    // --- DATABASE ---
+    let patients = JSON.parse(localStorage.getItem('tm_pats')) || [];
+    let visits = JSON.parse(localStorage.getItem('tm_vists')) || [];
+    let inventory = JSON.parse(localStorage.getItem('tm_inv')) || [
+        { name: "Amoxicillin", stock: 200 }, { name: "Paracetamol", stock: 1000 },
+        { name: "Metronidazole", stock: 150 }, { name: "Omeprazole", stock: 300 }
+    ];
+    let userRole = "";
+    let activeVisitID = null;
 
-    function doLogin() {
-        role = document.getElementById('userRole').value;
-        document.getElementById('loginSection').classList.add('hidden');
-        document.getElementById('mainApp').classList.remove('hidden');
-        document.getElementById('roleLabel').innerText = "Access: " + role;
-        renderMenu();
-        showSec('registration');
+    // --- AUTH ---
+    function login() {
+        if(document.getElementById('loginPass').value !== "1234") return alert("Wrong Password");
+        userRole = document.getElementById('roleSelect').value;
+        document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        document.getElementById('displayUser').innerText = userRole;
+        renderNav();
+        // Default views based on role
+        if(userRole === 'Lab') showSection('lab');
+        else if(userRole === 'Pharmacy') showSection('pharmacy');
+        else if(['Doctor', 'ENT', 'Dental'].includes(userRole)) showSection('consultation');
+        else showSection('registration');
     }
 
-    function renderMenu() {
-        const m = document.getElementById('menu');
-        const roles = {
-            "Director": ['registration', 'triage', 'consultation', 'lab', 'pharmacy'],
-            "Reception": ['registration', 'triage'],
+    function renderNav() {
+        const nav = document.getElementById('dynamicNav');
+        const map = {
+            "Reception": ['registration'],
+            "Nurse": ['registration', 'triage'],
             "Doctor": ['consultation'], "ENT": ['consultation'], "Dental": ['consultation'],
-            "Lab": ['lab'], "Pharmacy": ['pharmacy']
+            "Lab": ['lab'], "Pharmacy": ['pharmacy'],
+            "Director": ['registration', 'triage', 'consultation', 'lab', 'pharmacy']
         };
-        m.innerHTML = roles[role].map(s => `<button class="nav-btn" onclick="showSec('${s}')">${s.toUpperCase()}</button>`).join('');
+        nav.innerHTML = map[userRole].map(s => `<button id="btn-${s}" class="nav-btn" onclick="showSection('${s}')">${s.toUpperCase()}</button>`).join('');
     }
 
-    function showSec(id) {
-        document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-        document.getElementById('sec-' + id).classList.remove('hidden');
+    function showSection(id) {
+        document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('sec-' + id).classList.add('active');
+        document.getElementById('btn-' + id)?.classList.add('active');
+        
+        if(id === 'registration') renderPatients();
         if(id === 'triage') renderTriage();
         if(id === 'consultation') renderCons();
         if(id === 'lab') renderLab();
-        if(id === 'pharmacy') renderPharm();
+        if(id === 'pharmacy') { renderPharm(); renderInv(); }
     }
 
-    // LOGIC: REGISTRATION
-    function savePatient() {
-        const id = "P-" + Date.now().toString().slice(-4);
-        const p = { id, name: document.getElementById('pName').value, age: document.getElementById('pAge').value };
+    // --- RECEPTION ---
+    function registerPatient() {
+        const p = {
+            id: "P-" + Date.now().toString().slice(-4),
+            name: document.getElementById('pName').value,
+            phone: document.getElementById('pPhone').value,
+            age: document.getElementById('pAge').value,
+            gender: document.getElementById('pGender').value,
+            address: document.getElementById('pAddress').value,
+            kin: document.getElementById('pKin').value,
+            date: new Date().toLocaleDateString()
+        };
+        if(!p.name) return alert("Name is required");
         patients.push(p);
-        visits.push({ id: "V-"+Date.now().toString().slice(-4), patId: id, name: p.name, status: 'WAITING_TRIAGE', time: new Date().toLocaleTimeString() });
+        visits.push({ id: "V-"+Date.now().toString().slice(-4), patId: p.id, name: p.name, status: 'WAITING_TRIAGE', time: new Date().toLocaleTimeString() });
         save();
-        alert("Patient Queued for Triage");
+        renderPatients();
+        alert("Registered and Queued for Triage");
     }
 
-    // LOGIC: TRIAGE
+    function renderPatients() {
+        let h = `<tr><th>Date</th><th>Name</th><th>Phone</th><th>Status</th></tr>`;
+        patients.slice().reverse().forEach(p => h += `<tr><td>${p.date}</td><td>${p.name}</td><td>${p.phone}</td><td>Registered</td></tr>`);
+        document.getElementById('table-pats').innerHTML = h;
+    }
+
+    // --- TRIAGE ---
     function renderTriage() {
-        const queue = visits.filter(v => v.status === 'WAITING_TRIAGE');
-        let h = `<tr><th>Time</th><th>Patient</th><th>Action</th></tr>`;
-        queue.forEach(v => h += `<tr><td>${v.time}</td><td>${v.name}</td><td><button onclick="openTriage('${v.id}')">Take Vitals</button></td></tr>`);
-        document.getElementById('triageTable').innerHTML = h;
+        const q = visits.filter(v => v.status === 'WAITING_TRIAGE');
+        let h = `<tr><th>Time</th><th>Patient Name</th><th>Action</th></tr>`;
+        q.forEach(v => h += `<tr><td>${v.time}</td><td>${v.name}</td><td><button onclick="openTriage('${v.id}')">Vitals</button></td></tr>`);
+        document.getElementById('table-triage').innerHTML = h;
     }
 
     function openTriage(id) {
-        activeID = id;
-        const v = visits.find(v => v.id === id);
-        document.getElementById('triageTarget').innerText = v.name;
-        document.getElementById('triageForm').classList.remove('hidden');
+        activeVisitID = id;
+        document.getElementById('triage-target').innerText = "Vitals for: " + visits.find(v => v.id === id).name;
+        document.getElementById('triage-form').style.display = 'block';
     }
 
     function submitTriage() {
-        const v = visits.find(v => v.id === activeID);
-        v.vitals = { bp: document.getElementById('vBP').value, temp: document.getElementById('vTemp').value };
+        const v = visits.find(v => v.id === activeVisitID);
+        v.vitals = { bp: document.getElementById('vBP').value, temp: document.getElementById('vTemp').value, w: document.getElementById('vWeight').value };
         v.dest = document.getElementById('vDest').value;
-        // Automatic Red Flag Logic
-        if(parseFloat(v.vitals.temp) > 38) v.priority = "HIGH";
         v.status = (v.dest === 'Lab') ? 'WAITING_LAB' : 'WAITING_CONSULTATION';
+        if(parseFloat(v.vitals.temp) > 38.5) v.isCrit = true; // Auto-flag
         save();
-        document.getElementById('triageForm').classList.add('hidden');
+        document.getElementById('triage-form').style.display = 'none';
         renderTriage();
     }
 
-    // LOGIC: CONSULTATION
+    // --- CONSULTATION ---
     function renderCons() {
-        const queue = visits.filter(v => (v.status === 'WAITING_CONSULTATION' || v.status === 'LAB_READY') && (role === 'Director' || v.dest === role || v.dest === 'Doctor'));
-        let h = `<tr><th>Patient</th><th>Status</th><th>Action</th></tr>`;
-        queue.forEach(v => {
-            let badge = v.status === 'LAB_READY' ? '<span class="badge bg-ready">Results In</span>' : '<span class="badge">Waiting</span>';
-            let crit = v.priority === 'HIGH' ? '<span class="crit-flag">CRITICAL</span> ' : '';
-            h += `<tr><td>${crit}${v.name}</td><td>${badge}</td><td><button onclick="openCons('${v.id}')">Examine</button></td></tr>`;
+        const q = visits.filter(v => (v.status === 'WAITING_CONSULTATION' || v.status === 'LAB_READY') && (userRole === 'Director' || v.dest === userRole || v.dest === 'Doctor'));
+        let h = `<tr><th>Patient</th><th>Vitals</th><th>Lab Status</th><th>Action</th></tr>`;
+        q.forEach(v => {
+            const labBadge = v.status === 'LAB_READY' ? '<span class="badge bg-ready">Results In</span>' : 'Pending';
+            const crit = v.isCrit ? '<span style="color:red"> [HIGH FEVER]</span>' : '';
+            h += `<tr><td><b>${v.name}</b>${crit}</td><td>BP: ${v.vitals.bp}</td><td>${labBadge}</td><td><button onclick="openCons('${v.id}')">Examine</button></td></tr>`;
         });
-        document.getElementById('consTable').innerHTML = h;
+        document.getElementById('table-cons').innerHTML = h;
     }
 
     function openCons(id) {
-        activeID = id;
+        activeVisitID = id;
         const v = visits.find(v => v.id === id);
-        document.getElementById('cName').innerText = v.name;
-        document.getElementById('cVitalsSummary').innerHTML = `<b>Vitals:</b> BP: ${v.vitals.bp} | Temp: ${v.vitals.temp}°C ${v.labResults ? ' | <b>Lab:</b> '+v.labResults : ''}`;
-        document.getElementById('consForm').classList.remove('hidden');
+        const p = patients.find(pat => pat.id === v.patId);
+        document.getElementById('c-pat-name').innerText = `${v.name} (${p.age}yrs, ${p.gender})`;
+        document.getElementById('c-vitals-box').innerHTML = `<div>BP: ${v.vitals.bp}</div><div>Temp: ${v.vitals.temp}°C</div><div>Weight: ${v.vitals.w}kg</div>`;
+        if(v.labResults) document.getElementById('c-vitals-box').innerHTML += `<div style="grid-column: 1/-1; color:blue">LAB FINDINGS: ${v.labResults}</div>`;
+        document.getElementById('cons-form').style.display = 'block';
     }
 
     function submitConsultation() {
-        const v = visits.find(v => v.id === activeID);
-        v.labOrder = document.getElementById('cLabSelect').value;
-        v.prescription = document.getElementById('cMedSelect').value;
+        const v = visits.find(v => v.id === activeVisitID);
+        v.complaint = document.getElementById('cComplaints').value;
+        v.labOrder = document.getElementById('cLabOrder').value;
+        v.labIndication = document.getElementById('cLabIndication').value;
+        v.presc = document.getElementById('cMedPresc').value;
         
-        if(v.labOrder && !v.labResults) {
-            v.status = 'WAITING_LAB';
-        } else {
-            v.status = 'WAITING_PHARMACY';
-        }
+        // Path logic: Lab if ordered, else Pharmacy
+        v.status = (v.labOrder && !v.labResults) ? 'WAITING_LAB' : 'WAITING_PHARMACY';
         save();
-        document.getElementById('consForm').classList.add('hidden');
+        document.getElementById('cons-form').style.display = 'none';
         renderCons();
     }
 
-    // LOGIC: LAB
+    // --- LABORATORY ---
     function renderLab() {
-        const queue = visits.filter(v => v.status === 'WAITING_LAB');
-        let h = `<tr><th>Patient</th><th>Test Ordered</th><th>Action</th></tr>`;
-        queue.forEach(v => h += `<tr><td>${v.name}</td><td>${v.labOrder}</td><td><button onclick="openLab('${v.id}')">Fill Result</button></td></tr>`);
-        document.getElementById('labTable').innerHTML = h;
+        const q = visits.filter(v => v.status === 'WAITING_LAB');
+        let h = `<tr><th>Patient</th><th>Investigation</th><th>Status</th><th>Action</th></tr>`;
+        q.forEach(v => {
+            const step = v.labStep || 'Awaiting Sample';
+            h += `<tr><td><b>${v.name}</b></td><td>${v.labOrder}<br><small>Ind: ${v.labIndication}</small></td><td>${step}</td><td><button onclick="openLab('${v.id}')">Process</button></td></tr>`;
+        });
+        document.getElementById('table-lab').innerHTML = h;
     }
 
     function openLab(id) {
-        activeID = id;
+        activeVisitID = id;
         const v = visits.find(v => v.id === id);
-        document.getElementById('labTarget').innerText = v.name + " - " + v.labOrder;
-        document.getElementById('labForm').classList.remove('hidden');
+        document.getElementById('lab-pat-header').innerText = `Lab Entry: ${v.name}`;
+        document.getElementById('lab-entry').style.display = 'block';
     }
 
-    function submitLab() {
-        const v = visits.find(v => v.id === activeID);
-        v.labResults = document.getElementById('labResult').value;
-        v.status = 'LAB_READY'; // Sends back to Doctor
+    function updateLab() {
+        const v = visits.find(v => v.id === activeVisitID);
+        v.labStep = document.getElementById('labStep').value;
+        v.labResults = document.getElementById('labResults').value;
+        if(v.labStep === 'COMPLETED') v.status = 'LAB_READY';
         save();
-        document.getElementById('labForm').classList.add('hidden');
+        document.getElementById('lab-entry').style.display = 'none';
         renderLab();
     }
 
-    // LOGIC: PHARMACY
+    // --- PHARMACY ---
     function renderPharm() {
-        const queue = visits.filter(v => v.status === 'WAITING_PHARMACY');
-        let h = `<tr><th>Patient</th><th>Medication</th><th>Action</th></tr>`;
-        queue.forEach(v => h += `<tr><td>${v.name}</td><td>${v.prescription}</td><td><button onclick="completeVisit('${v.id}')">Dispense</button></td></tr>`);
-        document.getElementById('pharmTable').innerHTML = h;
+        const q = visits.filter(v => v.status === 'WAITING_PHARMACY');
+        let h = `<tr><th>Patient</th><th>Prescription</th><th>Action</th></tr>`;
+        q.forEach(v => h += `<tr><td>${v.name}</td><td>${v.presc}</td><td><button onclick="dispense('${v.id}')">Dispense</button></td></tr>`);
+        document.getElementById('table-pharm').innerHTML = h;
     }
 
-    function completeVisit(id) {
+    function dispense(id) {
         const v = visits.find(v => v.id === id);
-        v.status = 'COMPLETED';
-        save();
-        renderPharm();
-        alert("Dispensed and Visit Closed");
+        const item = inventory.find(i => i.name === v.presc);
+        if(item && item.stock > 0) {
+            item.stock -= 1;
+            v.status = 'DISCHARGED';
+            save();
+            renderPharm(); renderInv();
+            alert("Medicine Dispensed. Visit Closed.");
+        } else {
+            alert("Out of Stock!");
+        }
+    }
+
+    function renderInv() {
+        let h = `<tr><th>Drug Name</th><th>Stock Level</th></tr>`;
+        inventory.forEach(i => h += `<tr><td>${i.name}</td><td>${i.stock}</td></tr>`);
+        document.getElementById('table-inv').innerHTML = h;
     }
 
     function save() {
-        localStorage.setItem('tp_patients', JSON.stringify(patients));
-        localStorage.setItem('tp_visits', JSON.stringify(visits));
+        localStorage.setItem('tm_pats', JSON.stringify(patients));
+        localStorage.setItem('tm_vists', JSON.stringify(visits));
+        localStorage.setItem('tm_inv', JSON.stringify(inventory));
     }
 </script>
+
 </body>
 </html>
