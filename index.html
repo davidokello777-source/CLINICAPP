@@ -1,38 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Dental & ENT Clinic System</title>
+<title>TALI MEDICALS - Clinic Management System</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body { font-family: Arial; margin:0; background:#f1f5f9; }
-header { background:#0f172a; color:white; padding:15px; text-align:center; }
-nav { background:#1e293b; padding:10px; display:flex; gap:10px; flex-wrap:wrap; }
-nav button { padding:8px 12px; border:none; background:#3b82f6; color:white; cursor:pointer; border-radius:6px; }
-nav button:hover { background:#2563eb; }
+body { font-family: Arial; margin:0; background:#f0fdf4; }
+header { background:#166534; color:white; padding:15px; text-align:center; }
+nav { background:#15803d; padding:10px; display:flex; gap:10px; flex-wrap:wrap; }
+nav button { padding:8px 12px; border:none; background:#22c55e; color:white; cursor:pointer; border-radius:6px; }
+nav button:hover { background:#16a34a; }
 section { padding:20px; display:none; }
 table { width:100%; border-collapse: collapse; margin-top:10px; background:white; }
 table, th, td { border:1px solid #ddd; }
 th, td { padding:8px; text-align:left; }
 input, select { padding:6px; margin:5px; }
-.card { background:white; padding:15px; margin:10px 0; box-shadow:0 2px 8px rgba(0,0,0,0.1); border-radius:10px; }
+.card { background:white; padding:15px; margin:10px 0; box-shadow:0 2px 6px rgba(0,0,0,0.1); border-radius:10px; }
 .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; }
 .login { display:flex; justify-content:center; align-items:center; height:100vh; }
 .login-box { background:white; padding:30px; box-shadow:0 0 10px #aaa; border-radius:8px; }
 .hidden { display:none; }
 .alert { color:red; font-weight:bold; }
-.success { color:green; font-weight:bold; }
 </style>
 </head>
 <body>
 
 <div id="loginPage" class="login">
 <div class="login-box">
-<h3>Clinic Login</h3>
+<h3>TALI MEDICALS Login</h3>
 <select id="roleSelect">
-<option value="Director">Medical Director</option>
-<option value="Doctor">Doctor</option>
-<option value="Receptionist">Receptionist</option>
-<option value="Pharmacist">Pharmacist</option>
+<option value="Director">Director</option>
+<option value="Reception">Reception</option>
+<option value="Dental">Dental Doctor</option>
+<option value="ENT">ENT Doctor</option>
+<option value="General">General Doctor</option>
+<option value="Lab">Lab Technician</option>
+<option value="Pharmacy">Pharmacist</option>
 </select><br>
 <input type="password" id="password" placeholder="Password"><br>
 <button onclick="login()">Login</button>
@@ -40,9 +42,8 @@ input, select { padding:6px; margin:5px; }
 </div>
 
 <div id="app" class="hidden">
-
 <header>
-<h2>Tali Dental & ENT Management System</h2>
+<h2>TALI MEDICALS - Clinic System</h2>
 <div id="userInfo"></div>
 </header>
 
@@ -50,96 +51,86 @@ input, select { padding:6px; margin:5px; }
 
 <section id="dashboard">
 <h3>Dashboard</h3>
-<select id="branchSelect" onchange="renderAll()">
-<option value="Main">Main Branch</option>
-<option value="Branch2">Future Branch</option>
-</select>
-
 <div class="cards">
-<div class="card">Patients: <span id="totalPatients">0</span></div>
-<div class="card">Inventory Items: <span id="totalItems">0</span></div>
+<div class="card">Total Patients: <span id="totalPatients">0</span></div>
+<div class="card">Open Visits: <span id="openVisits">0</span></div>
 <div class="card">Total Revenue: $<span id="totalRevenue">0</span></div>
-<div class="card">Dental Revenue: $<span id="dentalRevenue">0</span></div>
-<div class="card">ENT Revenue: $<span id="entRevenue">0</span></div>
 </div>
 </section>
 
 <section id="patients">
-<h3>Register Patient</h3>
+<h3>Patient Registration</h3>
 <input id="pname" placeholder="Full Name">
 <input id="page" type="number" placeholder="Age">
-<select id="pdept">
-<option value="Dental">Dental</option>
-<option value="ENT">ENT</option>
-</select>
-<button onclick="addPatient()">Add</button>
-
-<h4>Patients</h4>
+<select id="pgender"><option>Male</option><option>Female</option></select>
+<button onclick="savePatient()">Save</button>
 <table id="patientTable"></table>
 </section>
 
-<section id="appointments">
-<h3>Appointments</h3>
-<input id="apPatient" placeholder="Patient Name">
-<input type="date" id="apDate">
-<select id="apDept">
+<section id="visits">
+<h3>Open Visit</h3>
+<input id="visitPatient" placeholder="Patient Name">
+<select id="visitDept">
 <option>Dental</option>
 <option>ENT</option>
+<option>General</option>
 </select>
-<select id="apStatus">
-<option>Booked</option>
-<option>Arrived</option>
-<option>Completed</option>
-<option>Cancelled</option>
-</select>
-<button onclick="addAppointment()">Add</button>
-<table id="appointmentTable"></table>
+<button onclick="openVisit()">Open Visit</button>
+<table id="visitTable"></table>
 </section>
 
-<section id="inventory">
-<h3>Add Inventory</h3>
-<input id="iname" placeholder="Item Name">
-<input id="iqty" type="number" placeholder="Quantity">
-<input id="imin" type="number" placeholder="Min Level">
-<input id="iexp" type="date">
-<button onclick="addItem()">Add</button>
-<table id="inventoryTable"></table>
+<section id="consultation">
+<h3>Consultation</h3>
+<input id="consVisit" placeholder="Visit ID">
+<textarea id="diagnosis" placeholder="Diagnosis"></textarea><br>
+<input id="procedure" placeholder="Procedure (optional)">
+<button onclick="saveConsultation()">Save Consultation</button>
+</section>
+
+<section id="lab">
+<h3>Laboratory</h3>
+<input id="labVisit" placeholder="Visit ID">
+<input id="labTest" placeholder="Test Name">
+<button onclick="orderLab()">Order Test</button>
+<input id="labResultVisit" placeholder="Visit ID">
+<input id="labResult" placeholder="Result">
+<button onclick="saveLabResult()">Save Result</button>
+</section>
+
+<section id="pharmacy">
+<h3>Pharmacy</h3>
+<input id="drugName" placeholder="Drug Name">
+<input id="drugQty" type="number" placeholder="Quantity">
+<button onclick="addDrug()">Add Drug</button>
+<table id="drugTable"></table>
 </section>
 
 <section id="billing">
-<h3>Create Invoice</h3>
-<input id="bpatient" placeholder="Patient Name">
-<select id="bdept">
-<option>Dental</option>
-<option>ENT</option>
-</select>
-<input id="bamount" type="number" placeholder="Amount">
-<select id="bpay">
+<h3>Billing</h3>
+<input id="billVisit" placeholder="Visit ID">
+<input id="billAmount" type="number" placeholder="Amount">
+<select id="billType">
 <option>Cash</option>
 <option>Mobile Money</option>
-<option>Credit</option>
 </select>
-<button onclick="addBill()">Add</button>
-<table id="billingTable"></table>
-</section>
-
-<section id="settings">
-<h3>System Settings</h3>
-<button onclick="resetData()">Reset All Data</button>
+<button onclick="addPayment()">Add Payment</button>
+<table id="billTable"></table>
 </section>
 
 </div>
 
 <script>
 let role="";
-let patients=JSON.parse(localStorage.getItem("patients"))||[];
-let inventory=JSON.parse(localStorage.getItem("inventory"))||[];
-let bills=JSON.parse(localStorage.getItem("bills"))||[];
-let appointments=JSON.parse(localStorage.getItem("appointments"))||[];
+let patients=[];
+let visits=[];
+let consultations=[];
+let labs=[];
+let drugs=[];
+let payments=[];
 
 function login(){
-if(document.getElementById("password").value!=="1234"){alert("Wrong password");return;}
-role=document.getElementById("roleSelect").value;
+if(password.value!=="1234"){alert("Wrong password");return;}
+role=roleSelect.value;
 loginPage.classList.add("hidden");
 app.classList.remove("hidden");
 userInfo.innerText="Logged in as: "+role;
@@ -150,91 +141,92 @@ show("dashboard");
 function setupNav(){
 nav.innerHTML="";
 nav.innerHTML+=`<button onclick="show('dashboard')">Dashboard</button>`;
-if(role!=="Doctor") nav.innerHTML+=`<button onclick="show('patients')">Patients</button>`;
-nav.innerHTML+=`<button onclick="show('appointments')">Appointments</button>`;
-if(role==="Director"||role==="Pharmacist") nav.innerHTML+=`<button onclick="show('inventory')">Inventory</button>`;
-if(role!=="Doctor") nav.innerHTML+=`<button onclick="show('billing')">Billing</button>`;
-if(role==="Director") nav.innerHTML+=`<button onclick="show('settings')">Settings</button>`;
-nav.innerHTML+=`<button onclick="logout()">Logout</button>`;
+nav.innerHTML+=`<button onclick="show('patients')">Patients</button>`;
+nav.innerHTML+=`<button onclick="show('visits')">Visits</button>`;
+nav.innerHTML+=`<button onclick="show('consultation')">Consultation</button>`;
+nav.innerHTML+=`<button onclick="show('lab')">Lab</button>`;
+nav.innerHTML+=`<button onclick="show('pharmacy')">Pharmacy</button>`;
+nav.innerHTML+=`<button onclick="show('billing')">Billing</button>`;
 }
 
-function logout(){location.reload();}
-function show(id){document.querySelectorAll("section").forEach(s=>s.style.display="none");document.getElementById(id).style.display="block";renderAll();}
-function currentBranch(){return branchSelect.value;}
-
-function generatePatientID(){return "TD-"+(patients.length+1).toString().padStart(4,'0');}
-function generateReceipt(){return "RC-"+(bills.length+1).toString().padStart(5,'0');}
-
-function addPatient(){
-patients.push({id:generatePatientID(),name:pname.value,age:page.value,dept:pdept.value,branch:currentBranch()});
-localStorage.setItem("patients",JSON.stringify(patients));
-renderAll();
+function show(id){
+document.querySelectorAll("section").forEach(s=>s.style.display="none");
+document.getElementById(id).style.display="block";
+updateDashboard();
 }
 
-function addAppointment(){
-appointments.push({patient:apPatient.value,date:apDate.value,dept:apDept.value,status:apStatus.value,branch:currentBranch()});
-localStorage.setItem("appointments",JSON.stringify(appointments));
-renderAll();
+function generateID(prefix,array){
+return prefix+"-"+(array.length+1).toString().padStart(5,'0');
 }
 
-function addItem(){
-inventory.push({name:iname.value,qty:parseInt(iqty.value),min:parseInt(imin.value),exp:iexp.value,branch:currentBranch()});
-localStorage.setItem("inventory",JSON.stringify(inventory));
-renderAll();
+function savePatient(){
+let id=generateID("PAT",patients);
+patients.push({id,name:pname.value,age:page.value,gender:pgender.value});
+renderPatients();
 }
-
-function addBill(){
-bills.push({receipt:generateReceipt(),patient:bpatient.value,dept:bdept.value,amount:parseFloat(bamount.value),pay:bpay.value,date:new Date().toLocaleDateString(),branch:currentBranch()});
-localStorage.setItem("bills",JSON.stringify(bills));
-renderAll();
-}
-
-function renderAll(){renderPatients();renderInventory();renderBills();renderAppointments();updateDashboard();}
 
 function renderPatients(){
-patientTable.innerHTML="<tr><th>ID</th><th>Name</th><th>Age</th><th>Dept</th></tr>";
-patients.filter(p=>p.branch===currentBranch()).forEach(p=>{
-patientTable.innerHTML+=`<tr><td>${p.id}</td><td>${p.name}</td><td>${p.age}</td><td>${p.dept}</td></tr>`;
+patientTable.innerHTML="<tr><th>ID</th><th>Name</th><th>Age</th><th>Gender</th></tr>";
+patients.forEach(p=>{
+patientTable.innerHTML+=`<tr><td>${p.id}</td><td>${p.name}</td><td>${p.age}</td><td>${p.gender}</td></tr>`;
 });
 }
 
-function renderAppointments(){
-appointmentTable.innerHTML="<tr><th>Patient</th><th>Date</th><th>Dept</th><th>Status</th></tr>";
-appointments.filter(a=>a.branch===currentBranch()).forEach(a=>{
-appointmentTable.innerHTML+=`<tr><td>${a.patient}</td><td>${a.date}</td><td>${a.dept}</td><td>${a.status}</td></tr>`;
+function openVisit(){
+let id=generateID("VIS",visits);
+visits.push({id,patient:visitPatient.value,dept:visitDept.value,status:"Open"});
+renderVisits();
+}
+
+function renderVisits(){
+visitTable.innerHTML="<tr><th>ID</th><th>Patient</th><th>Dept</th><th>Status</th></tr>";
+visits.forEach(v=>{
+visitTable.innerHTML+=`<tr><td>${v.id}</td><td>${v.patient}</td><td>${v.dept}</td><td>${v.status}</td></tr>`;
 });
 }
 
-function renderInventory(){
-inventoryTable.innerHTML="<tr><th>Item</th><th>Qty</th><th>Expiry</th><th>Status</th></tr>";
-inventory.filter(i=>i.branch===currentBranch()).forEach(item=>{
-let status=item.qty<=item.min?"<span class='alert'>Low Stock</span>":"<span class='success'>OK</span>";
-inventoryTable.innerHTML+=`<tr><td>${item.name}</td><td>${item.qty}</td><td>${item.exp}</td><td>${status}</td></tr>`;
+function saveConsultation(){
+consultations.push({visit:consVisit.value,diagnosis:diagnosis.value,procedure:procedure.value});
+}
+
+function orderLab(){
+labs.push({visit:labVisit.value,test:labTest.value,status:"Pending"});
+}
+
+function saveLabResult(){
+labs.forEach(l=>{
+if(l.visit===labResultVisit.value){l.result=labResult.value;l.status="Done";}
 });
 }
 
-function renderBills(){
-billingTable.innerHTML="<tr><th>Receipt</th><th>Patient</th><th>Dept</th><th>Amount</th><th>Payment</th><th>Date</th></tr>";
-bills.filter(b=>b.branch===currentBranch()).forEach(b=>{
-billingTable.innerHTML+=`<tr><td>${b.receipt}</td><td>${b.patient}</td><td>${b.dept}</td><td>${b.amount}</td><td>${b.pay}</td><td>${b.date}</td></tr>`;
+function addDrug(){
+drugs.push({name:drugName.value,qty:drugQty.value});
+renderDrugs();
+}
+
+function renderDrugs(){
+drugTable.innerHTML="<tr><th>Name</th><th>Qty</th></tr>";
+drugs.forEach(d=>{
+drugTable.innerHTML+=`<tr><td>${d.name}</td><td>${d.qty}</td></tr>`;
+});
+}
+
+function addPayment(){
+payments.push({visit:billVisit.value,amount:parseFloat(billAmount.value)});
+renderPayments();
+}
+
+function renderPayments(){
+billTable.innerHTML="<tr><th>Visit</th><th>Amount</th></tr>";
+payments.forEach(p=>{
+billTable.innerHTML+=`<tr><td>${p.visit}</td><td>${p.amount}</td></tr>`;
 });
 }
 
 function updateDashboard(){
-let branchPatients=patients.filter(p=>p.branch===currentBranch());
-let branchBills=bills.filter(b=>b.branch===currentBranch());
-totalPatients.innerText=branchPatients.length;
-totalItems.innerText=inventory.filter(i=>i.branch===currentBranch()).length;
-totalRevenue.innerText=branchBills.reduce((s,b)=>s+b.amount,0);
-dentalRevenue.innerText=branchBills.filter(b=>b.dept==="Dental").reduce((s,b)=>s+b.amount,0);
-entRevenue.innerText=branchBills.filter(b=>b.dept==="ENT").reduce((s,b)=>s+b.amount,0);
-}
-
-function resetData(){
-if(confirm("Reset all data?")){
-localStorage.clear();
-location.reload();
-}
+totalPatients.innerText=patients.length;
+openVisits.innerText=visits.filter(v=>v.status==="Open").length;
+totalRevenue.innerText=payments.reduce((s,p)=>s+p.amount,0);
 }
 </script>
 
