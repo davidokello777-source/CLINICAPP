@@ -1,233 +1,263 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>TALI MEDICALS - Clinic Management System</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body { font-family: Arial; margin:0; background:#f0fdf4; }
-header { background:#166534; color:white; padding:15px; text-align:center; }
-nav { background:#15803d; padding:10px; display:flex; gap:10px; flex-wrap:wrap; }
-nav button { padding:8px 12px; border:none; background:#22c55e; color:white; cursor:pointer; border-radius:6px; }
-nav button:hover { background:#16a34a; }
-section { padding:20px; display:none; }
-table { width:100%; border-collapse: collapse; margin-top:10px; background:white; }
-table, th, td { border:1px solid #ddd; }
-th, td { padding:8px; text-align:left; }
-input, select { padding:6px; margin:5px; }
-.card { background:white; padding:15px; margin:10px 0; box-shadow:0 2px 6px rgba(0,0,0,0.1); border-radius:10px; }
-.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; }
-.login { display:flex; justify-content:center; align-items:center; height:100vh; }
-.login-box { background:white; padding:30px; box-shadow:0 0 10px #aaa; border-radius:8px; }
-.hidden { display:none; }
-.alert { color:red; font-weight:bold; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TALI MEDICALS | Pro</title>
+    <style>
+        :root { --primary: #166534; --secondary: #15803d; --accent: #22c55e; --bg: #f0fdf4; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: #333; }
+        header { background: var(--primary); color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
+        nav { background: var(--secondary); padding: 0.5rem; display: flex; gap: 10px; overflow-x: auto; }
+        button { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; transition: 0.3s; }
+        .nav-btn { background: var(--accent); color: white; }
+        .nav-btn:hover { background: #115e59; }
+        .container { padding: 20px; max-width: 1200px; margin: auto; }
+        section { display: none; }
+        .active { display: block; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background: #f8fafc; }
+        .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
+        .waiting { background: #fef3c7; color: #92400e; }
+        .completed { background: #dcfce7; color: #166534; }
+        input, select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    </style>
 </head>
 <body>
 
-<div id="loginPage" class="login">
-<div class="login-box">
-<h3>TALI MEDICALS Login</h3>
-<select id="roleSelect">
-<option value="Director">Director</option>
-<option value="Reception">Reception</option>
-<option value="Dental">Dental Doctor</option>
-<option value="ENT">ENT Doctor</option>
-<option value="General">General Doctor</option>
-<option value="Lab">Lab Technician</option>
-<option value="Pharmacy">Pharmacist</option>
-</select><br>
-<input type="password" id="password" placeholder="Password"><br>
-<button onclick="login()">Login</button>
+<div id="loginPage" style="display:flex; justify-content:center; align-items:center; height:100vh;">
+    <div class="card" style="width:350px; text-align:center;">
+        <h2>TALI MEDICALS</h2>
+        <select id="roleSelect">
+            <option value="Reception">Receptionist</option>
+            <option value="Nurse">Nurse (Triage)</option>
+            <option value="Doctor">Medical Doctor</option>
+            <option value="Lab">Lab Technician</option>
+            <option value="Pharmacy">Pharmacist</option>
+            <option value="Director">Director (Admin)</option>
+        </select>
+        <input type="password" id="passInput" placeholder="Password (1234)">
+        <button onclick="login()" style="width:100%; background:var(--primary); color:white;">Login</button>
+    </div>
 </div>
-</div>
 
-<div id="app" class="hidden">
-<header>
-<h2>TALI MEDICALS - Clinic System</h2>
-<div id="userInfo"></div>
-</header>
+<div id="app" style="display:none;">
+    <header>
+        <h2 style="margin:0;">TALI MEDICALS</h2>
+        <span id="userDisplay"></span>
+        <button onclick="location.reload()" style="background:#ef4444; color:white;">Logout</button>
+    </header>
+    <nav id="navbar"></nav>
 
-<nav id="nav"></nav>
+    <div class="container">
+        <section id="sec-registration">
+            <div class="card">
+                <h3>New Patient Registration</h3>
+                <div class="grid">
+                    <input id="regName" placeholder="Full Name">
+                    <input id="regAge" type="number" placeholder="Age">
+                    <select id="regGender"><option>Male</option><option>Female</option></select>
+                    <button onclick="registerPatient()" class="nav-btn">Register & Open Visit</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Recent Patients</h3>
+                <table id="table-patients"></table>
+            </div>
+        </section>
 
-<section id="dashboard">
-<h3>Dashboard</h3>
-<div class="cards">
-<div class="card">Total Patients: <span id="totalPatients">0</span></div>
-<div class="card">Open Visits: <span id="openVisits">0</span></div>
-<div class="card">Total Revenue: $<span id="totalRevenue">0</span></div>
-</div>
-</section>
+        <section id="sec-triage">
+            <div class="card">
+                <h3>Triage Queue (Waiting for Vitals)</h3>
+                <table id="table-triage-queue"></table>
+            </div>
+            <div id="triage-form" class="card" style="display:none;">
+                <h4 id="triage-target"></h4>
+                <div class="grid">
+                    <input id="vBP" placeholder="Blood Pressure (e.g. 120/80)">
+                    <input id="vTemp" placeholder="Temp (°C)">
+                    <input id="vWeight" placeholder="Weight (kg)">
+                    <select id="vDept">
+                        <option value="General">General Medicine</option>
+                        <option value="Dental">Dental Unit</option>
+                        <option value="ENT">ENT Unit</option>
+                    </select>
+                </div>
+                <button onclick="submitTriage()" class="nav-btn">Send to Doctor</button>
+            </div>
+        </section>
 
-<section id="patients">
-<h3>Patient Registration</h3>
-<input id="pname" placeholder="Full Name">
-<input id="page" type="number" placeholder="Age">
-<select id="pgender"><option>Male</option><option>Female</option></select>
-<button onclick="savePatient()">Save</button>
-<table id="patientTable"></table>
-</section>
+        <section id="sec-consultation">
+            <div class="card">
+                <h3>Doctor's Consultation Queue</h3>
+                <table id="table-doctor-queue"></table>
+            </div>
+            <div id="cons-form" class="card" style="display:none;">
+                <h4 id="cons-target"></h4>
+                <p id="cons-vitals" style="font-style:italic; color:#666;"></p>
+                <textarea id="cDiagnosis" placeholder="Clinical Findings & Diagnosis" rows="4"></textarea>
+                <div class="grid">
+                    <div>
+                        <label>Order Lab Test:</label>
+                        <input id="cLab" placeholder="e.g. Malaria RDT, CBC">
+                    </div>
+                    <div>
+                        <label>Prescribe Meds:</label>
+                        <input id="cPresc" placeholder="e.g. Paracetamol 500mg x3/7">
+                    </div>
+                </div>
+                <button onclick="submitConsultation()" class="nav-btn">Finish Consultation</button>
+            </div>
+        </section>
 
-<section id="visits">
-<h3>Open Visit</h3>
-<input id="visitPatient" placeholder="Patient Name">
-<select id="visitDept">
-<option>Dental</option>
-<option>ENT</option>
-<option>General</option>
-</select>
-<button onclick="openVisit()">Open Visit</button>
-<table id="visitTable"></table>
-</section>
-
-<section id="consultation">
-<h3>Consultation</h3>
-<input id="consVisit" placeholder="Visit ID">
-<textarea id="diagnosis" placeholder="Diagnosis"></textarea><br>
-<input id="procedure" placeholder="Procedure (optional)">
-<button onclick="saveConsultation()">Save Consultation</button>
-</section>
-
-<section id="lab">
-<h3>Laboratory</h3>
-<input id="labVisit" placeholder="Visit ID">
-<input id="labTest" placeholder="Test Name">
-<button onclick="orderLab()">Order Test</button>
-<input id="labResultVisit" placeholder="Visit ID">
-<input id="labResult" placeholder="Result">
-<button onclick="saveLabResult()">Save Result</button>
-</section>
-
-<section id="pharmacy">
-<h3>Pharmacy</h3>
-<input id="drugName" placeholder="Drug Name">
-<input id="drugQty" type="number" placeholder="Quantity">
-<button onclick="addDrug()">Add Drug</button>
-<table id="drugTable"></table>
-</section>
-
-<section id="billing">
-<h3>Billing</h3>
-<input id="billVisit" placeholder="Visit ID">
-<input id="billAmount" type="number" placeholder="Amount">
-<select id="billType">
-<option>Cash</option>
-<option>Mobile Money</option>
-</select>
-<button onclick="addPayment()">Add Payment</button>
-<table id="billTable"></table>
-</section>
-
+        <section id="sec-lab">
+            <div class="card"><h3>Lab Requests</h3><table id="table-lab"></table></div>
+        </section>
+        
+        <section id="sec-pharmacy">
+            <div class="card"><h3>Pharmacy Dispensing</h3><table id="table-pharmacy"></table></div>
+        </section>
+    </div>
 </div>
 
 <script>
-let role="";
-let patients=[];
-let visits=[];
-let consultations=[];
-let labs=[];
-let drugs=[];
-let payments=[];
+    // DATA MODEL
+    let patients = JSON.parse(localStorage.getItem('tm_patients')) || [];
+    let visits = JSON.parse(localStorage.getItem('tm_visits')) || [];
+    let currentRole = "";
+    let activeVisitId = null;
 
-function login(){
-if(password.value!=="1234"){alert("Wrong password");return;}
-role=roleSelect.value;
-loginPage.classList.add("hidden");
-app.classList.remove("hidden");
-userInfo.innerText="Logged in as: "+role;
-setupNav();
-show("dashboard");
-}
+    function login() {
+        if(document.getElementById('passInput').value !== "1234") return alert("Wrong Password");
+        currentRole = document.getElementById('roleSelect').value;
+        document.getElementById('loginPage').style.display = "none";
+        document.getElementById('app').style.display = "block";
+        document.getElementById('userDisplay').innerText = `Role: ${currentRole}`;
+        renderNav();
+        showSection('registration');
+    }
 
-function setupNav(){
-nav.innerHTML="";
-nav.innerHTML+=`<button onclick="show('dashboard')">Dashboard</button>`;
-nav.innerHTML+=`<button onclick="show('patients')">Patients</button>`;
-nav.innerHTML+=`<button onclick="show('visits')">Visits</button>`;
-nav.innerHTML+=`<button onclick="show('consultation')">Consultation</button>`;
-nav.innerHTML+=`<button onclick="show('lab')">Lab</button>`;
-nav.innerHTML+=`<button onclick="show('pharmacy')">Pharmacy</button>`;
-nav.innerHTML+=`<button onclick="show('billing')">Billing</button>`;
-}
+    function renderNav() {
+        const nav = document.getElementById('navbar');
+        const roles = {
+            "Reception": ['registration'],
+            "Nurse": ['registration', 'triage'],
+            "Doctor": ['consultation'],
+            "Lab": ['lab'],
+            "Pharmacy": ['pharmacy'],
+            "Director": ['registration', 'triage', 'consultation', 'lab', 'pharmacy']
+        };
+        nav.innerHTML = roles[currentRole].map(s => `<button class="nav-btn" onclick="showSection('${s}')">${s.toUpperCase()}</button>`).join('');
+    }
 
-function show(id){
-document.querySelectorAll("section").forEach(s=>s.style.display="none");
-document.getElementById(id).style.display="block";
-updateDashboard();
-}
+    function showSection(id) {
+        document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+        document.getElementById(`sec-${id}`).classList.add('active');
+        if(id === 'registration') renderPatients();
+        if(id === 'triage') renderTriageQueue();
+        if(id === 'consultation') renderDoctorQueue();
+    }
 
-function generateID(prefix,array){
-return prefix+"-"+(array.length+1).toString().padStart(5,'0');
-}
+    // --- LOGIC FUNCTIONS ---
 
-function savePatient(){
-let id=generateID("PAT",patients);
-patients.push({id,name:pname.value,age:page.value,gender:pgender.value});
-renderPatients();
-}
+    function registerPatient() {
+        const name = document.getElementById('regName').value;
+        if(!name) return;
+        const pId = "PAT-" + Date.now().toString().slice(-5);
+        const vId = "VIS-" + Date.now().toString().slice(-5);
+        
+        const newPatient = { id: pId, name, age: document.getElementById('regAge').value };
+        patients.push(newPatient);
+        
+        visits.push({
+            id: vId,
+            patientId: pId,
+            patientName: name,
+            status: 'Triage', // First stop
+            vitals: null,
+            diagnosis: null,
+            labOrder: null,
+            prescription: null,
+            dept: null
+        });
 
-function renderPatients(){
-patientTable.innerHTML="<tr><th>ID</th><th>Name</th><th>Age</th><th>Gender</th></tr>";
-patients.forEach(p=>{
-patientTable.innerHTML+=`<tr><td>${p.id}</td><td>${p.name}</td><td>${p.age}</td><td>${p.gender}</td></tr>`;
-});
-}
+        saveAndRefresh();
+        alert("Patient Registered. Sent to Triage.");
+    }
 
-function openVisit(){
-let id=generateID("VIS",visits);
-visits.push({id,patient:visitPatient.value,dept:visitDept.value,status:"Open"});
-renderVisits();
-}
+    function renderTriageQueue() {
+        const queue = visits.filter(v => v.status === 'Triage');
+        let html = `<tr><th>Patient</th><th>Action</th></tr>`;
+        queue.forEach(v => {
+            html += `<tr><td>${v.patientName}</td><td><button onclick="openTriage('${v.id}')">Take Vitals</button></td></tr>`;
+        });
+        document.getElementById('table-triage-queue').innerHTML = html;
+    }
 
-function renderVisits(){
-visitTable.innerHTML="<tr><th>ID</th><th>Patient</th><th>Dept</th><th>Status</th></tr>";
-visits.forEach(v=>{
-visitTable.innerHTML+=`<tr><td>${v.id}</td><td>${v.patient}</td><td>${v.dept}</td><td>${v.status}</td></tr>`;
-});
-}
+    function openTriage(vId) {
+        activeVisitId = vId;
+        const v = visits.find(v => v.id === vId);
+        document.getElementById('triage-target').innerText = `Vitals for: ${v.patientName}`;
+        document.getElementById('triage-form').style.display = "block";
+    }
 
-function saveConsultation(){
-consultations.push({visit:consVisit.value,diagnosis:diagnosis.value,procedure:procedure.value});
-}
+    function submitTriage() {
+        const v = visits.find(v => v.id === activeVisitId);
+        v.vitals = { 
+            bp: document.getElementById('vBP').value, 
+            temp: document.getElementById('vTemp').value 
+        };
+        v.dept = document.getElementById('vDept').value;
+        v.status = 'Consultation';
+        saveAndRefresh();
+        document.getElementById('triage-form').style.display = "none";
+        showSection('triage');
+    }
 
-function orderLab(){
-labs.push({visit:labVisit.value,test:labTest.value,status:"Pending"});
-}
+    function renderDoctorQueue() {
+        const queue = visits.filter(v => v.status === 'Consultation' && (currentRole === 'Director' || v.dept === currentRole || currentRole === 'Doctor'));
+        let html = `<tr><th>Patient</th><th>Dept</th><th>Action</th></tr>`;
+        queue.forEach(v => {
+            html += `<tr><td>${v.patientName}</td><td>${v.dept}</td><td><button onclick="openConsultation('${v.id}')">Examine</button></td></tr>`;
+        });
+        document.getElementById('table-doctor-queue').innerHTML = html;
+    }
 
-function saveLabResult(){
-labs.forEach(l=>{
-if(l.visit===labResultVisit.value){l.result=labResult.value;l.status="Done";}
-});
-}
+    function openConsultation(vId) {
+        activeVisitId = vId;
+        const v = visits.find(v => v.id === vId);
+        document.getElementById('cons-target').innerText = `Consultation: ${v.patientName}`;
+        document.getElementById('cons-vitals').innerText = `Vitals: BP ${v.vitals.bp}, Temp ${v.vitals.temp}°C`;
+        document.getElementById('cons-form').style.display = "block";
+    }
 
-function addDrug(){
-drugs.push({name:drugName.value,qty:drugQty.value});
-renderDrugs();
-}
+    function submitConsultation() {
+        const v = visits.find(v => v.id === activeVisitId);
+        v.diagnosis = document.getElementById('cDiagnosis').value;
+        v.labOrder = document.getElementById('cLab').value;
+        v.prescription = document.getElementById('cPresc').value;
+        v.status = 'Pharmacy'; // In this flow, we go straight to pharmacy for simplicity
+        saveAndRefresh();
+        document.getElementById('cons-form').style.display = "none";
+        showSection('consultation');
+    }
 
-function renderDrugs(){
-drugTable.innerHTML="<tr><th>Name</th><th>Qty</th></tr>";
-drugs.forEach(d=>{
-drugTable.innerHTML+=`<tr><td>${d.name}</td><td>${d.qty}</td></tr>`;
-});
-}
+    function renderPatients() {
+        let html = `<tr><th>ID</th><th>Name</th><th>Age</th></tr>`;
+        patients.slice().reverse().forEach(p => {
+            html += `<tr><td>${p.id}</td><td>${p.name}</td><td>${p.age}</td></tr>`;
+        });
+        document.getElementById('table-patients').innerHTML = html;
+    }
 
-function addPayment(){
-payments.push({visit:billVisit.value,amount:parseFloat(billAmount.value)});
-renderPayments();
-}
-
-function renderPayments(){
-billTable.innerHTML="<tr><th>Visit</th><th>Amount</th></tr>";
-payments.forEach(p=>{
-billTable.innerHTML+=`<tr><td>${p.visit}</td><td>${p.amount}</td></tr>`;
-});
-}
-
-function updateDashboard(){
-totalPatients.innerText=patients.length;
-openVisits.innerText=visits.filter(v=>v.status==="Open").length;
-totalRevenue.innerText=payments.reduce((s,p)=>s+p.amount,0);
-}
+    function saveAndRefresh() {
+        localStorage.setItem('tm_patients', JSON.stringify(patients));
+        localStorage.setItem('tm_visits', JSON.stringify(visits));
+        renderPatients();
+    }
 </script>
 
 </body>
