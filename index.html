@@ -3,228 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TALI MEDICALS | HIMS Enterprise</title>
+    <title>TALI MEDICALS v2.1 | HIMS Enterprise</title>
     <style>
         :root { 
-            --primary: #166534; --secondary: #15803d; --accent: #22c55e; 
-            --danger: #b91c1c; --warn: #d97706; --bg: #f8fafc; --text: #1e293b;
+            --primary: #1e3a8a; --secondary: #3b82f6; --accent: #10b981; 
+            --danger: #ef4444; --warn: #f59e0b; --bg: #f1f5f9; --text: #0f172a;
         }
-        body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); line-height: 1.5; }
+        body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); font-size: 14px; }
         
-        /* Layout */
-        header { background: var(--primary); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        nav { background: white; padding: 0.5rem 2rem; display: flex; gap: 10px; border-bottom: 1px solid #e2e8f0; overflow-x: auto; position: sticky; top: 0; z-index: 100; }
+        header { background: var(--primary); color: white; padding: 0.8rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        nav { background: white; padding: 0.5rem 2rem; display: flex; gap: 8px; border-bottom: 1px solid #cbd5e1; position: sticky; top: 0; z-index: 100; overflow-x: auto; }
         .container { padding: 20px; max-width: 1400px; margin: auto; }
         
-        /* Components */
-        .card { background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        section { display: none; animation: fadeIn 0.3s ease; }
+        .card { background: white; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        section { display: none; }
         .active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Buttons & Inputs */
-        button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: 0.2s; }
+        button { padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: 0.2s; }
         .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { background: #14532d; }
-        .nav-btn { background: #f1f5f9; color: #64748b; }
-        .nav-btn.active { background: var(--primary); color: white; }
+        .nav-btn { background: #e2e8f0; color: #475569; }
+        .nav-btn.active { background: var(--secondary); color: white; }
+        .btn-pay { background: var(--accent); color: white; }
+
+        input, select, textarea { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; margin: 5px 0; box-sizing: border-box; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
         
-        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; margin: 8px 0; font-size: 14px; }
-        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
-        
-        /* Tables */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #f1f5f9; }
-        th { background: #f8fafc; color: #64748b; font-size: 12px; text-transform: uppercase; }
-        
-        /* Badges */
-        .badge { padding: 4px 8px; border-radius: 20px; font-size: 11px; font-weight: bold; }
-        .bg-crit { background: #fee2e2; color: #b91c1c; border: 1px solid #ef4444; }
-        .bg-ready { background: #dcfce7; color: #166534; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+        th { background: #f8fafc; font-size: 11px; color: #64748b; text-transform: uppercase; }
+
+        .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+        .stat-card { text-align: center; padding: 15px; border-radius: 8px; color: white; }
     </style>
 </head>
 <body>
 
 <div id="loginPage" style="display:flex; justify-content:center; align-items:center; height:100vh; background: var(--primary);">
-    <div class="card" style="width:380px; text-align:center;">
-        <h1 style="color:var(--primary); margin-bottom:5px;">TALI MEDICALS</h1>
-        <p style="color:#64748b; margin-bottom:25px;">Clinic Management System</p>
+    <div class="card" style="width:350px; text-align:center;">
+        <h2 style="color:var(--primary)">TALI MEDICALS</h2>
         <select id="roleSelect">
-            <option value="Reception">Receptionist</option>
-            <option value="Nurse">Nurse / Triage</option>
-            <option value="Doctor">General Doctor</option>
-            <option value="ENT">ENT Specialist</option>
-            <option value="Dental">Dentist</option>
-            <option value="Lab">Lab Technician</option>
-            <option value="Pharmacy">Pharmacist</option>
-            <option value="Director">Director</option>
+            <option>Reception</option>
+            <option>Nurse</option>
+            <option>Doctor</option>
+            <option>Billing</option>
+            <option>Lab</option>
+            <option>Pharmacy</option>
+            <option>Director</option>
         </select>
         <input type="password" id="loginPass" placeholder="Password (1234)">
-        <button onclick="login()" class="btn-primary" style="width:100%; margin-top:10px;">Login</button>
+        <button onclick="login()" class="btn-primary" style="width:100%; margin-top:10px;">Access System</button>
     </div>
 </div>
 
 <div id="app" style="display:none;">
     <header>
-        <h2 style="margin:0;">TALI MEDICALS</h2>
+        <h3 style="margin:0;">TALI MEDICALS v2.1</h3>
         <div>
-            <span id="displayUser" style="margin-right:15px; font-weight:600;"></span>
-            <button onclick="location.reload()" style="background:rgba(255,255,255,0.2); color:white; padding:5px 12px;">Logout</button>
+            <span id="displayUser" style="margin-right:15px; font-size: 12px; opacity: 0.8;"></span>
+            <button onclick="location.reload()" style="background:transparent; color:white; border: 1px solid white;">Logout</button>
         </div>
     </header>
     <nav id="dynamicNav"></nav>
 
     <div class="container">
         
-        <section id="sec-registration">
+        <section id="sec-director">
+            <div class="grid" style="margin-bottom: 20px;">
+                <div class="stat-card" style="background: var(--primary);">
+                    <div style="font-size: 12px; opacity: 0.8;">Today's Revenue</div>
+                    <h2 id="dash-revenue">$0.00</h2>
+                </div>
+                <div class="stat-card" style="background: var(--accent);">
+                    <div style="font-size: 12px; opacity: 0.8;">Today's Patients</div>
+                    <h2 id="dash-pats">0</h2>
+                </div>
+                <div class="stat-card" style="background: var(--warn);">
+                    <div style="font-size: 12px; opacity: 0.8;">Pending Bills</div>
+                    <h2 id="dash-bills">0</h2>
+                </div>
+            </div>
+            <div class="grid">
+                <div class="card">
+                    <h4>Low Stock Alert</h4>
+                    <table id="dash-stock-table"></table>
+                </div>
+                <div class="card">
+                    <h4>Patient Status Overview</h4>
+                    <table id="dash-status-table"></table>
+                </div>
+            </div>
+        </section>
+
+        <section id="sec-reception">
             <div class="card">
                 <h3>Patient Registration</h3>
-                <div class="grid-3">
+                <div class="grid">
                     <div><label>Full Name</label><input id="pName"></div>
-                    <div><label>Phone Number</label><input id="pPhone"></div>
-                    <div><label>Age</label><input id="pAge"></div>
+                    <div><label>Date of Birth</label><input type="date" id="pDob"></div>
                     <div><label>Gender</label><select id="pGender"><option>Male</option><option>Female</option></select></div>
-                    <div><label>Physical Address</label><input id="pAddress"></div>
-                    <div><label>Next of Kin & Contact</label><input id="pKin"></div>
+                    <div><label>Phone</label><input id="pPhone"></div>
                 </div>
-                <button onclick="registerPatient()" class="btn-primary">Register & Queue for Triage</button>
+                <button onclick="registerPatient()" class="btn-primary" style="margin-top:10px;">Register & Start Visit</button>
             </div>
             <div class="card">
-                <h3>All Registered Patients</h3>
+                <input type="text" id="patSearch" placeholder="Search patients..." onkeyup="renderPatients()">
                 <table id="table-pats"></table>
             </div>
         </section>
 
-        <section id="sec-triage">
+        <section id="sec-nurse">
             <div class="card">
-                <h3>Triage Waiting List</h3>
+                <h3>Waiting for Triage</h3>
                 <table id="table-triage"></table>
             </div>
-            <div id="triage-form" class="card" style="display:none; border-left: 5px solid var(--accent);">
-                <h3 id="triage-target"></h3>
-                <div class="grid-3">
-                    <div><label>BP (mmHg)</label><input id="vBP"></div>
-                    <div><label>Temp (°C)</label><input id="vTemp"></div>
-                    <div><label>Weight (kg)</label><input id="vWeight"></div>
-                    <div><label>Pulse (bpm)</label><input id="vPulse"></div>
-                    <div>
-                        <label>Destination</label>
-                        <select id="vDest">
-                            <option value="Doctor">General Medicine</option>
-                            <option value="ENT">ENT Unit</option>
-                            <option value="Dental">Dental Unit</option>
-                            <option value="Lab">Direct to Laboratory</option>
-                        </select>
-                    </div>
+            <div id="triage-form" class="card" style="display:none;">
+                <h4 id="triage-target"></h4>
+                <div class="grid">
+                    <div><label>BP</label><input id="vBP"></div>
+                    <div><label>Temp (°C)</label><input type="number" step="0.1" id="vTemp"></div>
+                    <div><label>Weight (kg)</label><input type="number" id="vWeight"></div>
                 </div>
-                <button onclick="submitTriage()" class="btn-primary">Send to Next Station</button>
+                <button onclick="submitTriage()" class="btn-primary" style="margin-top:10px;">Send to Doctor</button>
             </div>
         </section>
 
-        <section id="sec-consultation">
-            <div class="card">
-                <h3>Consulation Queue</h3>
-                <table id="table-cons"></table>
-            </div>
+        <section id="sec-doctor">
+            <div class="card"><table id="table-cons"></table></div>
             <div id="cons-form" class="card" style="display:none;">
-                <h2 id="c-pat-name"></h2>
-                <div id="c-vitals-box" class="grid-3" style="background:#f1f5f9; padding:15px; border-radius:8px; margin-bottom:15px;"></div>
-                
-                <label>Presenting Complaints</label><textarea id="cComplaints" rows="3"></textarea>
-                <label>History & Examination</label><textarea id="cHistory" rows="3"></textarea>
-                
-                <div class="grid-3">
-                    <div>
-                        <label>Order Lab Investigation</label>
-                        <select id="cLabOrder"><option value="">-- No Test --</option><option>Malaria RDT</option><option>CBC</option><option>Urinalysis</option><option>H.Pylori</option></select>
-                        <input id="cLabIndication" placeholder="Indication/Reason">
-                    </div>
-                    <div>
-                        <label>Prescribe Medication</label>
-                        <select id="cMedPresc"><option value="">-- No Medication --</option><option>Amoxicillin</option><option>Paracetamol</option><option>Metronidazole</option><option>Omeprazole</option></select>
-                        <input id="cMedDose" placeholder="Dosage e.g. 1x3">
-                    </div>
+                <h3 id="c-pat-name"></h3>
+                <div id="c-history-box" style="background:#f8fafc; padding:10px; margin-bottom:15px; border-radius:5px; font-size:12px;"></div>
+                <label>Diagnosis</label><input id="cDiagnosis">
+                <label>Clinical Notes</label><textarea id="cNotes" rows="3"></textarea>
+                <div class="grid">
+                    <div><label>Order Lab</label><select id="cLabOrder"><option value="">-- No Test --</option><option value="Malaria RDT|5.00">Malaria RDT ($5)</option><option value="CBC|15.00">Full Blood Count ($15)</option></select></div>
+                    <div><label>Prescribe Meds</label><select id="cMedPresc"><option value="">-- No Med --</option><option value="Amoxicillin|2.00">Amoxicillin ($2)</option><option value="Paracetamol|0.50">Paracetamol ($0.5)</option></select><input type="number" id="cMedQty" placeholder="Qty"></div>
                 </div>
-                <button onclick="submitConsultation()" class="btn-primary" style="margin-top:20px;">Complete Consultation</button>
+                <div style="margin-top:15px; display:flex; gap:10px;">
+                    <button onclick="submitConsultation('WAITING_LAB')" class="btn-primary" style="background:var(--warn)">Order Lab</button>
+                    <button onclick="submitConsultation('WAITING_BILLING')" class="btn-primary">Prescribe</button>
+                </div>
             </div>
+        </section>
+
+        <section id="sec-billing">
+            <div class="card"><h3>Outstanding Invoices</h3><table id="table-billing"></table></div>
         </section>
 
         <section id="sec-lab">
-            <div class="card">
-                <h3>Lab Requests Worklist</h3>
-                <table id="table-lab"></table>
-            </div>
+            <div class="card"><h3>Lab Requests</h3><table id="table-lab"></table></div>
             <div id="lab-entry" class="card" style="display:none;">
-                <h3 id="lab-pat-header"></h3>
-                <div class="grid-3">
-                    <div>
-                        <label>Lifecycle Status</label>
-                        <select id="labStep">
-                            <option value="SAMPLE_COLLECTED">Sample Collected</option>
-                            <option value="PROCESSING">In Laboratory/Processing</option>
-                            <option value="COMPLETED">Completed (Release Results)</option>
-                        </select>
-                    </div>
-                    <div style="grid-column: span 2;">
-                        <label>Results / Findings</label>
-                        <textarea id="labResults" placeholder="Enter findings..."></textarea>
-                    </div>
-                </div>
-                <button onclick="updateLab()" class="btn-primary">Update Laboratory Record</button>
+                <h4 id="lab-header"></h4>
+                <textarea id="labResults" placeholder="Results..."></textarea>
+                <button onclick="updateLab()" class="btn-primary">Release</button>
             </div>
         </section>
 
         <section id="sec-pharmacy">
-            <div class="card">
-                <h3>Pharmacy Dispensing Queue</h3>
-                <table id="table-pharm"></table>
-            </div>
-            <div class="card">
-                <h3>Drug Inventory Management</h3>
-                <table id="table-inv"></table>
-            </div>
+            <div class="card"><h3>Prescriptions</h3><table id="table-pharm"></table></div>
+            <div class="card"><h3>Inventory</h3><table id="table-inv"></table></div>
         </section>
 
     </div>
 </div>
 
 <script>
-    // --- DATABASE ---
-    let patients = JSON.parse(localStorage.getItem('tm_pats')) || [];
-    let visits = JSON.parse(localStorage.getItem('tm_vists')) || [];
-    let inventory = JSON.parse(localStorage.getItem('tm_inv')) || [
-        { name: "Amoxicillin", stock: 200 }, { name: "Paracetamol", stock: 1000 },
-        { name: "Metronidazole", stock: 150 }, { name: "Omeprazole", stock: 300 }
+    let patients = JSON.parse(localStorage.getItem('tm_v2_pats')) || [];
+    let visits = JSON.parse(localStorage.getItem('tm_v2_vists')) || [];
+    let inventory = JSON.parse(localStorage.getItem('tm_v2_inv')) || [
+        { name: "Amoxicillin", stock: 50, price: 2.00 },
+        { name: "Paracetamol", stock: 10, price: 0.50 }
     ];
     let userRole = "";
     let activeVisitID = null;
 
-    // --- AUTH ---
+    function save() {
+        localStorage.setItem('tm_v2_pats', JSON.stringify(patients));
+        localStorage.setItem('tm_v2_vists', JSON.stringify(visits));
+        localStorage.setItem('tm_v2_inv', JSON.stringify(inventory));
+    }
+
     function login() {
         if(document.getElementById('loginPass').value !== "1234") return alert("Wrong Password");
         userRole = document.getElementById('roleSelect').value;
         document.getElementById('loginPage').style.display = 'none';
         document.getElementById('app').style.display = 'block';
-        document.getElementById('displayUser').innerText = userRole;
+        document.getElementById('displayUser').innerText = `Role: ${userRole}`;
         renderNav();
-        // Default views based on role
-        if(userRole === 'Lab') showSection('lab');
-        else if(userRole === 'Pharmacy') showSection('pharmacy');
-        else if(['Doctor', 'ENT', 'Dental'].includes(userRole)) showSection('consultation');
-        else showSection('registration');
+        showSection(userRole.toLowerCase());
     }
 
     function renderNav() {
         const nav = document.getElementById('dynamicNav');
         const map = {
-            "Reception": ['registration'],
-            "Nurse": ['registration', 'triage'],
-            "Doctor": ['consultation'], "ENT": ['consultation'], "Dental": ['consultation'],
-            "Lab": ['lab'], "Pharmacy": ['pharmacy'],
-            "Director": ['registration', 'triage', 'consultation', 'lab', 'pharmacy']
+            "Reception": ['reception'], "Nurse": ['nurse'], "Doctor": ['doctor'],
+            "Billing": ['billing'], "Lab": ['lab'], "Pharmacy": ['pharmacy'],
+            "Director": ['director', 'reception', 'nurse', 'doctor', 'billing', 'lab', 'pharmacy']
         };
-        nav.innerHTML = map[userRole].map(s => `<button id="btn-${s}" class="nav-btn" onclick="showSection('${s}')">${s.toUpperCase()}</button>`).join('');
+        nav.innerHTML = map[userRole].map(r => `<button id="btn-${r}" class="nav-btn" onclick="showSection('${r}')">${r.toUpperCase()}</button>`).join('');
     }
 
     function showSection(id) {
@@ -233,162 +208,203 @@
         document.getElementById('sec-' + id).classList.add('active');
         document.getElementById('btn-' + id)?.classList.add('active');
         
-        if(id === 'registration') renderPatients();
-        if(id === 'triage') renderTriage();
-        if(id === 'consultation') renderCons();
+        if(id === 'director') renderDashboard();
+        if(id === 'reception') renderPatients();
+        if(id === 'nurse') renderTriage();
+        if(id === 'doctor') renderCons();
+        if(id === 'billing') renderBilling();
         if(id === 'lab') renderLab();
         if(id === 'pharmacy') { renderPharm(); renderInv(); }
     }
 
+    // --- DIRECTOR DASHBOARD LOGIC ---
+    function renderDashboard() {
+        const today = new Date().toLocaleDateString();
+        const todayVisits = visits.filter(v => v.date === today);
+        
+        const revenue = todayVisits.reduce((sum, v) => {
+            return sum + (v.isPaid ? v.bill.reduce((bSum, b) => bSum + b.price, 0) : 0);
+        }, 0);
+
+        document.getElementById('dash-revenue').innerText = `$${revenue.toFixed(2)}`;
+        document.getElementById('dash-pats').innerText = todayVisits.length;
+        document.getElementById('dash-bills').innerText = visits.filter(v => !v.isPaid).length;
+
+        // Stock Alert (Items < 15)
+        let sH = `<tr><th>Item</th><th>Stock</th></tr>`;
+        inventory.filter(i => i.stock < 15).forEach(i => sH += `<tr style="color:red; font-weight:bold;"><td>${i.name}</td><td>${i.stock}</td></tr>`);
+        document.getElementById('dash-stock-table').innerHTML = sH;
+
+        // Status Table
+        const stats = visits.reduce((acc, v) => { acc[v.status] = (acc[v.status] || 0) + 1; return acc; }, {});
+        let tH = `<tr><th>Status</th><th>Count</th></tr>`;
+        for(let s in stats) { tH += `<tr><td>${s.replace('_', ' ')}</td><td>${stats[s]}</td></tr>`; }
+        document.getElementById('dash-status-table').innerHTML = tH;
+    }
+
     // --- RECEPTION ---
     function registerPatient() {
-        const p = {
-            id: "P-" + Date.now().toString().slice(-4),
-            name: document.getElementById('pName').value,
-            phone: document.getElementById('pPhone').value,
-            age: document.getElementById('pAge').value,
-            gender: document.getElementById('pGender').value,
-            address: document.getElementById('pAddress').value,
-            kin: document.getElementById('pKin').value,
-            date: new Date().toLocaleDateString()
-        };
-        if(!p.name) return alert("Name is required");
-        patients.push(p);
-        visits.push({ id: "V-"+Date.now().toString().slice(-4), patId: p.id, name: p.name, status: 'WAITING_TRIAGE', time: new Date().toLocaleTimeString() });
-        save();
-        renderPatients();
-        alert("Registered and Queued for Triage");
+        const name = document.getElementById('pName').value;
+        const dob = document.getElementById('pDob').value;
+        if(!name || !dob) return alert("Missing Info");
+        const pId = "P-" + Date.now().toString().slice(-4);
+        patients.push({ id: pId, name, dob, phone: document.getElementById('pPhone').value, gender: document.getElementById('pGender').value });
+        
+        const vId = "V-" + Date.now().toString().slice(-4);
+        visits.push({
+            id: vId, patId: pId, name: name, status: 'WAITING_TRIAGE', 
+            date: new Date().toLocaleDateString(),
+            timeline: [{ act: 'Registered', time: new Date().toLocaleTimeString() }],
+            bill: [], isPaid: true
+        });
+        save(); renderPatients(); alert("Patient Registered");
     }
 
     function renderPatients() {
-        let h = `<tr><th>Date</th><th>Name</th><th>Phone</th><th>Status</th></tr>`;
-        patients.slice().reverse().forEach(p => h += `<tr><td>${p.date}</td><td>${p.name}</td><td>${p.phone}</td><td>Registered</td></tr>`);
+        const term = document.getElementById('patSearch').value.toLowerCase();
+        let h = `<tr><th>Name</th><th>DOB</th><th>Action</th></tr>`;
+        patients.filter(p => p.name.toLowerCase().includes(term)).forEach(p => {
+            h += `<tr><td>${p.name}</td><td>${p.dob}</td><td><button onclick="startNewVisit('${p.id}', '${p.name}')">Start Visit</button></td></tr>`;
+        });
         document.getElementById('table-pats').innerHTML = h;
     }
 
-    // --- TRIAGE ---
+    function startNewVisit(patId, name) {
+        const vId = "V-" + Date.now().toString().slice(-4);
+        visits.push({
+            id: vId, patId, name, status: 'WAITING_TRIAGE', 
+            date: new Date().toLocaleDateString(),
+            timeline: [{ act: 'New Visit', time: new Date().toLocaleTimeString() }],
+            bill: [], isPaid: true
+        });
+        save(); alert("Re-queued");
+    }
+
+    // --- NURSE ---
     function renderTriage() {
         const q = visits.filter(v => v.status === 'WAITING_TRIAGE');
-        let h = `<tr><th>Time</th><th>Patient Name</th><th>Action</th></tr>`;
-        q.forEach(v => h += `<tr><td>${v.time}</td><td>${v.name}</td><td><button onclick="openTriage('${v.id}')">Vitals</button></td></tr>`);
+        let h = `<tr><th>Patient</th><th>Action</th></tr>`;
+        q.forEach(v => h += `<tr><td>${v.name}</td><td><button onclick="openTriage('${v.id}')">Vitals</button></td></tr>`);
         document.getElementById('table-triage').innerHTML = h;
     }
 
     function openTriage(id) {
         activeVisitID = id;
-        document.getElementById('triage-target').innerText = "Vitals for: " + visits.find(v => v.id === id).name;
+        document.getElementById('triage-target').innerText = "Vitals: " + visits.find(v => v.id === id).name;
         document.getElementById('triage-form').style.display = 'block';
     }
 
     function submitTriage() {
         const v = visits.find(v => v.id === activeVisitID);
-        v.vitals = { bp: document.getElementById('vBP').value, temp: document.getElementById('vTemp').value, w: document.getElementById('vWeight').value };
-        v.dest = document.getElementById('vDest').value;
-        v.status = (v.dest === 'Lab') ? 'WAITING_LAB' : 'WAITING_CONSULTATION';
-        if(parseFloat(v.vitals.temp) > 38.5) v.isCrit = true; // Auto-flag
-        save();
-        document.getElementById('triage-form').style.display = 'none';
-        renderTriage();
+        v.timeline.push({ act: 'Vitals', val: `Temp: ${document.getElementById('vTemp').value}°C`, time: new Date().toLocaleTimeString() });
+        v.status = 'WAITING_CONSULTATION';
+        save(); document.getElementById('triage-form').style.display = 'none'; renderTriage();
     }
 
-    // --- CONSULTATION ---
+    // --- DOCTOR ---
     function renderCons() {
-        const q = visits.filter(v => (v.status === 'WAITING_CONSULTATION' || v.status === 'LAB_READY') && (userRole === 'Director' || v.dest === userRole || v.dest === 'Doctor'));
-        let h = `<tr><th>Patient</th><th>Vitals</th><th>Lab Status</th><th>Action</th></tr>`;
-        q.forEach(v => {
-            const labBadge = v.status === 'LAB_READY' ? '<span class="badge bg-ready">Results In</span>' : 'Pending';
-            const crit = v.isCrit ? '<span style="color:red"> [HIGH FEVER]</span>' : '';
-            h += `<tr><td><b>${v.name}</b>${crit}</td><td>BP: ${v.vitals.bp}</td><td>${labBadge}</td><td><button onclick="openCons('${v.id}')">Examine</button></td></tr>`;
-        });
+        const q = visits.filter(v => ['WAITING_CONSULTATION', 'LAB_READY'].includes(v.status));
+        let h = `<tr><th>Patient</th><th>Status</th><th>Action</th></tr>`;
+        q.forEach(v => h += `<tr><td>${v.name}</td><td>${v.status}</td><td><button onclick="openCons('${v.id}')">Examine</button></td></tr>`);
         document.getElementById('table-cons').innerHTML = h;
     }
 
     function openCons(id) {
         activeVisitID = id;
         const v = visits.find(v => v.id === id);
-        const p = patients.find(pat => pat.id === v.patId);
-        document.getElementById('c-pat-name').innerText = `${v.name} (${p.age}yrs, ${p.gender})`;
-        document.getElementById('c-vitals-box').innerHTML = `<div>BP: ${v.vitals.bp}</div><div>Temp: ${v.vitals.temp}°C</div><div>Weight: ${v.vitals.w}kg</div>`;
-        if(v.labResults) document.getElementById('c-vitals-box').innerHTML += `<div style="grid-column: 1/-1; color:blue">LAB FINDINGS: ${v.labResults}</div>`;
+        document.getElementById('c-pat-name').innerText = v.name;
+        document.getElementById('c-history-box').innerHTML = v.timeline.map(t => `<div><b>${t.act}:</b> ${t.val || ''}</div>`).join('');
         document.getElementById('cons-form').style.display = 'block';
     }
 
-    function submitConsultation() {
+    function submitConsultation(nextStatus) {
         const v = visits.find(v => v.id === activeVisitID);
-        v.complaint = document.getElementById('cComplaints').value;
-        v.labOrder = document.getElementById('cLabOrder').value;
-        v.labIndication = document.getElementById('cLabIndication').value;
-        v.presc = document.getElementById('cMedPresc').value;
-        
-        // Path logic: Lab if ordered, else Pharmacy
-        v.status = (v.labOrder && !v.labResults) ? 'WAITING_LAB' : 'WAITING_PHARMACY';
-        save();
-        document.getElementById('cons-form').style.display = 'none';
-        renderCons();
+        const labRaw = document.getElementById('cLabOrder').value;
+        const medRaw = document.getElementById('cMedPresc').value;
+        const medQty = parseInt(document.getElementById('cMedQty').value) || 0;
+
+        if(labRaw) {
+            const [n, p] = labRaw.split('|');
+            v.bill.push({ item: n, price: parseFloat(p), type: 'LAB' });
+            v.isPaid = false; 
+        }
+        if(medRaw) {
+            const [n, p] = medRaw.split('|');
+            v.bill.push({ item: n, price: parseFloat(p) * medQty, type: 'MED', qty: medQty });
+            v.isPaid = false;
+        }
+        v.status = nextStatus;
+        save(); document.getElementById('cons-form').style.display = 'none'; renderCons();
     }
 
-    // --- LABORATORY ---
-    function renderLab() {
-        const q = visits.filter(v => v.status === 'WAITING_LAB');
-        let h = `<tr><th>Patient</th><th>Investigation</th><th>Status</th><th>Action</th></tr>`;
+    // --- BILLING ---
+    function renderBilling() {
+        const q = visits.filter(v => v.isPaid === false);
+        let h = `<tr><th>Patient</th><th>Total</th><th>Action</th></tr>`;
         q.forEach(v => {
-            const step = v.labStep || 'Awaiting Sample';
-            h += `<tr><td><b>${v.name}</b></td><td>${v.labOrder}<br><small>Ind: ${v.labIndication}</small></td><td>${step}</td><td><button onclick="openLab('${v.id}')">Process</button></td></tr>`;
+            const total = v.bill.reduce((sum, i) => sum + i.price, 0);
+            h += `<tr><td>${v.name}</td><td>$${total.toFixed(2)}</td><td><button class="btn-pay" onclick="payBill('${v.id}')">Pay</button></td></tr>`;
+        });
+        document.getElementById('table-billing').innerHTML = h;
+    }
+
+    function payBill(id) {
+        const v = visits.find(v => v.id === id);
+        v.isPaid = true;
+        v.status = v.bill.some(b => b.type === 'LAB') ? 'WAITING_LAB' : 'WAITING_PHARMACY';
+        save(); renderBilling();
+    }
+
+    // --- LAB ---
+    function renderLab() {
+        const q = visits.filter(v => v.status === 'WAITING_LAB' && v.isPaid);
+        let h = `<tr><th>Patient</th><th>Test</th><th>Action</th></tr>`;
+        q.forEach(v => {
+            const test = v.bill.find(b => b.type === 'LAB').item;
+            h += `<tr><td>${v.name}</td><td>${test}</td><td><button onclick="openLab('${v.id}')">Results</button></td></tr>`;
         });
         document.getElementById('table-lab').innerHTML = h;
     }
 
     function openLab(id) {
         activeVisitID = id;
-        const v = visits.find(v => v.id === id);
-        document.getElementById('lab-pat-header').innerText = `Lab Entry: ${v.name}`;
         document.getElementById('lab-entry').style.display = 'block';
     }
 
     function updateLab() {
         const v = visits.find(v => v.id === activeVisitID);
-        v.labStep = document.getElementById('labStep').value;
-        v.labResults = document.getElementById('labResults').value;
-        if(v.labStep === 'COMPLETED') v.status = 'LAB_READY';
-        save();
-        document.getElementById('lab-entry').style.display = 'none';
-        renderLab();
+        v.timeline.push({ act: 'Lab Result', val: document.getElementById('labResults').value, time: new Date().toLocaleTimeString() });
+        v.status = 'LAB_READY';
+        save(); document.getElementById('lab-entry').style.display = 'none'; renderLab();
     }
 
     // --- PHARMACY ---
     function renderPharm() {
-        const q = visits.filter(v => v.status === 'WAITING_PHARMACY');
-        let h = `<tr><th>Patient</th><th>Prescription</th><th>Action</th></tr>`;
-        q.forEach(v => h += `<tr><td>${v.name}</td><td>${v.presc}</td><td><button onclick="dispense('${v.id}')">Dispense</button></td></tr>`);
+        const q = visits.filter(v => v.status === 'WAITING_PHARMACY' && v.isPaid);
+        let h = `<tr><th>Patient</th><th>Med</th><th>Action</th></tr>`;
+        q.forEach(v => {
+            const med = v.bill.find(b => b.type === 'MED');
+            h += `<tr><td>${v.name}</td><td>${med.item} x${med.qty}</td><td><button onclick="dispense('${v.id}')">Dispense</button></td></tr>`;
+        });
         document.getElementById('table-pharm').innerHTML = h;
     }
 
     function dispense(id) {
         const v = visits.find(v => v.id === id);
-        const item = inventory.find(i => i.name === v.presc);
-        if(item && item.stock > 0) {
-            item.stock -= 1;
+        const medOrder = v.bill.find(b => b.type === 'MED');
+        const invItem = inventory.find(i => i.name === medOrder.item);
+        if(invItem.stock >= medOrder.qty) {
+            invItem.stock -= medOrder.qty;
             v.status = 'DISCHARGED';
-            save();
-            renderPharm(); renderInv();
-            alert("Medicine Dispensed. Visit Closed.");
-        } else {
-            alert("Out of Stock!");
-        }
+            save(); renderPharm(); renderInv(); alert("Finalized");
+        } else { alert("Out of Stock!"); }
     }
 
     function renderInv() {
-        let h = `<tr><th>Drug Name</th><th>Stock Level</th></tr>`;
+        let h = `<tr><th>Item</th><th>Stock</th></tr>`;
         inventory.forEach(i => h += `<tr><td>${i.name}</td><td>${i.stock}</td></tr>`);
         document.getElementById('table-inv').innerHTML = h;
     }
-
-    function save() {
-        localStorage.setItem('tm_pats', JSON.stringify(patients));
-        localStorage.setItem('tm_vists', JSON.stringify(visits));
-        localStorage.setItem('tm_inv', JSON.stringify(inventory));
-    }
 </script>
-
 </body>
 </html>
