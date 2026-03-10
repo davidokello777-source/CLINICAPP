@@ -1291,6 +1291,8 @@ function openChart(pId){
         <b>${v.date}</b><div style="display:flex;gap:4px;align-items:center;">
           <span class="badge ${bcls}" style="font-size:10px;">${bs}</span>
           <span class="badge bgr" style="font-size:10px;">${v.status.replace(/_/g,' ')}</span>
+          <button class="bsm" style="background:#6366f1;color:#fff;" onclick="cModal('chart-modal');viewVisitRecord('${v.id}')">📋 Notes</button>
+          <button class="bsm bo" onclick="printVisitReport('${v.id}')">📄 Print</button>
           <button class="bsm bo" onclick="printInvoice('${v.id}')">🖨 Invoice</button>
           ${(v.labs||[]).some(l=>l.done)?`<button class="bsm" style="background:var(--a);color:#fff;" onclick="printAllLabs('${v.id}')">🔬 Labs PDF</button>`:''}
         </div>
@@ -1443,23 +1445,145 @@ function renderCons(){
 function renderAllPats(){
   const term=(document.getElementById('allpat-search')?.value||'').toLowerCase();
   const ageF=parseInt(document.getElementById('allpat-age')?.value)||0;
-  let h=`<tr><th>Patient</th><th>Age</th><th>Visits</th><th>Last Visit</th><th>Diagnoses</th><th>Action</th></tr>`;
+  let h=`<tr><th>Patient</th><th>Age/Sex</th><th>Visits</th><th>Last Visit</th><th>Diagnoses</th><th>Actions</th></tr>`;
   let filtered=patients.filter(p=>p.name.toLowerCase().includes(term));
   if(ageF>0)filtered=filtered.filter(p=>p.ageVal===ageF);
   if(!filtered.length)h+=`<tr><td colspan="6" class="emp">No patients found</td></tr>`;
   filtered.forEach(p=>{
-    const pv=visits.filter(v=>v.patId===p.id);
-    const last=pv.length?pv[pv.length-1]:null;
+    const pv=visits.filter(v=>v.patId===p.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const last=pv.length?pv[0]:null;
     const dxs=[...new Set(pv.map(v=>v.clinical?.finalDx||v.clinical?.diffDx).filter(Boolean))].slice(0,3).join('; ');
-    h+=`<tr><td><b>${p.name}</b></td><td>${p.ageVal} ${p.ageUnit}</td><td>${pv.length}</td><td>${last?last.date+' <span class="badge bgr" style="font-size:10px;">'+last.status.replace(/_/g,' ')+'</span>':'—'}</td><td style="font-size:12px;max-width:200px;">${dxs||'—'}</td><td><div style="display:flex;gap:3px;"><button class="bsm bo" onclick="openChart('${p.id}')">Chart</button>${last?`<button class="bsm bp" onclick="openCons('${last.id}')">Open</button>`:''}</div></td></tr>`;
+    const activeV=pv.filter(v=>!['DISCHARGED','ADMITTED'].includes(v.status));
+    const dischargedV=pv.filter(v=>['DISCHARGED','ADMITTED'].includes(v.status));
+    // Row for this patient
+    h+=`<tr>
+      <td><b>${p.name}</b><br><span style="font-size:11px;color:var(--mu);">${p.phone||''}</span></td>
+      <td>${p.ageVal} ${p.ageUnit} / ${p.gender}</td>
+      <td>${pv.length}</td>
+      <td>${last?last.date+' <span class="badge bgr" style="font-size:10px;">'+last.status.replace(/_/g,' ')+'</span>':'—'}</td>
+      <td style="font-size:12px;max-width:180px;">${dxs||'—'}</td>
+      <td>
+        <div style="display:flex;gap:3px;flex-wrap:wrap;">
+          <button class="bsm bo" onclick="openChart('${p.id}')">📋 Chart</button>
+          ${activeV.length?`<button class="bsm bp" onclick="openCons('${activeV[0].id}')">▶ Open Active</button>`:''}
+          ${pv.length>1?`<button class="bsm" style="background:#e2e8f0;color:#475569;" onclick="toggleVisitHistory('${p.id}')">📁 History (${pv.length})</button>`:''}
+          ${pv.length===1&&dischargedV.length?`<button class="bsm" style="background:#e2e8f0;color:#475569;" onclick="viewVisitRecord('${pv[0].id}')">🗂 View Record</button>`:''}
+        </div>
+        <!-- Per-visit history rows (hidden by default) -->
+        <div id="vh-${p.id}" style="display:none;margin-top:6px;border-top:1px solid var(--bd);padding-top:6px;">
+          ${pv.map(v=>{
+            const isDone=['DISCHARGED','ADMITTED'].includes(v.status);
+            const dx=v.clinical?.finalDx||v.clinical?.diffDx||'—';
+            return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">
+              <span style="font-size:11px;min-width:75px;color:var(--mu);">${v.date}</span>
+              <span class="badge ${isDone?'bgn':'bgr'}" style="font-size:10px;">${v.status.replace(/_/g,' ')}</span>
+              <span style="font-size:11px;color:var(--mu);flex:1;">${v.consultType||'GEN'} — ${dx}</span>
+              <button class="bsm ${isDone?'':'bp'}" style="${isDone?'background:#6366f1;color:#fff;':''}" onclick="${isDone?`viewVisitRecord('${v.id}')`:`openCons('${v.id}')`}">${isDone?'🗂 View':'▶ Open'}</button>
+              <button class="bsm bo" onclick="printVisitReport('${v.id}')">📄 Print</button>
+            </div>`;
+          }).join('')}
+        </div>
+      </td>
+    </tr>`;
   });
   document.getElementById('table-allpats').innerHTML=h;
+}
+
+function toggleVisitHistory(pid){
+  const el=document.getElementById('vh-'+pid);
+  if(el) el.style.display=el.style.display==='none'?'block':'none';
+}
+
+// Open a DISCHARGED/ADMITTED visit in read-only view mode
+function viewVisitRecord(vid){
+  activeVid=vid;
+  const v=visits.find(x=>x.id===vid);
+  if(!v)return;
+  const p=patients.find(x=>x.id===v.patId);
+  document.getElementById('c-name').innerText=v.name+' — READ-ONLY';
+  document.getElementById('c-date').innerText=v.date;
+  document.getElementById('c-pay').innerHTML=payBadge(v);
+  const ctClass={GENERAL:'ct-gen',LAB_ONLY:'ct-lab',RADIOLOGY:'ct-rad',DENTAL:'ct-spc',ENT:'ct-spc',OTHER_SPECIAL:'ct-spc'}[v.consultType]||'ct-gen';
+  document.getElementById('c-type-badge').innerHTML=`<span class="consult-type-badge ${ctClass}">${v.consultType||'GENERAL'}</span> <span class="badge bgn" style="font-size:10px;">✔ ${v.status.replace(/_/g,' ')}</span>`;
+  document.getElementById('c-hist').innerHTML='<b style="font-size:10px;color:var(--mu);text-transform:uppercase;">Timeline</b><br>'+(v.timeline||[]).map(t=>`<span style="color:var(--mu);font-size:11px;">${t.time}</span> <b>${t.act}</b>${t.val?' — '+t.val:''} <span style="color:var(--s);font-size:11px;">(${t.by})</span>`).join('<br>');
+  if(v.vitals){
+    const vt=v.vitals;
+    document.getElementById('c-vitals').style.display='block';
+    document.getElementById('c-vitals').innerHTML=`<b>Vitals (${vt.time}):</b> ${[vt.bp?'BP:'+vt.bp:'',vt.temp?'T:'+vt.temp+'°C':'',vt.weight?'Wt:'+vt.weight+'kg':'',vt.height?'Ht:'+vt.height+'cm':'',vt.pulse?'PR:'+vt.pulse:'',vt.spo2?'SpO2:'+vt.spo2+'%':'',vt.rr?'RR:'+vt.rr:''].filter(Boolean).join(' | ')}${vt.weight&&vt.height?' | BMI:'+(vt.weight/((vt.height/100)*(vt.height/100))).toFixed(1):''}`;
+  }else{document.getElementById('c-vitals').style.display='none';}
+  document.getElementById('ogBlock').style.display=(p&&p.gender==='Female')?'block':'none';
+  const cl=v.clinical||{};
+  [{id:'hPC',k:'pc'},{id:'hHPC',k:'hpc'},{id:'hPMH',k:'pmh'},{id:'hOG',k:'obsGyn'},{id:'hFSH',k:'fsh'},{id:'hDrug',k:'drugHx'},{id:'cDiffDx',k:'diffDx'},{id:'cFinalDx',k:'finalDx'},{id:'cNotes',k:'notes'}].forEach(({id,k})=>{const el=document.getElementById(id);if(el){el.value=cl[k]||'';el.disabled=true;}});
+  document.getElementById('hLMP').value=cl.lmp||''; document.getElementById('hLMP').disabled=true;
+  document.getElementById('hGP').value=cl.gravPara||''; document.getElementById('hGP').disabled=true;
+  document.getElementById('hAllergy').value=cl.allergies||''; document.getElementById('hAllergy').disabled=true;
+  ['hPEGeneral','hPEHead','hPEChest','hPECVS','hPEAbdomen','hPECNS','hPEExtremities','hPESkin','hPEOther'].forEach(id=>{const el=document.getElementById(id);if(el){el.value=cl[id.replace('hPE','pe').replace(/^pe/,'pe').toLowerCase()]||cl['pe'+id.replace('hPE','')]||'';el.disabled=true;}});
+  document.getElementById('cRecommendations').value=cl.recommendations||''; document.getElementById('cRecommendations').disabled=true;
+  const labsWithRes=(v.labs||[]).filter(l=>l.done);
+  const radWithRes=(v.radiology||[]).filter(r=>r.done);
+  document.getElementById('lab-res-panel').style.display=labsWithRes.length?'block':'none';
+  document.getElementById('rad-res-panel').style.display=radWithRes.length?'block':'none';
+  if(labsWithRes.length)document.getElementById('lab-res-display').innerHTML=labsWithRes.map(l=>`<div class="lrc"><b>${l.name}</b><div style="margin-top:3px;white-space:pre-wrap;">${l.result}</div><div style="font-size:11px;color:var(--mu);margin-top:2px;">${l.resultTime} — ${l.resultBy}</div></div>`).join('');
+  if(radWithRes.length)document.getElementById('rad-res-display').innerHTML=radWithRes.map(r=>`<div class="lrc" style="border-color:var(--pu);"><b>${r.name}</b><div style="margin-top:3px;white-space:pre-wrap;">${r.result}</div><div style="font-size:11px;color:var(--mu);margin-top:2px;">${r.resultTime} — ${r.resultBy}</div></div>`).join('');
+  document.getElementById('lab-order-sec').style.display='none';
+  selectedLabTests=new Set();
+  renderLabCheckList(''); updateSelectedLabsDisplay(v);
+  radRows=[]; renderRadRows();
+  medRows=(v.prescriptions||[]).map((r,i)=>({id:i,rxId:r.id,locked:true})); medRowId=medRows.length;
+  renderMedRows();
+  document.getElementById('lab-search').value=''; document.getElementById('med-search').value='';
+  document.getElementById('drug-results').style.display='none';
+  updateOrderSummary(v);
+  // READ-ONLY action bar — no edit buttons
+  document.getElementById('cons-actions').innerHTML=`
+    <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;padding:8px 14px;font-size:12px;color:#166534;font-weight:600;">
+      🔒 Read-only view — this visit is ${v.status.replace(/_/g,' ')}
+    </div>
+    <button onclick="printVisitReport('${v.id}')" class="bo" style="padding:6px 14px;">📄 Print Full Report</button>
+    <button onclick="printInvoice('${v.id}')" class="bsm bo">🖨 Print Invoice</button>
+    ${(v.labs||[]).some(l=>l.done)?`<button onclick="printAllLabs('${v.id}')" class="bsm" style="background:var(--a);color:#fff;">🔬 Lab PDF</button>`:''}
+    <button onclick="closeVisitRecord()" class="bd2" style="padding:6px 12px;">✕ Close</button>`;
+  // Switch to queue tab so cons-form is visible
+  const queueTab=document.querySelector('#sec-doctor .st');
+  if(queueTab){document.querySelectorAll('#sec-doctor .st').forEach(b=>b.classList.remove('active'));queueTab.classList.add('active');}
+  document.getElementById('doc-queue').style.display='block';
+  document.getElementById('doc-allpats').style.display='none';
+  document.getElementById('doc-reg').style.display='none';
+  document.getElementById('cons-form').style.display='block';
+  document.getElementById('cons-form').scrollIntoView({behavior:'smooth'});
+}
+
+function closeVisitRecord(){
+  // Re-enable all disabled fields
+  ['hPC','hHPC','hPMH','hOG','hFSH','hDrug','cDiffDx','cFinalDx','cNotes','hLMP','hGP','hAllergy',
+   'hPEGeneral','hPEHead','hPEChest','hPECVS','hPEAbdomen','hPECNS','hPEExtremities','hPESkin','hPEOther','cRecommendations']
+  .forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=false;});
+  document.getElementById('cons-form').style.display='none';
+  activeVid=null;
+  // Switch back to All Patients tab
+  const allpatsBtn=document.querySelector('#sec-doctor .st:nth-child(2)');
+  if(allpatsBtn){document.querySelectorAll('#sec-doctor .st').forEach(b=>b.classList.remove('active'));allpatsBtn.classList.add('active');}
+  document.getElementById('doc-queue').style.display='none';
+  document.getElementById('doc-allpats').style.display='block';
+}
+
+// Print report for any visit by ID (works for discharged too)
+function printVisitReport(vid){
+  const prevActive=activeVid;
+  activeVid=vid;
+  printPatientReport();
+  activeVid=prevActive;
 }
 
 function openCons(id){
   activeVid=id;
   const v=visits.find(x=>x.id===id);
   if(!v){ renderCons(); return; }
+  // If visit is completed, open in read-only mode
+  if(['DISCHARGED','ADMITTED'].includes(v.status)){
+    viewVisitRecord(id);
+    return;
+  }
   const p=patients.find(x=>x.id===v.patId);
   document.getElementById('c-name').innerText=v.name;
   document.getElementById('c-date').innerText=v.date;
