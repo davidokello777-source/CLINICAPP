@@ -1014,8 +1014,8 @@ function save(){
   si('Saving…');
   saveTimer=setTimeout(async()=>{
     try{
-      await fetch(API,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},body:JSON.stringify({patients,visits,inventory,staffList,expenses,feedbacks:window.feedbacks||[]})});
-      si('Saved ✓',true);
+      await fetch(API,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},body:JSON.stringify({patients,visits,inventory,staffList,expenses,feedbacks:window.feedbacks||[],...(window._pendingAlertOut?{pendingAlert:window._pendingAlertOut}:{})})});
+      si('Saved ✓',true); window._pendingAlertOut=null;
     }catch(e){si('Save failed ✗');}
   },1200);
 }
@@ -1032,12 +1032,15 @@ window.addEventListener('DOMContentLoaded',async()=>{
   // Auto-refresh data every 30s when logged in (keeps doctor queue live)
   setInterval(async()=>{
     if(!currentUser) return;
+    // Do NOT refresh if a doctor has a patient open - avoids disrupting active consultation
+    const consFormOpen = document.getElementById('cons-form')?.style.display === 'block';
+    if(consFormOpen) return;
     try{
       const r=await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
       const j=await r.json();const d=j.record||{};
-      patients = d.patients||patients;
-      visits   = d.visits||visits;
-      expenses = d.expenses||expenses;
+      if(d.patients) patients = d.patients;
+      if(d.visits)   visits   = d.visits;
+      if(d.expenses) expenses = d.expenses;
       // Refresh current visible section silently
       const activeSec=document.querySelector('section.active');
       if(activeSec){
@@ -1050,7 +1053,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
         else if(secId==='billing')renderBilling();
         else if(secId==='reception')renderPatients();
       }
-    }catch(e){/* silent fail - no internet or JSONBin down */}
+    }catch(e){/* silent fail */}
   }, 30000);
 });
 
@@ -1454,15 +1457,9 @@ function renderAllPats(){
 }
 
 function openCons(id){
-  try{
   activeVid=id;
   const v=visits.find(x=>x.id===id);
-  if(!v){
-    console.error('openCons: visit not found for id',id);
-    alert('Patient record not found. The queue may be out of date — the page will now refresh the queue.');
-    renderCons();
-    return;
-  }
+  if(!v){ renderCons(); return; }
   const p=patients.find(x=>x.id===v.patId);
   document.getElementById('c-name').innerText=v.name;
   document.getElementById('c-date').innerText=v.date;
@@ -1515,10 +1512,6 @@ function openCons(id){
   ab.innerHTML=`<button onclick="saveClinical()" style="background:#475569;color:#fff;font-weight:600;">💾 Save Notes</button><button onclick="openAdmit()" class="bpu">🛏 Admit</button><button onclick="printPatientReport()" class="bo bsm">📄 Print Report PDF</button><button onclick="endVisit()" class="bd2" style="padding:6px 12px;font-size:13px;">✓ End Visit</button>`;
   document.getElementById('cons-form').style.display='block';
   document.getElementById('cons-form').scrollIntoView({behavior:'smooth'});
-  }catch(err){
-    console.error('openCons error:',err);
-    alert('Error opening patient record: '+err.message+'\nPlease refresh the page if this persists.');
-  }
 }
 
 // Lab checkbox multi-select
@@ -1653,6 +1646,7 @@ const DURATION_OPTS=['1 day','2 days','3 days','4 days','5 days','6 days','7 day
 function renderMedRows(){
   const v=visits.find(x=>x.id===activeVid);
   const c=document.getElementById('med-orders-list');
+  if(!c)return;
   if(!medRows.length){c.innerHTML='<div class="emp">Use search above to add medications, or click + Add manually.</div>';return;}
   c.innerHTML=medRows.map(r=>{
     const rx=(v?.prescriptions||[]).find(p=>p.id===r.rxId)||{};
@@ -2470,12 +2464,14 @@ function toggleVoice(){
   const b = document.getElementById('voice-badge');
   if(b){ b.innerText = voiceEnabled ? '🔊 Voice' : '🔇 Voice'; b.style.opacity = voiceEnabled ? '1' : '.5'; }
 }
-// Cross-device alert tracking
+// ── Cross-device voice alerts via BroadcastChannel (same device/tabs)
+// ── and via JSONBin pendingAlert field polled every 8s (cross-device/phone)
 let _lastHeardAlertId = null;
+let _alertBC = null; // BroadcastChannel for same-device cross-tab alerts
 
 function speak(text){
   _speakLocal(text);
-  _broadcastAlert(text);
+  _broadcastAlertAll(text);
 }
 
 function _speakLocal(text){
@@ -2489,47 +2485,54 @@ function _speakLocal(text){
   window.speechSynthesis.speak(u);
 }
 
-async function _broadcastAlert(text){
+function _broadcastAlertAll(text){
   if(!currentUser) return;
+  const alertId = Date.now().toString();
+  _lastHeardAlertId = alertId;
+  // 1. Same-device broadcast via BroadcastChannel
   try{
-    // Store alert in JSONBin alongside main data
-    const alertId = Date.now().toString();
-    const alert = {id:alertId, text, by:currentUser.name, ts:new Date().toISOString()};
-    // Update just the pendingAlert field via PATCH
-    await fetch(`${API}`,{
-      method:'PATCH',
-      headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},
-      body:JSON.stringify({pendingAlert:alert})
-    });
-    _lastHeardAlertId = alertId; // so this device doesn't replay its own alert
-  }catch(e){ /* silent - alert still played locally */ }
+    if(_alertBC) _alertBC.postMessage({id:alertId, text});
+  }catch(e){}
+  // 2. Cross-device: store in window.pendingAlertOut, picked up by next save()
+  window._pendingAlertOut = {id:alertId, text, by:currentUser?.name||'', ts:new Date().toISOString()};
 }
 
-// Poll for cross-device alerts every 5 seconds
+// Poll JSONBin for cross-device alerts (every 8 seconds, separate from 30s data refresh)
 let _alertPollInterval = null;
 function _startAlertPolling(){
   if(_alertPollInterval) return;
+  // Set up BroadcastChannel for same-device alerts
+  try{
+    _alertBC = new BroadcastChannel('tali_alerts');
+    _alertBC.onmessage = (e)=>{
+      if(e.data?.id && e.data.id !== _lastHeardAlertId){
+        _lastHeardAlertId = e.data.id;
+        _speakLocal(e.data.text);
+      }
+    };
+  }catch(e){}
+  // Poll JSONBin every 8s for cross-device alerts
   _alertPollInterval = setInterval(async()=>{
     if(!currentUser || !voiceEnabled) return;
     try{
       const r = await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
       const j = await r.json();
-      const alert = j.record?.pendingAlert;
-      if(alert && alert.id && alert.id !== _lastHeardAlertId){
-        // Check it's recent (within last 10 seconds)
-        const age = Date.now() - new Date(alert.ts).getTime();
-        if(age < 10000){
-          _lastHeardAlertId = alert.id;
-          _speakLocal(alert.text);
+      const al = j.record?.pendingAlert;
+      if(al && al.id && al.id !== _lastHeardAlertId){
+        const age = Date.now() - new Date(al.ts).getTime();
+        if(age < 12000){
+          _lastHeardAlertId = al.id;
+          _speakLocal(al.text);
         } else {
-          _lastHeardAlertId = alert.id; // Mark old alerts as seen without speaking
+          _lastHeardAlertId = al.id;
         }
       }
-    }catch(e){ /* silent */ }
-  }, 5000);
+    }catch(e){}
+  }, 8000);
 }
 function _stopAlertPolling(){
   if(_alertPollInterval){ clearInterval(_alertPollInterval); _alertPollInterval=null; }
+  try{ if(_alertBC){ _alertBC.close(); _alertBC=null; } }catch(e){}
 }
 
 // ══════════════════════════════════════════════
