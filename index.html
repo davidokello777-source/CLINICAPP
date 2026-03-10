@@ -1003,6 +1003,29 @@ window.addEventListener('DOMContentLoaded',async()=>{
   await loadData();
   document.getElementById('ls').style.display='none';
   document.getElementById('lp').style.display='flex';
+  // Auto-refresh data every 30s when logged in (keeps doctor queue live)
+  setInterval(async()=>{
+    if(!currentUser) return;
+    try{
+      const r=await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
+      const j=await r.json();const d=j.record||{};
+      patients = d.patients||patients;
+      visits   = d.visits||visits;
+      expenses = d.expenses||expenses;
+      // Refresh current visible section silently
+      const activeSec=document.querySelector('section.active');
+      if(activeSec){
+        const secId=activeSec.id.replace('sec-','');
+        if(secId==='doctor')renderCons();
+        else if(secId==='nurse'){renderTriage();renderTreatList();}
+        else if(secId==='lab')renderLab();
+        else if(secId==='pharmacy')renderPharm();
+        else if(secId==='radiology')renderRad();
+        else if(secId==='billing')renderBilling();
+        else if(secId==='reception')renderPatients();
+      }
+    }catch(e){/* silent fail - no internet or JSONBin down */}
+  }, 30000);
 });
 
 // ══════════════════════════════════════════════
@@ -1373,7 +1396,7 @@ function swDoc(tab,btn){
 function renderCons(){
   const q=visits.filter(v=>!['DISCHARGED','ADMITTED'].includes(v.status));
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Type</th><th>Status</th><th>Pay</th><th>Labs</th><th>Rad</th><th>Rx</th><th>Action</th></tr>`;
-  if(!q.length)h+=`<tr><td colspan="9" class="emp">No active patients</td></tr>`;
+  if(!q.length)h+=`<tr><td colspan="9" class="emp"><div>No active patients in queue</div><button onclick="renderCons()" style="margin-top:6px;background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;">🔄 Refresh Queue</button></td></tr>`;
   q.forEach(v=>{
     const p=patients.find(x=>x.id===v.patId);
     const info=p?`${p.ageVal}${p.ageUnit[0]}/${p.gender}`:'—';
@@ -1404,8 +1427,15 @@ function renderAllPats(){
 }
 
 function openCons(id){
+  try{
   activeVid=id;
   const v=visits.find(x=>x.id===id);
+  if(!v){
+    console.error('openCons: visit not found for id',id);
+    alert('Patient record not found. The queue may be out of date — the page will now refresh the queue.');
+    renderCons();
+    return;
+  }
   const p=patients.find(x=>x.id===v.patId);
   document.getElementById('c-name').innerText=v.name;
   document.getElementById('c-date').innerText=v.date;
@@ -1458,6 +1488,10 @@ function openCons(id){
   ab.innerHTML=`<button onclick="saveClinical()" style="background:#475569;color:#fff;font-weight:600;">💾 Save Notes</button><button onclick="openAdmit()" class="bpu">🛏 Admit</button><button onclick="printPatientReport()" class="bo bsm">📄 Print Report PDF</button><button onclick="endVisit()" class="bd2" style="padding:6px 12px;font-size:13px;">✓ End Visit</button>`;
   document.getElementById('cons-form').style.display='block';
   document.getElementById('cons-form').scrollIntoView({behavior:'smooth'});
+  }catch(err){
+    console.error('openCons error:',err);
+    alert('Error opening patient record: '+err.message+'\nPlease refresh the page if this persists.');
+  }
 }
 
 // Lab checkbox multi-select
