@@ -520,10 +520,12 @@ details summary{cursor:pointer;font-weight:600;font-size:12px;color:var(--p);}
     <section id="sec-inventory">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
         <h3>Drug & Supply Inventory</h3>
-        <div style="display:flex;gap:6px;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
           <select id="inv-class-filter" onchange="renderInventory()" style="width:auto;margin:0;font-size:12px;"><option value="">All Classes</option></select>
           <select id="inv-cat-filter" onchange="renderInventory()" style="width:auto;margin:0;font-size:12px;"><option value="">All Categories</option></select>
           <button onclick="oModal('inv-add-modal')" class="ba">+ Add / Restock</button>
+          <button onclick="downloadInvTemplate()" class="bo bsm" style="font-size:12px;">⬇ Template</button>
+          <label class="bp bsm" style="padding:5px 10px;font-size:12px;cursor:pointer;border-radius:5px;font-weight:600;">📥 Import CSV<input type="file" accept=".csv" onchange="importInvCSV(event)" style="display:none;"></label>
         </div>
       </div>
       <div class="card" style="padding:9px;"><table id="table-inv"></table></div>
@@ -593,13 +595,41 @@ details summary{cursor:pointer;font-weight:600;font-size:12px;color:var(--p);}
         <button onclick="oStaffModal(null)" class="bp">+ Add Staff</button>
       </div>
       <div class="card" style="padding:9px;"><table id="table-staff"></table></div>
+
+      <!-- Admin: Patient Management -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:18px 0 10px;flex-wrap:wrap;gap:7px;">
+        <h3>Patient Management</h3>
+        <input id="admin-pat-search" placeholder="🔍 Search patients…" oninput="renderAdminPatients()" style="width:220px;margin:0;font-size:13px;">
+      </div>
+      <div class="card" style="padding:9px;"><table id="table-admin-pats"></table></div>
+
+      <!-- Admin: Medication Import -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:18px 0 10px;flex-wrap:wrap;gap:7px;">
+        <div>
+          <h3 style="margin-bottom:3px;">Medications / Inventory Import</h3>
+          <p style="font-size:12px;color:var(--mu);margin:0;">Download the template, fill it in, then import to bulk-load or update inventory.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="downloadInvTemplate()" class="bo" style="font-size:13px;">⬇ Download Template CSV</button>
+          <label class="bp" style="padding:7px 14px;font-size:13px;cursor:pointer;border-radius:6px;font-weight:600;display:inline-block;">📥 Import CSV<input type="file" accept=".csv" onchange="importInvCSV(event)" style="display:none;"></label>
+        </div>
+      </div>
+      <div id="admin-import-result" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:13px;color:#166534;margin-bottom:10px;"></div>
+
       <div id="staff-modal" class="mo">
         <div class="mb" style="max-width:560px;">
           <button class="mc" onclick="cModal('staff-modal')">✕</button>
           <h3 id="staff-modal-title" style="color:var(--p);margin-bottom:11px;"></h3>
           <input type="hidden" id="staffEid">
-          <div class="g2"><div><label>Full Name *</label><input id="staffName"></div><div><label>Username *</label><input id="staffUser"></div></div>
+          <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:7px;">Basic Info</p>
+          <div class="g2"><div><label>Full Name *</label><input id="staffName" placeholder="e.g. Dr. John Smith"></div><div><label>Username *</label><input id="staffUser" placeholder="login username"></div></div>
           <label>Password *</label><input type="password" id="staffPass">
+          <div class="g2"><div><label>Role / Position</label><input id="staffRole" placeholder="e.g. Senior Nurse, Pharmacist"></div><div><label>Employee / Staff ID</label><input id="staffEmpId" placeholder="e.g. EMP-001"></div></div>
+          <div class="g2"><div><label>Gender</label><select id="staffGender"><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select></div><div><label>Date of Birth</label><input type="date" id="staffDOB"></div></div>
+          <div class="g2"><div><label>Phone</label><input id="staffPhone" placeholder="e.g. +1 555 000 0000"></div><div><label>Email</label><input type="email" id="staffEmail" placeholder="staff@email.com"></div></div>
+          <label>Address</label><input id="staffAddress" placeholder="Home address">
+          <div class="g2"><div><label>Emergency Contact Name</label><input id="staffECName" placeholder="Next of kin name"></div><div><label>Emergency Contact Phone</label><input id="staffECPhone" placeholder="Emergency phone"></div></div>
+          <div class="g2"><div><label>Date Joined</label><input type="date" id="staffJoined"></div><div><label>National ID / Passport</label><input id="staffNatId" placeholder="ID number"></div></div>
           <hr class="dv">
           <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:7px;">Section Access</p>
           <div id="sec-checks" style="display:flex;flex-wrap:wrap;gap:7px;"></div>
@@ -1779,7 +1809,7 @@ function renderMedRows(){
     return`<div class="rx-card ${r.locked?'dispensed':''}" id="med-row-${r.id}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
         <div style="flex:1;">
-          <div class="rx-drug">${rx.name} ${rx.strength||''} ${formBadge(rx.formulation||'')} <span style="font-size:11px;color:var(--mu);font-weight:400;">${rx.drugClass||''}</span>${r.locked?'<span style="color:var(--a);font-size:11px;margin-left:8px;">✅ Dispensed</span>':''}</div>
+          <div class="rx-drug">${rx.name} ${rx.strength||''} ${formBadge(rx.formulation||'')} <span style="font-size:11px;color:var(--mu);font-weight:400;">${rx.drugClass||''}</span>${r.locked?'<span style="color:var(--a);font-size:11px;margin-left:8px;">✅ Dispensed</span>':''} ${(()=>{const inv=inventory.find(i=>i.name===rx.name);if(!inv)return'<span style="font-size:11px;color:#94a3b8;margin-left:6px;">⚠ Not in stock</span>';const stk=inv.stock;const col=stk<=0?'#ef4444':stk<=inv.reorderLevel?'#f59e0b':'#22c55e';return`<span style="font-size:11px;font-weight:700;margin-left:8px;color:${col};">📦 Stock: ${stk} ${inv.unit||''}</span>`;})()}</div>
           <div class="rx-line" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
             <span style="font-size:11px;color:var(--mu);font-weight:600;">DOSE:</span>
             <input type="number" min="1" value="${rx.qty||1}" onchange="onMedQty(${r.id},'${r.rxId}')" ${r.locked?'disabled':''} style="width:55px;margin:0;font-size:12px;text-align:center;"> <span style="font-size:12px;color:var(--mu);">${rx.unit||rx.formulation||'unit(s)'}</span>
@@ -1925,7 +1955,7 @@ function printPatientReport(){
     ${cl.notes?`<div style="margin-bottom:8px;"><b>(Mx)</b> <div style="margin-top:3px;padding-left:10px;">${cl.notes}</div></div>`:''}
     ${(cl.peGeneral||cl.peChest||cl.peAbdomen||cl.peCVS)?`<div style="margin-bottom:8px;"><b>(PE)</b> <table class="pit"><tr><th>System</th><th>Finding</th></tr>${[['General',cl.peGeneral],['Head/Neck',cl.peHead],['Respiratory',cl.peChest],['Cardiovascular',cl.peCVS],['Abdomen',cl.peAbdomen],['CNS',cl.peCNS],['Extremities',cl.peExtremities],['Skin',cl.peSkin],['Other',cl.peOther]].filter(x=>x[1]).map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td></tr>`).join('')}</table></div>`:''}
     ${cl.recommendations?`<div style="margin-bottom:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:5px;padding:9px;"><b>(Rec)</b> <div style="margin-top:4px;">${cl.recommendations}</div></div>`:''}
-    ${(v.prescriptions||[]).filter(r=>r.name).length?`<div style="margin-bottom:8px;"><b>PRESCRIPTION:</b><table class="pit"><tr><th>Drug</th><th>Strength</th><th>Form.</th><th>Qty</th><th>Frequency</th><th>Patient Instructions</th><th>Class</th></tr>${(v.prescriptions||[]).filter(r=>r.name).map(r=>`<tr><td>${r.name}</td><td>${r.strength||'—'}</td><td>${r.formulation||'—'}</td><td>${r.qty}</td><td>${r.instructions}</td><td>${r.patientInstructions||'—'}</td><td>${r.drugClass||'—'}</td></tr>`).join('')}</table></div>`:''}
+    ${(v.prescriptions||[]).filter(r=>r.name).length?`<div style="margin-bottom:8px;"><b>PRESCRIPTION:</b><table class="pit"><tr><th>Drug</th><th>Strength</th><th>Form.</th><th>Qty</th><th>Duration</th><th>Date</th><th>Patient Instructions</th></tr>${(v.prescriptions||[]).filter(r=>r.name).map(r=>`<tr><td>${r.name}</td><td>${r.strength||'—'}</td><td>${r.formulation||'—'}</td><td>${r.qty}</td><td>${r.duration||'—'}</td><td>${v.date}</td><td>${r.patientInstructions||'—'}</td></tr>`).join('')}</table></div>`:''}
     ${(v.treatmentChart||[]).length?`<div style="margin-bottom:8px;"><b>TREATMENT CHART:</b><table class="pit"><tr><th>Drug</th><th>Dose</th><th>Route</th><th>Time</th><th>Nurse</th><th>Notes</th></tr>${v.treatmentChart.map(e=>`<tr><td>${e.drug}</td><td>${e.dose}</td><td>${e.route}</td><td>${e.time}</td><td>${e.by}</td><td>${e.notes||'—'}</td></tr>`).join('')}</table></div>`:''}
     `+printFooter();
   doPrint();
@@ -2349,8 +2379,13 @@ function importInvCSV(event){
         added++;
       }
     }
-    save();renderInventory();alert(`Import complete.\nAdded: ${added} new items\nUpdated: ${updated} existing items`);
+    save();renderInventory();
+    const msg=`✅ Import complete — Added: ${added} new item(s), Updated: ${updated} existing item(s)`;
+    alert(msg);
+    const res=document.getElementById('admin-import-result');
+    if(res){res.style.display='block';res.innerText=msg;}
     event.target.value='';
+    if(typeof renderAdminPatients==='function')renderAdminPatients();
   };
   reader.readAsText(file);
 }
@@ -2433,23 +2468,70 @@ function saveExpense(){
 //  ADMIN
 // ══════════════════════════════════════════════
 function renderAdmin(){
-  let h=`<tr><th>Name</th><th>Username</th><th>Sections</th><th>Admin</th><th>Actions</th></tr>`;
+  let h=`<tr><th>Name</th><th>Role</th><th>Username</th><th>Phone</th><th>Sections</th><th>Admin</th><th>Actions</th></tr>`;
   staffList.forEach(s=>{
     const sects=s.isAdmin?'<span class="sp2">All Sections</span>':(s.sections||[]).map(x=>`<span class="sp2">${SEC_LABELS[x]||x}</span>`).join('');
-    h+=`<tr><td><b>${s.name}</b></td><td>${s.username}</td><td>${sects}</td><td>${s.isAdmin?'✅':''}</td>
+    h+=`<tr><td><b>${s.name}</b>${s.empId?`<br><span style="font-size:11px;color:var(--mu);">${s.empId}</span>`:''}</td><td style="font-size:12px;">${s.role||'—'}</td><td>${s.username}</td><td style="font-size:12px;">${s.phone||'—'}</td><td>${sects}</td><td>${s.isAdmin?'✅':''}</td>
       <td><div style="display:flex;gap:3px;">
         <button class="bsm bo" onclick="oStaffModal('${s.id}')">Edit</button>
         <button class="bsm bd2" onclick="delStaff('${s.id}')">Delete</button>
       </div></td></tr>`;
   });
   document.getElementById('table-staff').innerHTML=h;
+  renderAdminPatients();
+}
+
+function renderAdminPatients(){
+  const term=(document.getElementById('admin-pat-search')?.value||'').toLowerCase();
+  const tbl=document.getElementById('table-admin-pats');
+  if(!tbl)return;
+  let h=`<tr><th>Name</th><th>Age/Sex</th><th>Phone</th><th>Visits</th><th>Last Visit</th><th>Action</th></tr>`;
+  let list=patients.filter(p=>!term||p.name.toLowerCase().includes(term)||( p.phone||'').includes(term));
+  if(!list.length){h+=`<tr><td colspan="6" class="emp">No patients found.</td></tr>`;tbl.innerHTML=h;return;}
+  list.forEach(p=>{
+    const pv=visits.filter(v=>v.patId===p.id);
+    const last=pv.length?pv[pv.length-1]:null;
+    h+=`<tr>
+      <td><b>${p.name}</b></td>
+      <td>${p.ageVal} ${p.ageUnit} / ${p.gender}</td>
+      <td>${p.phone||'—'}</td>
+      <td>${pv.length}</td>
+      <td>${last?last.date+' <span class="badge bgr" style="font-size:10px;">'+last.status.replace(/_/g,' ')+'</span>':'—'}</td>
+      <td><button class="bsm bd2" onclick="adminDeletePatient('${p.id}')">🗑 Delete</button></td>
+    </tr>`;
+  });
+  tbl.innerHTML=h;
+}
+
+function adminDeletePatient(pid){
+  const p=patients.find(x=>x.id===pid);if(!p)return;
+  const pv=visits.filter(x=>x.patId===pid);
+  if(!confirm(\`⚠️ DELETE patient "${p.name}"?\n\nThis will also permanently delete ${pv.length} visit record(s).\n\nThis action CANNOT be undone.\`))return;
+  if(!confirm(\`Second confirmation: permanently delete "${p.name}" and all their records?\`))return;
+  patients=patients.filter(x=>x.id!==pid);
+  visits=visits.filter(x=>x.patId!==pid);
+  save();renderAdminPatients();
+  alert(\`${p.name} and ${pv.length} visit(s) deleted.\`);
 }
 function oStaffModal(id){
   const s=id?staffList.find(x=>x.id===id):null;
   document.getElementById('staff-modal-title').innerText=s?'Edit Staff':'Add Staff';
   document.getElementById('staffEid').value=id||'';
-  document.getElementById('staffName').value=s?s.name:'';document.getElementById('staffUser').value=s?s.username:'';
-  document.getElementById('staffPass').value=s?s.password:'';document.getElementById('staffAdmin').checked=s?s.isAdmin:false;
+  document.getElementById('staffName').value=s?s.name:'';
+  document.getElementById('staffUser').value=s?s.username:'';
+  document.getElementById('staffPass').value=s?s.password:'';
+  document.getElementById('staffAdmin').checked=s?!!s.isAdmin:false;
+  document.getElementById('staffRole').value=s?s.role||'':'';
+  document.getElementById('staffEmpId').value=s?s.empId||'':'';
+  document.getElementById('staffGender').value=s?s.gender||'':'';
+  document.getElementById('staffDOB').value=s?s.dob||'':'';
+  document.getElementById('staffPhone').value=s?s.phone||'':'';
+  document.getElementById('staffEmail').value=s?s.email||'':'';
+  document.getElementById('staffAddress').value=s?s.address||'':'';
+  document.getElementById('staffECName').value=s?s.ecName||'':'';
+  document.getElementById('staffECPhone').value=s?s.ecPhone||'':'';
+  document.getElementById('staffJoined').value=s?s.joined||'':'';
+  document.getElementById('staffNatId').value=s?s.natId||'':'';
   const assigned=s?s.sections||[]:[];
   document.getElementById('sec-checks').innerHTML=ALL_SECS.map(sec=>`<label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;background:var(--lt);padding:4px 9px;border-radius:5px;font-size:12px;text-transform:none;"><input type="checkbox" name="sc_${sec}" value="${sec}" style="width:auto;margin:0;" ${assigned.includes(sec)?'checked':''}> ${SEC_LABELS[sec]}</label>`).join('');
   oModal('staff-modal');
@@ -2462,8 +2544,9 @@ function saveStaff(){
   if(!name||!username||!password)return alert('Fill all required fields.');
   const sections=ALL_SECS.filter(sec=>document.querySelector(`input[name="sc_${sec}"]`)?.checked);
   const eid=document.getElementById('staffEid').value;
-  if(eid){const s=staffList.find(x=>x.id===eid);if(!s)return;s.name=name;s.username=username;s.password=password;s.isAdmin=isAdmin;s.sections=sections;}
-  else{if(staffList.some(s=>s.username===username))return alert('Username already exists.');staffList.push({id:'S-'+Date.now().toString().slice(-6),name,username,password,isAdmin,sections});}
+  const demo={role:document.getElementById('staffRole').value.trim(),empId:document.getElementById('staffEmpId').value.trim(),gender:document.getElementById('staffGender').value,dob:document.getElementById('staffDOB').value,phone:document.getElementById('staffPhone').value.trim(),email:document.getElementById('staffEmail').value.trim(),address:document.getElementById('staffAddress').value.trim(),ecName:document.getElementById('staffECName').value.trim(),ecPhone:document.getElementById('staffECPhone').value.trim(),joined:document.getElementById('staffJoined').value,natId:document.getElementById('staffNatId').value.trim()};
+  if(eid){const s=staffList.find(x=>x.id===eid);if(!s)return;s.name=name;s.username=username;s.password=password;s.isAdmin=isAdmin;s.sections=sections;Object.assign(s,demo);}
+  else{if(staffList.some(s=>s.username===username))return alert('Username already exists.');staffList.push({id:'S-'+Date.now().toString().slice(-6),name,username,password,isAdmin,sections,...demo});}
   save();cModal('staff-modal');renderAdmin();
 }
 function delStaff(id){if(!confirm('Delete this staff member?'))return;staffList=staffList.filter(s=>s.id!==id);save();renderAdmin();}
