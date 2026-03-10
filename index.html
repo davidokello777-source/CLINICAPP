@@ -346,7 +346,7 @@ details summary{cursor:pointer;font-weight:600;font-size:12px;color:var(--p);}
         <button class="st" onclick="swDoc('reg',this)">➕ Register</button>
       </div>
       <div id="doc-queue">
-        <div class="card"><table id="table-cons"></table></div>
+        <div id="queue-list-card" class="card"><table id="table-cons"></table></div>
         <div id="cons-form" class="card" style="display:none;">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:11px;">
             <div><h3 id="c-name" style="color:var(--p);margin:0;"></h3><span id="c-type-badge" style="margin-top:3px;display:inline-block;"></span></div>
@@ -1549,18 +1549,18 @@ function viewVisitRecord(vid){
   document.getElementById('doc-queue').style.display='block';
   document.getElementById('doc-allpats').style.display='none';
   document.getElementById('doc-reg').style.display='none';
+  document.getElementById('queue-list-card').style.display='none';
   document.getElementById('cons-form').style.display='block';
   document.getElementById('cons-form').scrollIntoView({behavior:'smooth'});
 }
 
 function closeVisitRecord(){
-  // Re-enable all disabled fields
   ['hPC','hHPC','hPMH','hOG','hFSH','hDrug','cDiffDx','cFinalDx','cNotes','hLMP','hGP','hAllergy',
    'hPEGeneral','hPEHead','hPEChest','hPECVS','hPEAbdomen','hPECNS','hPEExtremities','hPESkin','hPEOther','cRecommendations']
   .forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=false;});
+  document.getElementById('queue-list-card').style.display='block';
   document.getElementById('cons-form').style.display='none';
   activeVid=null;
-  // Switch back to All Patients tab
   const allpatsBtn=document.querySelector('#sec-doctor .st:nth-child(2)');
   if(allpatsBtn){document.querySelectorAll('#sec-doctor .st').forEach(b=>b.classList.remove('active'));allpatsBtn.classList.add('active');}
   document.getElementById('doc-queue').style.display='none';
@@ -1634,6 +1634,7 @@ function openCons(id){
   // Actions
   const ab=document.getElementById('cons-actions');
   ab.innerHTML=`<button onclick="saveClinical()" style="background:#475569;color:#fff;font-weight:600;">💾 Save Notes</button><button onclick="openAdmit()" class="bpu">🛏 Admit</button><button onclick="printPatientReport()" class="bo bsm">📄 Print Report PDF</button><button onclick="endVisit()" class="bd2" style="padding:6px 12px;font-size:13px;">✓ End Visit</button>`;
+  document.getElementById('queue-list-card').style.display='none';
   document.getElementById('cons-form').style.display='block';
   document.getElementById('cons-form').scrollIntoView({behavior:'smooth'});
 }
@@ -1866,11 +1867,19 @@ function saveClinical(){
   lg(v,'Clinical notes saved');save();
 }
 
+function _showQueueList(){
+  const cf=document.getElementById('cons-form');
+  const ql=document.getElementById('queue-list-card');
+  if(cf)cf.style.display='none';
+  if(ql)ql.style.display='block';
+  activeVid=null;
+}
+
 function endVisit(){
   const v=visits.find(x=>x.id===activeVid);if(!v)return;
   saveClinical();v.status='DISCHARGED';
   lg(v,'Discharged');speak(`Patient ${v.name} has been discharged. Thank you for visiting Tali Medicals International.`);
-  save();document.getElementById('cons-form').style.display='none';renderCons();
+  save();_showQueueList();renderCons();
   alert(`${v.name} discharged.`);
 }
 function openAdmit(){document.getElementById('admitWard').value='';document.getElementById('admitNotes').value='';oModal('admit-modal');}
@@ -1879,7 +1888,7 @@ function confAdmit(){
   saveClinical();v.status='ADMITTED';v.admitted=true;v.admissionWard=document.getElementById('admitWard').value;
   lg(v,'Admitted',`Ward: ${v.admissionWard}`);
   speak(`Patient ${v.name} has been admitted to ${v.admissionWard}.`);
-  save();cModal('admit-modal');document.getElementById('cons-form').style.display='none';renderCons();
+  save();cModal('admit-modal');_showQueueList();renderCons();
   alert(`${v.name} admitted.`);
 }
 function tClin(h){h.classList.toggle('open');h.nextElementSibling.classList.toggle('open');}
