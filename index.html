@@ -196,7 +196,7 @@ details summary{cursor:pointer;font-weight:600;font-size:12px;color:var(--p);}
       <span id="du" style="font-size:12px;opacity:.85;"></span>
       <span id="device-badge" style="font-size:10px;background:rgba(255,255,255,.12);padding:2px 7px;border-radius:8px;display:none;">📱 Multi-Device Active</span>
       <span id="si3" class="si2"></span>
-      <span class="voice-badge" onclick="toggleVoice()" id="voice-badge" title="Toggle voice alerts">🔊 Voice</span>
+      <span class="voice-badge" onclick="toggleVoice()" id="voice-badge" title="Toggle voice alerts — alerts broadcast to all logged-in devices">🔊 Voice</span>
       <button id="pwa-install-btn" onclick="installPWA()" style="display:none;background:#0ea5e9;color:#fff;border:none;font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer;margin-right:4px;" title="Install app on this device">📲 Install App</button>
       <button onclick="location.reload()" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);font-size:12px;padding:4px 8px;">Logout</button>
     </div>
@@ -266,6 +266,31 @@ details summary{cursor:pointer;font-weight:600;font-size:12px;color:var(--p);}
       <div class="card">
         <input id="patSearch" placeholder="Search patients by name..." onkeyup="renderPatients()" style="margin-bottom:8px;">
         <table id="table-pats"></table>
+      </div>
+    
+      <!-- DIRECTOR: Records Management Panel -->
+      <div class="card" style="margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+          <h4 style="color:var(--d);margin:0;">🗑️ Records Management <span style="font-size:11px;font-weight:400;color:var(--mu);">(Director Only)</span></h4>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <select id="dir-rec-mode" onchange="renderDirRecords()" style="font-size:12px;padding:4px 8px;border-radius:5px;border:1px solid var(--bd);">
+              <option value="visits">📋 Visits</option>
+              <option value="patients">👤 Patients</option>
+            </select>
+            <input id="dir-rec-search" type="text" placeholder="Search..." oninput="renderDirRecords()" style="font-size:12px;padding:4px 8px;border-radius:5px;border:1px solid var(--bd);width:160px;">
+            <button onclick="renderDirRecords()" style="background:var(--p);color:#fff;border:none;padding:4px 10px;border-radius:5px;font-size:12px;cursor:pointer;">🔄 Load</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="pit">
+            <thead id="dir-rec-head">
+              <tr><th>Name</th><th>Date</th><th>Status</th><th>Type</th><th>Billing</th><th>Diagnosis</th><th>Action</th></tr>
+            </thead>
+            <tbody id="dir-rec-table">
+              <tr><td colspan="7" class="emp">Click "Load" to view records</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -686,6 +711,7 @@ details summary{cursor:pointer;font-weight:600;font-size:12px;color:var(--p);}
 
 <!-- PRINT AREA -->
 <div id="pra">
+  <div id="pra-sub" style="font-size:11px;color:#64748b;margin-bottom:6px;"></div>
   <div id="pra-con"></div>
 </div>
 
@@ -1046,6 +1072,7 @@ function login(){
   // Track session start time
   window._sessionStart=new Date();
   renderNav();showSection(s.isAdmin?'director':(s.sections[0]||'reception'));
+  _startAlertPolling(); // Begin cross-device alert polling
 }
 
 function renderNav(){
@@ -2351,8 +2378,20 @@ function printFooter(){
   </div>`;
 }
 function doPrint(){
+  // Temporarily make pra visible so QRCode canvas can render (hidden=0 size)
+  const pra = document.getElementById('pra');
+  pra.style.display = 'block';
+  pra.style.position = 'fixed';
+  pra.style.left = '-9999px';
+  pra.style.top = '0';
   generateQR('qr-print', getQRUrl());
-  setTimeout(()=>window.print(), 400);
+  setTimeout(()=>{
+    pra.style.display = '';
+    pra.style.position = '';
+    pra.style.left = '';
+    pra.style.top = '';
+    window.print();
+  }, 500);
 }
 
 // ══════════════════════════════════════════════
@@ -2431,7 +2470,15 @@ function toggleVoice(){
   const b = document.getElementById('voice-badge');
   if(b){ b.innerText = voiceEnabled ? '🔊 Voice' : '🔇 Voice'; b.style.opacity = voiceEnabled ? '1' : '.5'; }
 }
+// Cross-device alert tracking
+let _lastHeardAlertId = null;
+
 function speak(text){
+  _speakLocal(text);
+  _broadcastAlert(text);
+}
+
+function _speakLocal(text){
   if(!voiceEnabled || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
@@ -2440,6 +2487,49 @@ function speak(text){
   const eng = voices.find(v => v.lang.startsWith('en') && !v.name.includes('Google'));
   if(eng) u.voice = eng;
   window.speechSynthesis.speak(u);
+}
+
+async function _broadcastAlert(text){
+  if(!currentUser) return;
+  try{
+    // Store alert in JSONBin alongside main data
+    const alertId = Date.now().toString();
+    const alert = {id:alertId, text, by:currentUser.name, ts:new Date().toISOString()};
+    // Update just the pendingAlert field via PATCH
+    await fetch(`${API}`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},
+      body:JSON.stringify({pendingAlert:alert})
+    });
+    _lastHeardAlertId = alertId; // so this device doesn't replay its own alert
+  }catch(e){ /* silent - alert still played locally */ }
+}
+
+// Poll for cross-device alerts every 5 seconds
+let _alertPollInterval = null;
+function _startAlertPolling(){
+  if(_alertPollInterval) return;
+  _alertPollInterval = setInterval(async()=>{
+    if(!currentUser || !voiceEnabled) return;
+    try{
+      const r = await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
+      const j = await r.json();
+      const alert = j.record?.pendingAlert;
+      if(alert && alert.id && alert.id !== _lastHeardAlertId){
+        // Check it's recent (within last 10 seconds)
+        const age = Date.now() - new Date(alert.ts).getTime();
+        if(age < 10000){
+          _lastHeardAlertId = alert.id;
+          _speakLocal(alert.text);
+        } else {
+          _lastHeardAlertId = alert.id; // Mark old alerts as seen without speaking
+        }
+      }
+    }catch(e){ /* silent */ }
+  }, 5000);
+}
+function _stopAlertPolling(){
+  if(_alertPollInterval){ clearInterval(_alertPollInterval); _alertPollInterval=null; }
 }
 
 // ══════════════════════════════════════════════
@@ -2653,6 +2743,67 @@ if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.
     const btn = document.getElementById('pwa-install-btn');
     if (btn) btn.style.display = 'none';
   });
+}
+
+// ══════════════════════════════════════════════
+//  DIRECTOR: DELETE VISIT / PATIENT
+// ══════════════════════════════════════════════
+function deleteVisit(vid){
+  const v=visits.find(x=>x.id===vid);if(!v)return;
+  if(!confirm(`⚠️ DELETE visit for "${v.name}" on ${v.date}?\n\nThis will permanently remove this visit record.\n\nThis action CANNOT be undone.`))return;
+  visits=visits.filter(x=>x.id!==vid);
+  save();
+  renderDirRecords();
+  alert('Visit deleted.');
+}
+function deletePatient(pid){
+  const p=patients.find(x=>x.id===pid);if(!p)return;
+  const pv=visits.filter(x=>x.patId===pid);
+  if(!confirm(`⚠️ DELETE patient "${p.name}"?\n\nThis will also delete ${pv.length} visit record(s).\n\nThis action CANNOT be undone.`))return;
+  patients=patients.filter(x=>x.id!==pid);
+  visits=visits.filter(x=>x.patId!==pid);
+  save();
+  renderDirRecords();
+  alert('Patient and all visits deleted.');
+}
+function renderDirRecords(){
+  const search=(document.getElementById('dir-rec-search')?.value||'').toLowerCase();
+  const mode=document.getElementById('dir-rec-mode')?.value||'visits';
+  const tbody=document.getElementById('dir-rec-table');
+  const thead=document.getElementById('dir-rec-head');
+  if(!tbody)return;
+  if(thead){
+    thead.innerHTML=mode==='visits'
+      ?'<tr><th>Name</th><th>Date</th><th>Status</th><th>Type</th><th>Billing</th><th>Diagnosis</th><th>Action</th></tr>'
+      :'<tr><th>Name</th><th>Age/Gender</th><th>Phone</th><th>Visits</th><th>Action</th></tr>';
+  }
+  if(mode==='visits'){
+    let rows=visits.filter(v=>v.name.toLowerCase().includes(search)||v.date.includes(search)||v.id.includes(search));
+    rows.sort((a,b)=>new Date(b.date)-new Date(a.date));
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="7" class="emp">No visits found</td></tr>';return;}
+    tbody.innerHTML=rows.map(v=>`<tr>
+      <td><b>${v.name}</b></td>
+      <td>${v.date}</td>
+      <td><span class="badge bgr" style="font-size:10px;">${(v.status||'').replace(/_/g,' ')}</span></td>
+      <td>${v.consultType||'—'}</td>
+      <td>$${(v.totalPaid||0).toFixed(2)} / $${totalBill(v).toFixed(2)}</td>
+      <td>${v.clinical?.finalDx||'—'}</td>
+      <td><button class="bsm bd2" onclick="deleteVisit('${v.id}')">🗑 Delete</button></td>
+    </tr>`).join('');
+  } else {
+    let rows=patients.filter(p=>p.name.toLowerCase().includes(search)||p.id.includes(search));
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="5" class="emp">No patients found</td></tr>';return;}
+    tbody.innerHTML=rows.map(p=>{
+      const pv=visits.filter(x=>x.patId===p.id);
+      return`<tr>
+        <td><b>${p.name}</b></td>
+        <td>${p.ageVal} ${p.ageUnit} / ${p.gender}</td>
+        <td>${p.phone||'—'}</td>
+        <td>${pv.length} visit(s)</td>
+        <td><button class="bsm bd2" onclick="deletePatient('${p.id}')">🗑 Delete</button></td>
+      </tr>`;
+    }).join('');
+  }
 }
 </script>
 
