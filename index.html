@@ -1095,7 +1095,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
         const secId=activeSec.id.replace('sec-','');
         if(secId==='doctor')renderCons();
         else if(secId==='nurse'){renderTriage();renderTreatList();}
-        else if(secId==='lab')renderLab();
+        else if(secId==='lab'){const labEntryOpen=document.getElementById('lab-entry')?.style.display==='block';if(!labEntryOpen)renderLab();}
         else if(secId==='pharmacy')renderPharm();
         else if(secId==='radiology')renderRad();
         else if(secId==='billing')renderBilling();
