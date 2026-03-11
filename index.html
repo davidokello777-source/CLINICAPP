@@ -905,7 +905,11 @@ let allLabTests=[...LAB_TESTS];
 // ══════════════════════════════════════════════
 async function loadData(){
   try{
-    const r=await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
+    const ctrl=new AbortController();
+    const tout=setTimeout(()=>ctrl.abort(),8000); // 8s timeout
+    let r;
+    try{ r=await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK},signal:ctrl.signal}); }
+    finally{ clearTimeout(tout); }
     const j=await r.json();const d=j.record||{};
     patients  = d.patients  ||[];
     visits    = d.visits    ||[];
@@ -1064,7 +1068,13 @@ function lg(v,act,val=''){if(!v.timeline)v.timeline=[];v.timeline.push({act,val,
 //  INIT
 // ══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',async()=>{
+  // Safety net: always show login after 12s even if fetch hangs
+  const safetyTimer=setTimeout(()=>{
+    document.getElementById('ls').style.display='none';
+    document.getElementById('lp').style.display='flex';
+  },12000);
   await loadData();
+  clearTimeout(safetyTimer);
   document.getElementById('ls').style.display='none';
   document.getElementById('lp').style.display='flex';
   // Auto-refresh data every 30s when logged in (keeps doctor queue live)
