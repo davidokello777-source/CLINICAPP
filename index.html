@@ -1083,6 +1083,9 @@ window.addEventListener('DOMContentLoaded',async()=>{
     // Do NOT refresh if a doctor has a patient open - avoids disrupting active consultation
     const consFormOpen = document.getElementById('cons-form')?.style.display === 'block';
     if(consFormOpen) return;
+    // Do NOT refresh if lab tech is entering results - avoids wiping the form and race-condition on save
+    const labEntryOpen = document.getElementById('lab-entry')?.style.display === 'block';
+    if(labEntryOpen) return;
     try{
       const r=await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
       const j=await r.json();const d=j.record||{};
@@ -1095,7 +1098,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
         const secId=activeSec.id.replace('sec-','');
         if(secId==='doctor')renderCons();
         else if(secId==='nurse'){renderTriage();renderTreatList();}
-        else if(secId==='lab'){const labEntryOpen=document.getElementById('lab-entry')?.style.display==='block';if(!labEntryOpen)renderLab();}
+        else if(secId==='lab')renderLab();
         else if(secId==='pharmacy')renderPharm();
         else if(secId==='radiology')renderRad();
         else if(secId==='billing')renderBilling();
