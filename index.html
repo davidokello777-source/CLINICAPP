@@ -2524,12 +2524,12 @@ function renderAdminPatients(){
 function adminDeletePatient(pid){
   const p=patients.find(x=>x.id===pid);if(!p)return;
   const pv=visits.filter(x=>x.patId===pid);
-  if(!confirm(\`⚠️ DELETE patient "${p.name}"?\n\nThis will also permanently delete ${pv.length} visit record(s).\n\nThis action CANNOT be undone.\`))return;
-  if(!confirm(\`Second confirmation: permanently delete "${p.name}" and all their records?\`))return;
+  if(!confirm(`⚠️ DELETE patient "${p.name}"?\n\nThis will also permanently delete ${pv.length} visit record(s).\n\nThis action CANNOT be undone.`))return;
+  if(!confirm(`Second confirmation: permanently delete "${p.name}" and all their records?`))return;
   patients=patients.filter(x=>x.id!==pid);
   visits=visits.filter(x=>x.patId!==pid);
   save();renderAdminPatients();
-  alert(\`${p.name} and ${pv.length} visit(s) deleted.\`);
+  alert(`${p.name} and ${pv.length} visit(s) deleted.`);
 }
 function oStaffModal(id){
   const s=id?staffList.find(x=>x.id===id):null;
