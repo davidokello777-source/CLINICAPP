@@ -374,10 +374,32 @@ document.addEventListener("DOMContentLoaded", function(){
         <div class="card"><h4 style="margin-bottom:8px;">📦 Stock Value by Category</h4><table id="d-stockval"></table></div>
         <div class="card"><h4 style="margin-bottom:8px;">⚠ Low Stock Alerts</h4><table id="d-lowstock"></table></div>
       </div>
+      <!-- Revenue by Department -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+          <h4 style="margin:0;">💹 Revenue by Department</h4>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <label style="margin:0;font-size:11px;">Month:</label>
+            <input type="month" id="dept-rev-month" style="width:auto;margin:0;font-size:12px;" onchange="buildDeptRevChart()">
+          </div>
+        </div>
+        <div class="g2">
+          <div style="position:relative;height:220px;"><canvas id="ch-dept-rev"></canvas></div>
+          <table id="dept-rev-table" style="font-size:13px;"></table>
+        </div>
+      </div>
     </section>
 
     <!-- RECEPTION -->
     <section id="sec-reception">
+      <!-- Follow-ups Due Panel -->
+      <div id="followup-panel" class="card" style="margin-bottom:12px;border-left:4px solid var(--w);display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <h4 style="margin:0;color:var(--w);">📅 Follow-ups Due</h4>
+          <span id="followup-count" style="background:#fef3c7;color:#92400e;padding:2px 9px;border-radius:10px;font-size:12px;font-weight:700;"></span>
+        </div>
+        <table id="followup-table" style="font-size:13px;"></table>
+      </div>
       <div class="card">
         <h3 style="margin-bottom:11px;">Patient Registration</h3>
         <div class="g">
@@ -496,7 +518,15 @@ document.addEventListener("DOMContentLoaded", function(){
           </div>
           <div id="c-hist" style="background:var(--lt);border-left:3px solid var(--s);padding:8px 12px;border-radius:5px;margin-bottom:12px;font-size:12px;max-height:100px;overflow-y:auto;"></div>
           <!-- Vitals summary -->
-          <div id="c-vitals" style="display:none;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:6px;padding:9px;margin-bottom:12px;font-size:13px;"></div>
+          <div id="c-vitals" style="display:none;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:6px;padding:9px;margin-bottom:8px;font-size:13px;"></div>
+          <!-- Vitals trend chart -->
+          <div id="vitals-trend-wrap" style="display:none;background:#fff;border:1.5px solid #bfdbfe;border-radius:7px;padding:10px;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;">📈 Vitals Trend — Last 8 Visits</span>
+              <span style="font-size:11px;color:var(--mu);" id="vitals-trend-label"></span>
+            </div>
+            <div style="position:relative;height:160px;"><canvas id="vitals-trend-chart"></canvas></div>
+          </div>
           <!-- Lab results -->
           <div id="lab-res-panel" style="display:none;margin-bottom:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -557,6 +587,31 @@ document.addEventListener("DOMContentLoaded", function(){
           </div>
           <!-- Order Summary -->
           <div class="osum"><h5>📋 Current Visit Bill</h5><div id="order-sum-body"><div class="emp">No orders yet.</div></div></div>
+          <!-- Allergy Warning Banner -->
+          <div id="allergy-banner" style="display:none;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:7px;padding:9px 13px;margin-bottom:8px;font-size:13px;color:#92400e;"></div>
+          <!-- Vitals Trend Chart -->
+          <div id="vitals-trend-wrap" style="display:none;margin-bottom:10px;">
+            <div class="card" style="padding:10px;margin-bottom:0;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <h5 style="margin:0;color:var(--p);font-size:12px;text-transform:uppercase;letter-spacing:.04em;">📈 Vitals History — Last Visits</h5>
+                <div style="display:flex;gap:5px;">
+                  <button class="bsm bo" onclick="switchVitalChart('bp')" id="vct-bp">BP</button>
+                  <button class="bsm bo" onclick="switchVitalChart('temp')" id="vct-temp">Temp</button>
+                  <button class="bsm bo" onclick="switchVitalChart('weight')" id="vct-weight">Weight</button>
+                  <button class="bsm bo" onclick="switchVitalChart('pulse')" id="vct-pulse">Pulse</button>
+                </div>
+              </div>
+              <div style="position:relative;height:160px;"><canvas id="vitals-chart"></canvas></div>
+            </div>
+          </div>
+          <!-- Follow-up Return Date -->
+          <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:7px;padding:10px 13px;margin-bottom:8px;">
+            <label style="margin:0 0 5px;color:var(--p);">📅 Follow-up Return Date</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input type="date" id="c-return-date" style="width:auto;margin:0;font-size:13px;">
+              <input id="c-return-note" placeholder="Instructions for patient (optional)" style="flex:1;margin:0;font-size:13px;min-width:180px;">
+            </div>
+          </div>
           <!-- Actions -->
           <div class="ab" id="cons-actions"></div>
         </div>
@@ -704,7 +759,9 @@ document.addEventListener("DOMContentLoaded", function(){
             <div><label>Unit</label><select id="invUnit"><option>Tablets</option><option>Capsules</option><option>Vials</option><option>Ampoules</option><option>Bottles</option><option>Sachets</option><option>Strips</option><option>Bags</option><option>Tubes</option><option>Inhalers</option><option>Boxes</option><option>Units</option></select></div>
           </div>
           <div class="g2"><div><label>Batch No.</label><input id="invBatch" placeholder="Optional"></div><div><label>Expiry Date</label><input type="month" id="invExpiry"></div></div>
-          <label>Supplier</label><input id="invSupplier" placeholder="Optional">
+          <label>Supplier (Link to Supplier)</label>
+          <select id="invSupplierLink" style="margin-bottom:4px;"><option value="">— Not linked to a supplier —</option></select>
+          <input id="invSupplier" placeholder="Or type free-text supplier name (optional)">
           <div class="ab"><button onclick="saveInvItem()" class="ba">Save</button><button onclick="cModal('inv-add-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
         </div>
       </div>
@@ -723,6 +780,20 @@ document.addEventListener("DOMContentLoaded", function(){
         <button class="st" onclick="fExp('month',this)">This Month</button>
       </div>
       <div class="card" style="padding:9px;"><table id="table-exp"></table></div>
+      <!-- Revenue by Dept (Finance/Admin view) -->
+      <div class="card" style="margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+          <h4 style="margin:0;">💹 Revenue by Department</h4>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <label style="margin:0;font-size:11px;">Month:</label>
+            <input type="month" id="dept-rev-month-exp" style="width:auto;margin:0;font-size:12px;" onchange="buildDeptRevChartExp()">
+          </div>
+        </div>
+        <div class="g2">
+          <div style="position:relative;height:220px;"><canvas id="ch-dept-rev-exp"></canvas></div>
+          <table id="dept-rev-table-exp" style="font-size:13px;"></table>
+        </div>
+      </div>
       <div id="exp-modal" class="mo">
         <div class="mb" style="max-width:480px;">
           <button class="mc" onclick="cModal('exp-modal')">✕</button>
@@ -1059,14 +1130,14 @@ const DOSAGE_OPTS=[
   'Stat (single dose)','Every other day','Once weekly','Before meals','After meals','With meals','Stat then OD',
 ];
 
-const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','expenses'];
-const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',expenses:'Expenses'};
+const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','suppliers','expenses'];
+const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',suppliers:'Suppliers',expenses:'Expenses'};
 const CONSULT_FEE=10;
 
 // ══════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════
-let patients=[],visits=[],inventory=[],staffList=[],expenses=[];
+let patients=[],visits=[],inventory=[],staffList=[],expenses=[],suppliers=[];
 // logo embedded in printHeader()
 let currentUser=null,activeVid=null,activePayVid=null;
 let radRowId=0,medRowId=0,radRows=[],medRows=[];
@@ -1101,6 +1172,7 @@ async function loadData(){
       staffList = initStaff();
     }
     expenses  = d.expenses  ||[];
+    suppliers = d.suppliers  ||[];
     if(d.labTests&&d.labTests.length) window._labTests=[...d.labTests]; else window._labTests=[...LAB_TESTS];
     if(d.radProcs&&d.radProcs.length) window._radProcs=[...d.radProcs]; else window._radProcs=[...RADIOLOGY_PROCS];
     window.feedbacks = d.feedbacks || [];
@@ -1110,7 +1182,7 @@ async function loadData(){
     if(!patients.length && !visits.length){
       patients=[];visits=[];expenses=[];
       inventory=initInv();staffList=initStaff();
-      window._labTests=[...LAB_TESTS];window._radProcs=[...RADIOLOGY_PROCS];
+      window._labTests=[...LAB_TESTS];window._radProcs=[...RADIOLOGY_PROCS];suppliers=[];
     }
   }
 }
@@ -1241,7 +1313,7 @@ function save(){
   si('Saving…');
   saveTimer=setTimeout(async()=>{
     try{
-      await fetch(API,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},body:JSON.stringify({patients,visits,inventory,staffList,expenses,feedbacks:window.feedbacks||[],labTests:window._labTests||LAB_TESTS,radProcs:window._radProcs||RADIOLOGY_PROCS,...(window._pendingAlertOut?{pendingAlert:window._pendingAlertOut}:{})})});
+      await fetch(API,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},body:JSON.stringify({patients,visits,inventory,staffList,expenses,feedbacks:window.feedbacks||[],labTests:window._labTests||LAB_TESTS,radProcs:window._radProcs||RADIOLOGY_PROCS,suppliers,...(window._pendingAlertOut?{pendingAlert:window._pendingAlertOut}:{})})});
       si('Saved ✓',true); window._pendingAlertOut=null;
     }catch(e){si('Save failed ✗');}
   },1200);
@@ -1319,7 +1391,7 @@ function login(){
 function renderNav(){
   const secs=currentUser.isAdmin?['director',...ALL_SECS,'admin','feedbacks']:(currentUser.sections||[]);
   const lbl={director:'Dashboard',...SEC_LABELS,admin:'Admin',feedbacks:'Feedback'};
-  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',expenses:'💰',admin:'⚙️',feedbacks:'⭐'};
+  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',suppliers:'🏪',expenses:'💰',admin:'⚙️',feedbacks:'⭐'};
   document.getElementById('dn').innerHTML=secs.map(s=>`<button id="btn-${s}" class="nb" onclick="showSection('${s}')">${icons[s]||'•'} ${lbl[s]||s.toUpperCase()}</button>`).join('');
 }
 
@@ -1329,7 +1401,7 @@ function showSection(id){
   document.getElementById('sec-'+id)?.classList.add('active');
   document.getElementById('btn-'+id)?.classList.add('active');
   ({
-    director:renderDash,reception:renderPatients,
+    director:renderDash,reception:()=>{renderPatients();renderFollowups();},suppliers:renderSuppliers,
     nurse:()=>{renderTriage();renderTreatList();},
     doctor:renderCons,billing:()=>renderBilling(),
     lab:()=>renderLab(),pharmacy:()=>renderPharm(),
@@ -1358,7 +1430,7 @@ function renderDash(){
   document.getElementById('d-labs').innerText=labsToday;
   document.getElementById('d-disc').innerText=tv.filter(v=>v.status==='DISCHARGED').length;
   buildRevExpChart();buildVisitsChart();buildDebtChart();buildLabChart();
-  buildStockValTable();buildLowStockTable();
+  buildStockValTable();buildLowStockTable();buildDeptRevChart();
 }
 
 function getLast7Days(){
@@ -1750,6 +1822,8 @@ function viewVisitRecord(vid){
     document.getElementById('c-vitals').style.display='block';
     document.getElementById('c-vitals').innerHTML=`<b>Vitals (${vt.time}):</b> ${[vt.bp?'BP:'+vt.bp:'',vt.temp?'T:'+vt.temp+'°C':'',vt.weight?'Wt:'+vt.weight+'kg':'',vt.height?'Ht:'+vt.height+'cm':'',vt.pulse?'PR:'+vt.pulse:'',vt.spo2?'SpO2:'+vt.spo2+'%':'',vt.rr?'RR:'+vt.rr:''].filter(Boolean).join(' | ')}${vt.weight&&vt.height?' | BMI:'+(vt.weight/((vt.height/100)*(vt.height/100))).toFixed(1):''}`;
   }else{document.getElementById('c-vitals').style.display='none';}
+  // Vitals trend chart
+  buildVitalsTrendChart(v.patId);
   document.getElementById('ogBlock').style.display=(p&&p.gender==='Female')?'block':'none';
   const cl=v.clinical||{};
   [{id:'hPC',k:'pc'},{id:'hHPC',k:'hpc'},{id:'hPMH',k:'pmh'},{id:'hOG',k:'obsGyn'},{id:'hFSH',k:'fsh'},{id:'hDrug',k:'drugHx'},{id:'cDiffDx',k:'diffDx'},{id:'cFinalDx',k:'finalDx'},{id:'cNotes',k:'notes'}].forEach(({id,k})=>{const el=document.getElementById(id);if(el){el.value=cl[k]||'';el.disabled=true;}});
@@ -1757,7 +1831,9 @@ function viewVisitRecord(vid){
   document.getElementById('hGP').value=cl.gravPara||''; document.getElementById('hGP').disabled=true;
   document.getElementById('hAllergy').value=cl.allergies||''; document.getElementById('hAllergy').disabled=true;
   ['hPEGeneral','hPEHead','hPEChest','hPECVS','hPEAbdomen','hPECNS','hPEExtremities','hPESkin','hPEOther'].forEach(id=>{const el=document.getElementById(id);if(el){el.value=cl[id.replace('hPE','pe').replace(/^pe/,'pe').toLowerCase()]||cl['pe'+id.replace('hPE','')]||'';el.disabled=true;}});
-  document.getElementById('cRecommendations').value=cl.recommendations||''; document.getElementById('cRecommendations').disabled=true;
+  document.getElementById('cRecommendations').value=cl.recommendations||'';
+  const rdEl=document.getElementById('c-return-date');if(rdEl)rdEl.value=cl.returnDate||'';
+  const rnEl=document.getElementById('c-return-note');if(rnEl)rnEl.value=cl.returnNote||''; document.getElementById('cRecommendations').disabled=true;
   const labsWithRes=(v.labs||[]).filter(l=>l.done);
   const radWithRes=(v.radiology||[]).filter(r=>r.done);
   document.getElementById('lab-res-panel').style.display=labsWithRes.length?'block':'none';
@@ -1866,13 +1942,14 @@ function openCons(id){
   // Med rows
   medRows=(v.prescriptions||[]).map((r,i)=>({id:i,rxId:r.id,locked:r.dispensed}));medRowId=medRows.length;
   renderMedRows();
+  checkAllergyAlert(v);
   // Clear search boxes
   document.getElementById('lab-search').value='';document.getElementById('med-search').value='';
   document.getElementById('drug-results').style.display='none';
   updateOrderSummary(v);
   // Actions
   const ab=document.getElementById('cons-actions');
-  ab.innerHTML=`<button onclick="saveClinical()" style="background:#475569;color:#fff;font-weight:600;">💾 Save Notes</button><button onclick="openAdmit()" class="bpu">🛏 Admit</button><button onclick="printPatientReport()" class="bo bsm">📄 Print Report PDF</button><button onclick="endVisit()" class="bd2" style="padding:6px 12px;font-size:13px;">✓ End Visit</button>`;
+  ab.innerHTML=`<button onclick="saveClinical()" style="background:#475569;color:#fff;font-weight:600;">💾 Save Notes</button><button onclick="openAdmit()" class="bpu">🛏 Admit</button><button onclick="printPatientReport()" class="bo bsm">📄 Print Report</button><button onclick="printDischargeSummary()" class="bo bsm" style="border-color:#10b981;color:#10b981;">📋 Discharge Summary</button><button onclick="endVisit()" class="bd2" style="padding:6px 12px;font-size:13px;">✓ End Visit</button>`;
   document.getElementById('queue-list-card').style.display='none';
   document.getElementById('cons-form').style.display='block';
   document.getElementById('cons-form').scrollIntoView({behavior:'smooth'});
@@ -1986,7 +2063,7 @@ function selectDrug(eName,eStr,eForm,price,eDrugClass){
   lg(v,'Prescribed',`${name} ${strength} ${form}`);
   if((v.prescriptions||[]).length===1)speak(`Attention pharmacy. Prescription ready for patient ${v.name}.`);
   document.getElementById('med-search').value='';document.getElementById('drug-results').style.display='none';
-  renderMedRows();save();updateOrderSummary(v);
+  renderMedRows();save();updateOrderSummary(v);checkAllergyAlert(v);
 }
 
 function addMedRow(){
@@ -2097,6 +2174,8 @@ function saveClinical(){
   v.clinical.allergies=document.getElementById('hAllergy').value;v.clinical.diffDx=document.getElementById('cDiffDx').value;
   v.clinical.finalDx=document.getElementById('cFinalDx').value;v.clinical.notes=document.getElementById('cNotes').value;
   v.clinical.recommendations=document.getElementById('cRecommendations').value;
+  v.clinical.returnDate=document.getElementById('c-return-date')?.value||'';
+  v.clinical.returnNote=document.getElementById('c-return-note')?.value||'';
   v.clinical.peGeneral=document.getElementById('hPEGeneral').value;v.clinical.peHead=document.getElementById('hPEHead').value;
   v.clinical.peChest=document.getElementById('hPEChest').value;v.clinical.peCVS=document.getElementById('hPECVS').value;
   v.clinical.peAbdomen=document.getElementById('hPEAbdomen').value;v.clinical.peCNS=document.getElementById('hPECNS').value;
@@ -2773,6 +2852,8 @@ function editInv(id){
   if(document.getElementById('invSection'))document.getElementById('invSection').value=i.invSection||'general';
   document.getElementById('invBatch').value='';document.getElementById('invExpiry').value=i.expiry||'';document.getElementById('invSupplier').value='';
   oModal('inv-add-modal');
+  // Restore supplier link after dropdown is populated
+  setTimeout(()=>{const sl=document.getElementById('invSupplierLink');if(sl&&i.supplierId)sl.value=i.supplierId;},50);
 }
 function restockInv(id){
   const i=inventory.find(x=>x.id===id);if(!i)return;
@@ -2792,11 +2873,12 @@ function saveInvItem(){
     i.name=name;i.category=document.getElementById('invCat').value;i.drugClass=document.getElementById('invClass').value;
     i.formulation=document.getElementById('invForm').value;i.strength=document.getElementById('invStrength').value;
     i.invSection=document.getElementById('invSection')?.value||i.invSection||'general';
+    i.supplierId=document.getElementById('invSupplierLink')?.value||i.supplierId||'';
     i.price=price;i.unit=document.getElementById('invUnit').value;i.reorderLevel=reorder;
     if(document.getElementById('invExpiry').value)i.expiry=document.getElementById('invExpiry').value;
     if(qty>0){i.stock+=qty;i.history=i.history||[];i.history.push(histEntry);}
   }else{
-    inventory.push({id:'I-'+Date.now().toString().slice(-6),name,category:document.getElementById('invCat').value,drugClass:document.getElementById('invClass').value,formulation:document.getElementById('invForm').value,strength:document.getElementById('invStrength').value,invSection:document.getElementById('invSection')?.value||'general',stock:qty,unit:document.getElementById('invUnit').value,price,reorderLevel:reorder,expiry:document.getElementById('invExpiry').value||'',history:histEntry?[histEntry]:[]});
+    inventory.push({id:'I-'+Date.now().toString().slice(-6),name,category:document.getElementById('invCat').value,drugClass:document.getElementById('invClass').value,formulation:document.getElementById('invForm').value,strength:document.getElementById('invStrength').value,invSection:document.getElementById('invSection')?.value||'general',supplierId:document.getElementById('invSupplierLink')?.value||'',stock:qty,unit:document.getElementById('invUnit').value,price,reorderLevel:reorder,expiry:document.getElementById('invExpiry').value||'',history:histEntry?[histEntry]:[]});
   }
   save();cModal('inv-add-modal');renderInventory();document.getElementById('invEditId').value='';
 }
@@ -3231,7 +3313,17 @@ function payBadge(v){
   const l={PENDING:'⚠ UNPAID',PARTIAL:'💳 PARTIAL',PAID:'✓ PAID'};
   return`<span class="pb" style="${m[bs]}">${l[bs]}</span>`;
 }
-function oModal(id){document.getElementById(id)?.classList.add('open');}
+function oModal(id){
+  document.getElementById(id)?.classList.add('open');
+  if(id==='inv-add-modal'){
+    const sel=document.getElementById('invSupplierLink');
+    if(sel){sel.innerHTML='<option value="">— Not linked to a supplier —</option>'+(suppliers||[]).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');}
+  }
+  if(id==='sup-po-modal'){
+    const d=document.getElementById('poDate');
+    if(d&&!d.value)d.value=new Date().toISOString().split('T')[0];
+  }
+}
 function cModal(id){document.getElementById(id)?.classList.remove('open');}
 function enc(s){return encodeURIComponent(s);}
 function dec(s){return decodeURIComponent(s);}
@@ -3321,6 +3413,349 @@ function addRadProc(){
   document.getElementById('new-rad-name').value='';
   document.getElementById('new-rad-price').value='';
   save();renderRadProcsEditor();
+}
+
+// ══════════════════════════════════════════════
+//  FEATURE 3: FOLLOW-UP SCHEDULING
+// ══════════════════════════════════════════════
+function renderFollowups(){
+  const today=new Date();today.setHours(0,0,0,0);
+  const due=[];
+  visits.forEach(v=>{
+    const rd=(v.clinical||{}).returnDate;
+    if(!rd)return;
+    const d=new Date(rd);d.setHours(0,0,0,0);
+    if(d<=today)due.push({v,d,overdue:d<today});
+  });
+  due.sort((a,b)=>a.d-b.d);
+  const panel=document.getElementById('followup-panel');
+  const tbl=document.getElementById('followup-table');
+  const cnt=document.getElementById('followup-count');
+  if(!due.length){if(panel)panel.style.display='none';return;}
+  if(panel)panel.style.display='block';
+  if(cnt)cnt.textContent=due.length+' due';
+  if(!tbl)return;
+  let h=`<tr><th>Patient</th><th>Return Date</th><th>Status</th><th>Doctor's Note</th><th>Action</th></tr>`;
+  due.forEach(({v,d,overdue})=>{
+    const days=Math.round((today-d)/(1000*60*60*24));
+    const badge=overdue
+      ?`<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">⚠ ${days}d overdue</span>`
+      :`<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">Due today</span>`;
+    const note=(v.clinical||{}).returnNote||'—';
+    h+=`<tr>
+      <td><b>${v.name}</b><br><span style="font-size:11px;color:var(--mu);">${v.date}</span></td>
+      <td>${(v.clinical||{}).returnDate||'—'}</td>
+      <td>${badge}</td>
+      <td style="font-size:12px;color:var(--mu);">${note}</td>
+      <td><button class="bsm ba" onclick="startVisitFromFollowup('${v.patId}','${enc(v.name)}')">+ New Visit</button></td>
+    </tr>`;
+  });
+  tbl.innerHTML=h;
+}
+
+function startVisitFromFollowup(patId,eName){
+  const name=dec(eName);
+  if(confirm(`Start a new visit for ${name}?`))startVisit(patId,eName);
+}
+
+// ══════════════════════════════════════════════
+//  FEATURE 1: VITALS TRENDING CHART
+// ══════════════════════════════════════════════
+function buildVitalsTrendChart(patId){
+  const wrap=document.getElementById('vitals-trend-wrap');
+  const lbl=document.getElementById('vitals-trend-label');
+  if(!wrap)return;
+  const pvs=visits.filter(v=>v.patId===patId&&v.vitals).slice(-8);
+  if(pvs.length<2){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  if(lbl)lbl.textContent=pvs.length+' visits plotted';
+  const labels=pvs.map(v=>v.date);
+  const sysBP=pvs.map(v=>{const bp=(v.vitals.bp||'').split('/');return bp[0]?parseInt(bp[0]):null;});
+  const diaBP=pvs.map(v=>{const bp=(v.vitals.bp||'').split('/');return bp[1]?parseInt(bp[1]):null;});
+  const temp=pvs.map(v=>v.vitals.temp?parseFloat(v.vitals.temp):null);
+  const weight=pvs.map(v=>v.vitals.weight?parseFloat(v.vitals.weight):null);
+  const pulse=pvs.map(v=>v.vitals.pulse?parseFloat(v.vitals.pulse):null);
+  const ctx=document.getElementById('vitals-trend-chart');
+  if(!ctx)return;
+  if(charts['vitals-trend'])charts['vitals-trend'].destroy();
+  charts['vitals-trend']=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Systolic BP',data:sysBP,borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.08)',tension:.3,spanGaps:true,pointRadius:4},
+        {label:'Diastolic BP',data:diaBP,borderColor:'#f97316',backgroundColor:'rgba(249,115,22,.08)',tension:.3,spanGaps:true,pointRadius:4},
+        {label:'Pulse',data:pulse,borderColor:'#8b5cf6',backgroundColor:'rgba(139,92,246,.08)',tension:.3,spanGaps:true,pointRadius:4},
+        {label:'Temp (°C)',data:temp,borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,.08)',tension:.3,spanGaps:true,pointRadius:4,yAxisID:'y2'},
+        {label:'Weight (kg)',data:weight,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.08)',tension:.3,spanGaps:true,pointRadius:4,yAxisID:'y2'},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:12}}},
+      scales:{
+        y:{title:{display:true,text:'BP / Pulse',font:{size:10}}},
+        y2:{position:'right',title:{display:true,text:'Temp / Weight',font:{size:10}},grid:{drawOnChartArea:false}}
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════
+//  FEATURE 2: ALLERGY ALERT
+// ══════════════════════════════════════════════
+function checkAllergyAlert(v){
+  const allergies=(v.clinical||{}).allergies||'';
+  if(!allergies||allergies.toLowerCase()==='none'||allergies.toLowerCase()==='none known')return;
+  const allergyTerms=allergies.toLowerCase().split(/[,;\/\s]+/).filter(t=>t.length>2);
+  const flagged=(v.prescriptions||[]).filter(rx=>{
+    if(!rx.name)return false;
+    const nameLC=(rx.name+' '+(rx.drugClass||'')).toLowerCase();
+    return allergyTerms.some(t=>nameLC.includes(t));
+  });
+  let el=document.getElementById('allergy-alert-banner');
+  if(!el){
+    el=document.createElement('div');
+    el.id='allergy-alert-banner';
+    const medList=document.getElementById('med-orders-list');
+    if(medList&&medList.parentNode)medList.parentNode.insertBefore(el,medList);
+  }
+  if(!flagged.length){el.style.display='none';return;}
+  el.style.cssText='display:block;background:#fef9c3;border:2px solid #fbbf24;border-radius:7px;padding:10px 14px;margin-bottom:8px;font-size:13px;';
+  el.innerHTML=`<b>⚠️ Allergy Alert</b> — Patient recorded: <b style="color:#b45309;">${allergies}</b><br>
+    Possible conflict with: ${flagged.map(r=>`<b>${r.name}</b>`).join(', ')}<br>
+    <span style="font-size:11px;color:#92400e;">Review before prescribing. Doctor may proceed with caution.</span>`;
+}
+
+// ══════════════════════════════════════════════
+//  FEATURE 4: DISCHARGE SUMMARY PRINT
+// ══════════════════════════════════════════════
+function printDischargeSummary(vid){
+  const vId=vid||activeVid;
+  const v=visits.find(x=>x.id===vId);if(!v)return;
+  const p=patients.find(x=>x.id===v.patId);
+  const cl=v.clinical||{};
+  const isDraft=v.status!=='DISCHARGED';
+  const rxList=(v.prescriptions||[]).filter(r=>r.name);
+  const doctor=staffList.find(s=>s.sections&&s.sections.includes('doctor')&&v.cleared&&v.cleared.includes('Doctor'))||
+               staffList.find(s=>s.role&&s.role.toLowerCase().includes('doctor'))||{name:'Attending Physician'};
+  document.getElementById('pra-sub').innerText='';
+  document.getElementById('pra-con').innerHTML=printHeader(isDraft?'DISCHARGE SUMMARY (DRAFT)':'DISCHARGE SUMMARY')+`
+    ${isDraft?`<div style="background:#fef9c3;border:1.5px solid #fbbf24;border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:12px;font-weight:700;color:#92400e;">⚠ DRAFT — Visit not yet discharged. Summary reflects current state.</div>`:''}
+    <div style="margin-bottom:14px;background:#f8fafc;border-radius:6px;padding:10px 14px;font-size:13px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+        <div><b>Patient:</b> ${v.name}</div>
+        <div><b>Date of Visit:</b> ${v.date}</div>
+        <div><b>Age:</b> ${p?p.ageVal+' '+p.ageUnit:'—'}</div>
+        <div><b>Gender:</b> ${p?p.gender:'—'}</div>
+        <div><b>Phone:</b> ${p?p.phone||'—':'—'}</div>
+        <div><b>Discharge Date:</b> ${isDraft?'(Pending)':new Date().toLocaleDateString()}</div>
+      </div>
+    </div>
+    ${rxList.length?`
+    <div style="margin-bottom:14px;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;padding:5px 10px;background:#f0fdf4;border-left:4px solid #10b981;">💊 MEDICATIONS TO TAKE HOME</div>
+      <table class="pit">
+        <tr><th>Medication</th><th>Strength</th><th>Form</th><th>Qty</th><th>Frequency</th><th>Duration</th><th>Instructions</th></tr>
+        ${rxList.map(r=>`<tr><td><b>${r.name}</b></td><td>${r.strength||'—'}</td><td>${r.formulation||'—'}</td><td>${r.qty}</td><td>${r.instructions||'—'}</td><td>${r.duration||'—'}</td><td>${r.patientInstructions||'—'}</td></tr>`).join('')}
+      </table>
+    </div>`:'<div style="margin-bottom:14px;font-size:13px;color:#64748b;">No take-home medications prescribed.</div>'}
+    <div style="margin-bottom:14px;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;padding:5px 10px;background:#eff6ff;border-left:4px solid #3b82f6;">📋 FOLLOW-UP INSTRUCTIONS</div>
+      <div style="font-size:13px;padding:8px 12px;border:1px solid #e2e8f0;border-radius:5px;min-height:50px;">
+        ${cl.recommendations||cl.notes||'No specific follow-up instructions recorded.'}
+      </div>
+    </div>
+    ${cl.returnDate?`
+    <div style="margin-bottom:14px;background:#fef9c3;border:1.5px solid #fbbf24;border-radius:6px;padding:10px 14px;font-size:13px;">
+      <b>📅 Return Date:</b> ${cl.returnDate}
+      ${cl.returnNote?`<br><b>Note:</b> ${cl.returnNote}`:''}
+    </div>`:''}
+    <div style="margin-top:30px;display:grid;grid-template-columns:1fr 1fr;gap:20px;font-size:13px;">
+      <div>
+        <div style="border-top:1.5px solid #334155;padding-top:6px;margin-top:30px;">
+          <b>${doctor.name}</b><br>
+          <span style="color:#64748b;">${doctor.role||'Doctor'}</span><br>
+          <span style="color:#64748b;">Tali Medicals International</span>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Signature &amp; Date</div>
+      </div>
+      <div>
+        <div style="border-top:1.5px solid #334155;padding-top:6px;margin-top:30px;">
+          &nbsp;
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Patient / Guardian Signature</div>
+      </div>
+    </div>
+  `+printFooter();
+  doPrint();
+}
+
+// ══════════════════════════════════════════════
+//  FEATURE 5: SUPPLIER MANAGEMENT
+// ══════════════════════════════════════════════
+let activeSupId=null;
+
+function renderSuppliers(){
+  const q=(document.getElementById('sup-search')?.value||'').toLowerCase();
+  const list=suppliers.filter(s=>!q||(s.name+s.phone+s.email).toLowerCase().includes(q));
+  // Summary cards
+  const totalOwed=suppliers.reduce((s,sup)=>s+(sup.pos||[]).reduce((a,p)=>a+(p.amount-p.paid),0),0);
+  const totalPOs=suppliers.reduce((s,sup)=>s+(sup.pos||[]).length,0);
+  const sc=document.getElementById('sup-summary-cards');
+  if(sc)sc.innerHTML=`
+    <div class="sc" style="background:var(--p);"><div style="font-size:11px;opacity:.8;">Total Suppliers</div><h2 style="margin:3px 0;">${suppliers.length}</h2></div>
+    <div class="sc" style="background:#dc2626;"><div style="font-size:11px;opacity:.8;">Outstanding Balance</div><h2 style="margin:3px 0;">$${totalOwed.toFixed(2)}</h2></div>
+    <div class="sc" style="background:var(--a);"><div style="font-size:11px;opacity:.8;">Total POs</div><h2 style="margin:3px 0;">${totalPOs}</h2></div>
+    <div class="sc" style="background:var(--w);"><div style="font-size:11px;opacity:.8;">Items Linked</div><h2 style="margin:3px 0;">${inventory.filter(i=>i.supplierId).length}</h2></div>`;
+  let h=`<tr><th>Name</th><th>Phone</th><th>Email</th><th>Items</th><th>POs</th><th>Outstanding</th><th>Actions</th></tr>`;
+  if(!list.length)h+=`<tr><td colspan="7" class="emp">No suppliers found</td></tr>`;
+  list.forEach(s=>{
+    const items=inventory.filter(i=>i.supplierId===s.id).length;
+    const owed=(s.pos||[]).reduce((a,p)=>a+(p.amount-p.paid),0);
+    const owedStyle=owed>0?'color:#dc2626;font-weight:700;':'color:#10b981;font-weight:700;';
+    h+=`<tr>
+      <td><b>${s.name}</b>${s.notes?`<br><span style="font-size:11px;color:var(--mu);">${s.notes}</span>`:''}</td>
+      <td>${s.phone||'—'}</td><td>${s.email||'—'}</td>
+      <td><span style="background:#dbeafe;color:#1e40af;padding:1px 7px;border-radius:10px;font-size:11px;">${items} items</span></td>
+      <td>${(s.pos||[]).length}</td>
+      <td style="${owedStyle}">$${owed.toFixed(2)}</td>
+      <td><div style="display:flex;gap:4px;">
+        <button class="bsm ba" onclick="openSupDetail('${s.id}')">View</button>
+        <button class="bsm bo" onclick="editSupplier('${s.id}')">Edit</button>
+        <button class="bsm bd2" onclick="deleteSupplier('${s.id}')">🗑</button>
+      </div></td>
+    </tr>`;
+  });
+  document.getElementById('table-suppliers').innerHTML=h;
+}
+
+function openSupDetail(id){
+  activeSupId=id;
+  const s=suppliers.find(x=>x.id===id);if(!s)return;
+  document.getElementById('sup-detail-wrap').style.display='block';
+  document.getElementById('sup-detail-name').textContent=s.name;
+  document.getElementById('sup-detail-info').innerHTML=`
+    <span>📞 ${s.phone||'—'}</span> &nbsp;|&nbsp;
+    <span>✉ ${s.email||'—'}</span> &nbsp;|&nbsp;
+    <span>📍 ${s.address||'—'}</span>`;
+  // Items linked
+  const items=inventory.filter(i=>i.supplierId===id);
+  const il=document.getElementById('sup-items-list');
+  if(il)il.innerHTML=items.length
+    ?items.map(i=>`<span style="display:inline-block;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:12px;margin:2px;">${i.name} ${i.strength||''}</span>`).join('')
+    :`<span style="color:var(--mu);font-size:12px;">No inventory items linked to this supplier yet. Link items via the Inventory section Edit button.</span>`;
+  // PO table
+  const pos=s.pos||[];
+  let ph=`<tr><th>Date</th><th>Ref</th><th>Items</th><th>Total</th><th>Paid</th><th>Balance</th><th>Notes</th><th></th></tr>`;
+  if(!pos.length)ph+=`<tr><td colspan="8" class="emp">No purchase orders yet</td></tr>`;
+  pos.forEach((p,i)=>{
+    const bal=p.amount-p.paid;
+    ph+=`<tr>
+      <td>${p.date||'—'}</td><td>${p.ref||'—'}</td>
+      <td style="font-size:12px;">${p.items||'—'}</td>
+      <td>$${(p.amount||0).toFixed(2)}</td>
+      <td style="color:#10b981;">$${(p.paid||0).toFixed(2)}</td>
+      <td style="color:${bal>0?'#dc2626':'#10b981'};font-weight:700;">$${bal.toFixed(2)}</td>
+      <td style="font-size:11px;">${p.notes||'—'}</td>
+      <td><button class="bsm bd2" onclick="deletePO('${id}',${i})">🗑</button></td>
+    </tr>`;
+  });
+  document.getElementById('sup-po-table').innerHTML=ph;
+  // Balance bar
+  const totalAmt=pos.reduce((a,p)=>a+p.amount,0);
+  const totalPaid=pos.reduce((a,p)=>a+p.paid,0);
+  const totalOwed=totalAmt-totalPaid;
+  const bb=document.getElementById('sup-balance-bar');
+  if(bb)bb.innerHTML=`<b>Account Summary:</b> &nbsp; Total Ordered: <b>$${totalAmt.toFixed(2)}</b> &nbsp;|&nbsp; Total Paid: <b style="color:#10b981;">$${totalPaid.toFixed(2)}</b> &nbsp;|&nbsp; Outstanding: <b style="color:${totalOwed>0?'#dc2626':'#10b981'};">$${totalOwed.toFixed(2)}</b>`;
+  document.getElementById('sup-detail-wrap').scrollIntoView({behavior:'smooth'});
+}
+
+function saveSupplier(){
+  const name=document.getElementById('supName').value.trim();
+  if(!name)return alert('Supplier name is required.');
+  const id=document.getElementById('supEditId').value||'SUP-'+Date.now();
+  const existing=suppliers.find(s=>s.id===id);
+  const obj={id,name,phone:document.getElementById('supPhone').value.trim(),email:document.getElementById('supEmail').value.trim(),address:document.getElementById('supAddress').value.trim(),notes:document.getElementById('supNotes').value.trim(),pos:existing?existing.pos:[]};
+  if(existing)Object.assign(existing,obj);else suppliers.push(obj);
+  save();cModal('sup-add-modal');renderSuppliers();
+}
+
+function editSupplier(id){
+  const s=suppliers.find(x=>x.id===id);if(!s)return;
+  document.getElementById('supEditId').value=s.id;
+  document.getElementById('supName').value=s.name;
+  document.getElementById('supPhone').value=s.phone||'';
+  document.getElementById('supEmail').value=s.email||'';
+  document.getElementById('supAddress').value=s.address||'';
+  document.getElementById('supNotes').value=s.notes||'';
+  document.getElementById('sup-modal-title').textContent='Edit Supplier';
+  oModal('sup-add-modal');
+}
+
+function deleteSupplier(id){
+  const s=suppliers.find(x=>x.id===id);
+  if(!s||!confirm(`Delete supplier "${s.name}"? This cannot be undone.`))return;
+  suppliers=suppliers.filter(x=>x.id!==id);
+  inventory.forEach(i=>{if(i.supplierId===id)delete i.supplierId;});
+  save();renderSuppliers();
+  document.getElementById('sup-detail-wrap').style.display='none';
+}
+
+function savePO(){
+  const sid=activeSupId;
+  const s=suppliers.find(x=>x.id===sid);if(!s)return;
+  const amount=parseFloat(document.getElementById('poAmount').value)||0;
+  const paid=parseFloat(document.getElementById('poPaid').value)||0;
+  s.pos=s.pos||[];
+  s.pos.push({date:document.getElementById('poDate').value||new Date().toLocaleDateString(),ref:document.getElementById('poRef').value.trim(),items:document.getElementById('poItems').value.trim(),amount,paid,notes:document.getElementById('poNotes').value.trim(),by:currentUser.name});
+  save();cModal('sup-po-modal');openSupDetail(sid);renderSuppliers();
+}
+
+function deletePO(supId,idx){
+  const s=suppliers.find(x=>x.id===supId);if(!s||!confirm('Delete this purchase order?'))return;
+  s.pos.splice(idx,1);save();openSupDetail(supId);renderSuppliers();
+}
+
+// ══════════════════════════════════════════════
+//  FEATURE 6: REVENUE BY DEPARTMENT
+// ══════════════════════════════════════════════
+function buildDeptRevChart(){
+  const monthEl=document.getElementById('dept-rev-month');
+  const now=new Date();
+  const sel=monthEl?.value||`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  if(monthEl&&!monthEl.value)monthEl.value=sel;
+  const [yr,mo]=sel.split('-').map(Number);
+  const mvs=visits.filter(v=>{
+    const d=new Date(v.date);return d.getFullYear()===yr&&d.getMonth()+1===mo;
+  });
+  const depts={
+    Consultation:mvs.reduce((s,v)=>s+(v.consultFee||0),0),
+    Laboratory:mvs.reduce((s,v)=>s+(v.labs||[]).filter(l=>l.name).reduce((a,l)=>a+l.price,0),0),
+    Pharmacy:mvs.reduce((s,v)=>s+(v.prescriptions||[]).filter(r=>r.name).reduce((a,r)=>a+r.price*r.qty,0),0),
+    Radiology:mvs.reduce((s,v)=>s+(v.radiology||[]).filter(r=>r.name).reduce((a,r)=>a+r.price,0),0),
+  };
+  const labels=Object.keys(depts);
+  const data=Object.values(depts);
+  const total=data.reduce((a,b)=>a+b,0);
+  const colors=['#1e3a8a','#10b981','#f59e0b','#8b5cf6'];
+  const ctx=document.getElementById('ch-dept-rev');
+  if(!ctx)return;
+  if(charts['dept-rev'])charts['dept-rev'].destroy();
+  charts['dept-rev']=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{label:'Revenue ($)',data,backgroundColor:colors,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+  });
+  // Table
+  const tbl=document.getElementById('dept-rev-table');
+  if(!tbl)return;
+  let h=`<tr><th>Department</th><th>Revenue</th><th>% of Total</th></tr>`;
+  labels.forEach((l,i)=>{
+    const pct=total>0?((data[i]/total)*100).toFixed(1):0;
+    h+=`<tr><td><span style="display:inline-block;width:10px;height:10px;background:${colors[i]};border-radius:2px;margin-right:6px;"></span>${l}</td><td><b>$${data[i].toFixed(2)}</b></td><td>${pct}%</td></tr>`;
+  });
+  h+=`<tr style="font-weight:700;background:var(--lt);"><td>Total</td><td>$${total.toFixed(2)}</td><td>100%</td></tr>`;
+  tbl.innerHTML=h;
 }
 </script>
 
@@ -3573,6 +4008,80 @@ function renderDirRecords(){
       <button onclick="confirmImport()" class="ba" style="padding:7px 22px;">✅ Confirm &amp; Save</button>
     </div>
   </div>
+
+    <!-- SUPPLIERS -->
+    <section id="sec-suppliers">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+        <h3>🏪 Supplier Management</h3>
+        <button onclick="oModal('sup-add-modal')" class="ba">+ Add Supplier</button>
+      </div>
+      <!-- Summary cards -->
+      <div class="g4" style="margin-bottom:12px;" id="sup-summary-cards"></div>
+      <!-- Supplier table -->
+      <div class="card" style="padding:9px;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
+          <input id="sup-search" placeholder="🔍 Search suppliers…" oninput="renderSuppliers()" style="width:220px;margin:0;font-size:12px;">
+        </div>
+        <table id="table-suppliers" style="font-size:13px;"></table>
+      </div>
+      <!-- Supplier detail / PO panel -->
+      <div id="sup-detail-wrap" style="display:none;margin-top:12px;">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+            <h4 id="sup-detail-name" style="margin:0;color:var(--p);"></h4>
+            <button onclick="document.getElementById('sup-detail-wrap').style.display='none'" style="background:#e2e8f0;color:#475569;font-size:12px;padding:4px 10px;border-radius:5px;border:none;cursor:pointer;">✕ Close</button>
+          </div>
+          <!-- Info strip -->
+          <div id="sup-detail-info" style="font-size:13px;margin-bottom:10px;background:#f8fafc;border-radius:6px;padding:8px 12px;"></div>
+          <!-- Items supplied -->
+          <h5 style="margin-bottom:6px;color:var(--mu);font-size:11px;text-transform:uppercase;">Items Supplied</h5>
+          <div id="sup-items-list" style="margin-bottom:12px;font-size:13px;"></div>
+          <!-- PO log -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <h5 style="margin:0;color:var(--mu);font-size:11px;text-transform:uppercase;">Purchase Orders / Deliveries</h5>
+            <button onclick="oModal('sup-po-modal')" class="ba bsm">+ Add Purchase Order</button>
+          </div>
+          <table id="sup-po-table" style="font-size:13px;"></table>
+          <!-- Balance -->
+          <div id="sup-balance-bar" style="margin-top:10px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:7px;padding:10px 14px;font-size:13px;"></div>
+        </div>
+      </div>
+      <!-- Add/Edit Supplier Modal -->
+      <div id="sup-add-modal" class="mo">
+        <div class="mb" style="max-width:480px;">
+          <button class="mc" onclick="cModal('sup-add-modal')">✕</button>
+          <h3 id="sup-modal-title" style="color:var(--p);margin-bottom:11px;">Add Supplier</h3>
+          <input type="hidden" id="supEditId">
+          <label>Supplier Name *</label><input id="supName" placeholder="e.g. Kampala Pharma Ltd">
+          <div class="g2">
+            <div><label>Phone *</label><input id="supPhone" placeholder="+256..."></div>
+            <div><label>Email</label><input id="supEmail" placeholder="supplier@email.com"></div>
+          </div>
+          <label>Address</label><input id="supAddress" placeholder="Physical address">
+          <label>Notes</label><textarea id="supNotes" rows="2" placeholder="Any additional info..."></textarea>
+          <div class="ab"><button onclick="saveSupplier()" class="ba">Save</button><button onclick="cModal('sup-add-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
+        </div>
+      </div>
+      <!-- Add PO Modal -->
+      <div id="sup-po-modal" class="mo">
+        <div class="mb" style="max-width:540px;">
+          <button class="mc" onclick="cModal('sup-po-modal')">✕</button>
+          <h3 style="color:var(--p);margin-bottom:11px;">📦 Add Purchase Order / Delivery</h3>
+          <input type="hidden" id="poSupId">
+          <div class="g2">
+            <div><label>Date</label><input type="date" id="poDate"></div>
+            <div><label>Invoice / Reference No.</label><input id="poRef" placeholder="INV-001"></div>
+          </div>
+          <label>Items Description</label><textarea id="poItems" rows="3" placeholder="e.g. Amoxicillin 500mg x200, Paracetamol x500..."></textarea>
+          <div class="g2">
+            <div><label>Total Amount ($)</label><input type="number" id="poAmount" step="0.01" min="0" placeholder="0.00"></div>
+            <div><label>Amount Paid ($)</label><input type="number" id="poPaid" step="0.01" min="0" placeholder="0.00"></div>
+          </div>
+          <label>Notes</label><input id="poNotes" placeholder="Optional notes">
+          <div class="ab"><button onclick="savePO()" class="ba">Save PO</button><button onclick="cModal('sup-po-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
+        </div>
+      </div>
+    </section>
   </div><!-- /main-wrap -->
 </div><!-- /app -->
 
