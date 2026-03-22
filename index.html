@@ -488,6 +488,14 @@ document.addEventListener("DOMContentLoaded", function(){
           </div>
         </div>
       </div>
+      <!-- Nurse: Vitals trend after recording -->
+      <div id="nurse-vitals-trend-wrap" style="display:none;background:#fff;border:1.5px solid #bfdbfe;border-radius:7px;padding:10px;margin-bottom:10px;" class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <h5 style="margin:0;color:var(--p);">📈 Vitals Trend — Previous Visits</h5>
+          <span id="nurse-vitals-trend-label" style="font-size:11px;color:var(--mu);"></span>
+        </div>
+        <div style="position:relative;height:180px;"><canvas id="nurse-vitals-chart"></canvas></div>
+      </div>
       <div id="nurse-treatment" style="display:none;">
         <div class="card"><h4 style="margin-bottom:8px;">Active Patients — Treatment Chart</h4><table id="table-treat-pats"></table></div>
         <div id="treatment-detail" class="card" style="display:none;">
@@ -993,11 +1001,6 @@ document.addEventListener("DOMContentLoaded", function(){
   </div>
 </div>
 
-<!-- PRINT AREA -->
-<div id="pra">
-  <div id="pra-sub" style="font-size:11px;color:#64748b;margin-bottom:6px;"></div>
-  <div id="pra-con"></div>
-</div>
 
 <script>
 // ══════════════════════════════════════════════
@@ -1400,14 +1403,14 @@ function showSection(id){
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
   document.getElementById('sec-'+id)?.classList.add('active');
   document.getElementById('btn-'+id)?.classList.add('active');
-  ({
+  safeCall(()=>{({
     director:renderDash,reception:()=>{renderPatients();renderFollowups();},suppliers:renderSuppliers,
     nurse:()=>{renderTriage();renderTreatList();},
     doctor:renderCons,billing:()=>renderBilling(),
     lab:()=>renderLab(),pharmacy:()=>renderPharm(),
     radiology:()=>renderRad(),inventory:()=>{renderInventory();checkNearExpiry();},
     expenses:()=>renderExpenses(),admin:renderAdmin
-  })[id]?.();
+  })[id]?.();},'showSection:'+id);
 }
 
 // ══════════════════════════════════════════════
@@ -1647,6 +1650,7 @@ function openTriage(id){
   document.getElementById('bmi-val').innerText='';
   document.getElementById('triage-form').style.display='block';
   document.getElementById('triage-form').scrollIntoView({behavior:'smooth'});
+  buildNurseVitalsTrend(v.patId);
 }
 
 function calcBMI(){
@@ -1673,7 +1677,9 @@ function submitTriage(){
   v.status='WAITING_CONSULTATION';
   if(!v.cleared.includes('Triage'))v.cleared.push('Triage');
   save();
-  speak(`Patient ${v.name} vitals recorded. Ready for doctor consultation.`);document.getElementById('triage-form').style.display='none';renderTriage();
+  speak(`Patient ${v.name} vitals recorded. Ready for doctor consultation.`);
+  buildNurseVitalsTrend(v.patId);
+  document.getElementById('triage-form').style.display='none';renderTriage();
 }
 
 function renderTreatList(){
@@ -2906,6 +2912,7 @@ function renderExpenses(){
   });
   h+=`<tr style="font-weight:700;background:var(--lt);"><td colspan="3">TOTAL</td><td style="color:var(--d);">$${total.toFixed(2)}</td><td colspan="2"></td></tr>`;
   document.getElementById('table-exp').innerHTML=h;
+  buildDeptRevChartExp();
 }
 function saveExpense(){
   const desc=document.getElementById('expDesc').value.trim();
@@ -3551,6 +3558,12 @@ function printDischargeSummary(vid){
         <div><b>Discharge Date:</b> ${isDraft?'(Pending)':new Date().toLocaleDateString()}</div>
       </div>
     </div>
+    ${cl.finalDx?`
+    <div style="margin-bottom:14px;background:#eff6ff;border-left:4px solid #1e3a8a;border-radius:5px;padding:10px 14px;">
+      <div style="font-weight:700;font-size:12px;color:var(--mu);text-transform:uppercase;margin-bottom:4px;">Diagnosis</div>
+      <div style="font-size:15px;font-weight:700;color:#1e3a8a;">${cl.finalDx}</div>
+      ${cl.notes?`<div style="font-size:13px;margin-top:6px;color:#334155;">${cl.notes}</div>`:''}
+    </div>`:''}
     ${rxList.length?`
     <div style="margin-bottom:14px;">
       <div style="font-weight:700;font-size:13px;margin-bottom:6px;padding:5px 10px;background:#f0fdf4;border-left:4px solid #10b981;">💊 MEDICATIONS TO TAKE HOME</div>
@@ -3756,6 +3769,97 @@ function buildDeptRevChart(){
   });
   h+=`<tr style="font-weight:700;background:var(--lt);"><td>Total</td><td>$${total.toFixed(2)}</td><td>100%</td></tr>`;
   tbl.innerHTML=h;
+}
+
+function buildDeptRevChartExp(){
+
+  const monthEl=document.getElementById('dept-rev-month-exp');
+  const now=new Date();
+  const sel=monthEl?.value||`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  if(monthEl&&!monthEl.value)monthEl.value=sel;
+  const [yr,mo]=sel.split('-').map(Number);
+  const mvs=visits.filter(v=>{
+    const d=new Date(v.date);return d.getFullYear()===yr&&d.getMonth()+1===mo;
+  });
+  const depts={
+    Consultation:mvs.reduce((s,v)=>s+(v.consultFee||0),0),
+    Laboratory:mvs.reduce((s,v)=>s+(v.labs||[]).filter(l=>l.name).reduce((a,l)=>a+l.price,0),0),
+    Pharmacy:mvs.reduce((s,v)=>s+(v.prescriptions||[]).filter(r=>r.name).reduce((a,r)=>a+r.price*r.qty,0),0),
+    Radiology:mvs.reduce((s,v)=>s+(v.radiology||[]).filter(r=>r.name).reduce((a,r)=>a+r.price,0),0),
+  };
+  const labels=Object.keys(depts);
+  const data=Object.values(depts);
+  const total=data.reduce((a,b)=>a+b,0);
+  const colors=['#1e3a8a','#10b981','#f59e0b','#8b5cf6'];
+  const ctx=document.getElementById('ch-dept-rev-exp');
+  if(!ctx)return;
+  if(charts['dept-rev-exp'])charts['dept-rev-exp'].destroy();
+  charts['dept-rev-exp']=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{label:'Revenue ($)',data,backgroundColor:colors,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+  });
+  // Table
+  const tbl=document.getElementById('dept-rev-table-exp');
+  if(!tbl)return;
+  let h=`<tr><th>Department</th><th>Revenue</th><th>% of Total</th></tr>`;
+  labels.forEach((l,i)=>{
+    const pct=total>0?((data[i]/total)*100).toFixed(1):0;
+    h+=`<tr><td><span style="display:inline-block;width:10px;height:10px;background:${colors[i]};border-radius:2px;margin-right:6px;"></span>${l}</td><td><b>$${data[i].toFixed(2)}</b></td><td>${pct}%</td></tr>`;
+  });
+  h+=`<tr style="font-weight:700;background:var(--lt);"><td>Total</td><td>$${total.toFixed(2)}</td><td>100%</td></tr>`;
+  tbl.innerHTML=h;
+}
+// ══════════════════════════════════════════════
+//  NURSE SECTION VITALS TREND
+// ══════════════════════════════════════════════
+function buildNurseVitalsTrend(patId){
+  const wrap=document.getElementById('nurse-vitals-trend-wrap');
+  const lbl=document.getElementById('nurse-vitals-trend-label');
+  const ctx=document.getElementById('nurse-vitals-chart');
+  if(!wrap||!ctx)return;
+  const pvs=visits.filter(v=>v.patId===patId&&v.vitals).slice(-8);
+  if(pvs.length<2){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  if(lbl)lbl.textContent=pvs.length+' visits plotted';
+  const labels=pvs.map(v=>v.date);
+  const sysBP=pvs.map(v=>{const bp=(v.vitals.bp||'').split('/');return bp[0]?parseInt(bp[0]):null;});
+  const diaBP=pvs.map(v=>{const bp=(v.vitals.bp||'').split('/');return bp[1]?parseInt(bp[1]):null;});
+  const temp=pvs.map(v=>v.vitals.temp?parseFloat(v.vitals.temp):null);
+  const weight=pvs.map(v=>v.vitals.weight?parseFloat(v.vitals.weight):null);
+  const pulse=pvs.map(v=>v.vitals.pulse?parseInt(v.vitals.pulse):null);
+  if(charts['nurse-vitals'])charts['nurse-vitals'].destroy();
+  charts['nurse-vitals']=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'Sys BP',data:sysBP,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.08)',tension:.35,spanGaps:true,pointRadius:4},
+      {label:'Dia BP',data:diaBP,borderColor:'#f97316',backgroundColor:'rgba(249,115,22,.08)',tension:.35,spanGaps:true,pointRadius:4},
+      {label:'Temp°C',data:temp,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,.08)',tension:.35,spanGaps:true,pointRadius:4,yAxisID:'y2'},
+      {label:'Weight kg',data:weight,borderColor:'#0891b2',backgroundColor:'rgba(8,145,178,.08)',tension:.35,spanGaps:true,pointRadius:4,yAxisID:'y2'},
+      {label:'Pulse',data:pulse,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.08)',tension:.35,spanGaps:true,pointRadius:4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}},
+      scales:{
+        y:{title:{display:true,text:'mmHg',font:{size:10}},beginAtZero:false},
+        y2:{position:'right',title:{display:true,text:'°C / kg',font:{size:10}},beginAtZero:false,grid:{drawOnChartArea:false}}
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════
+//  STABILITY: Global error handler + safe render
+// ══════════════════════════════════════════════
+window.onerror=function(msg,src,line,col,err){
+  console.error('TALI ERROR:',msg,'at',src+':'+line);
+  const si=document.getElementById('si3');
+  if(si){si.textContent='⚠ Error — reload if issues persist';si.style.background='rgba(239,68,68,.7)';}
+  return false;
+};
+
+function safeCall(fn,label){
+  try{fn();}catch(e){console.error('safeCall['+label+']:',e);}
 }
 </script>
 
@@ -4084,6 +4188,12 @@ function renderDirRecords(){
     </section>
   </div><!-- /main-wrap -->
 </div><!-- /app -->
+
+<!-- PRINT AREA: must be direct child of body for print CSS to work -->
+<div id="pra">
+  <div id="pra-sub" style="font-size:11px;color:#64748b;margin-bottom:6px;"></div>
+  <div id="pra-con"></div>
+</div>
 
 </body>
 </html>
