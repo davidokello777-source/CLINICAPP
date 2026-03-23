@@ -3611,6 +3611,20 @@ function printDischargeSummary(vid){
 let activeSupId=null;
 
 function renderSuppliers(){
+  // Always rebuild the section header to guarantee the button is present
+  const secEl=document.getElementById('sec-suppliers');
+  if(!secEl)return;
+  let hdrEl=document.getElementById('sup-section-hdr');
+  if(!hdrEl){
+    hdrEl=document.createElement('div');
+    hdrEl.id='sup-section-hdr';
+    secEl.insertBefore(hdrEl,secEl.firstChild);
+  }
+  hdrEl.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+      <h3>🏪 Supplier Management</h3>
+      <button onclick="oModal('sup-add-modal')" class="ba" style="font-size:14px;padding:8px 16px;">+ Add Supplier</button>
+    </div>`;
   const q=(document.getElementById('sup-search')?.value||'').toLowerCase();
   const list=suppliers.filter(s=>!q||(s.name+s.phone+s.email).toLowerCase().includes(q));
   // Summary cards
@@ -4117,10 +4131,6 @@ function renderDirRecords(){
 
     <!-- SUPPLIERS -->
     <section id="sec-suppliers">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
-        <h3>🏪 Supplier Management</h3>
-        <button onclick="oModal('sup-add-modal')" class="ba">+ Add Supplier</button>
-      </div>
       <!-- Summary cards -->
       <div class="g4" style="margin-bottom:12px;" id="sup-summary-cards"></div>
       <!-- Supplier table -->
