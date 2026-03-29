@@ -513,7 +513,7 @@ document.addEventListener("DOMContentLoaded", function(){
       <!-- PROCEDURES PANEL -->
       <div id="nurse-procedures" style="display:none;">
         <div class="card" style="margin-bottom:10px;">
-          <h4 style="margin-bottom:8px;">🔪 Surgical & Nursing Procedures</h4>
+          <h4 style="margin-bottom:8px;">🔪 Ordered Procedures — Active Patients</h4>
           <table id="table-proc-pats"></table>
         </div>
         <div id="procedure-detail" class="card" style="display:none;">
@@ -521,24 +521,7 @@ document.addEventListener("DOMContentLoaded", function(){
             <h4 id="proc-patient-name" style="margin:0;color:var(--p);"></h4>
             <button onclick="document.getElementById('procedure-detail').style.display='none'" style="background:#e2e8f0;color:#475569;font-size:12px;padding:4px 10px;border-radius:5px;border:none;cursor:pointer;">✕ Close</button>
           </div>
-          <div id="proc-existing" style="margin-bottom:12px;"></div>
-          <hr class="dv">
-          <h5 style="margin-bottom:8px;color:var(--mu);font-size:11px;text-transform:uppercase;">Record New Procedure</h5>
-          <div class="g2">
-            <div>
-              <label>Procedure *</label>
-              <select id="procSelect" style="margin:2px 0;">
-                <option value="">-- Select procedure --</option>
-              </select>
-            </div>
-            <div><label>Time Performed</label><input type="time" id="procTime"></div>
-          </div>
-          <label>Observations / Notes</label>
-          <textarea id="procNotes" rows="2" placeholder="Patient response, any complications, notes..."></textarea>
-          <div class="ab">
-            <button onclick="addProcedureEntry()" class="ba">✅ Save Procedure</button>
-            <button onclick="document.getElementById('procedure-detail').style.display='none'" style="background:#e2e8f0;color:#475569;">Cancel</button>
-          </div>
+          <div id="proc-existing"></div>
         </div>
       </div>
     </section>
@@ -612,6 +595,18 @@ document.addEventListener("DOMContentLoaded", function(){
             <p style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:6px;"><span class="abbr-hdr">(Rad)</span> <span class="abbr-full" style="text-transform:uppercase;">Radiology / Imaging</span></p>
             <div id="rad-orders-list"></div>
             <button class="badd" onclick="addRadRow()">+ Add Procedure</button>
+          </div>
+          <hr class="dv">
+          <!-- NURSING / SURGICAL PROCEDURE ORDERS -->
+          <div id="proc-order-sec">
+            <p style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:6px;"><span class="abbr-hdr">(Pr)</span> <span class="abbr-full" style="text-transform:uppercase;">Nursing &amp; Surgical Procedures</span></p>
+            <div id="proc-orders-list"></div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap;">
+              <select id="proc-order-select" style="flex:1;min-width:200px;margin:0;font-size:13px;">
+                <option value="">-- Select procedure to order --</option>
+              </select>
+              <button class="badd" onclick="addProcOrder()">+ Order Procedure</button>
+            </div>
           </div>
           <hr class="dv">
           <!-- FINAL DX -->
@@ -2011,6 +2006,9 @@ function openCons(id){
   // Rad rows
   radRows=(v.radiology||[]).map((r,i)=>({id:i,radId:r.id,locked:r.done}));radRowId=radRows.length;
   renderRadRows();
+  // Procedure order rows
+  populateProcOrderSelect();
+  renderProcOrderRows();
   // Med rows
   medRows=(v.prescriptions||[]).map((r,i)=>({id:i,rxId:r.id,locked:r.dispensed}));medRowId=medRows.length;
   renderMedRows();
@@ -3948,26 +3946,88 @@ function safeCall(fn,label){
 }
 
 // ══════════════════════════════════════════════
-//  NURSING PROCEDURES
+//  DOCTOR: ORDER PROCEDURES
+// ══════════════════════════════════════════════
+
+function populateProcOrderSelect(){
+  const sel=document.getElementById('proc-order-select');
+  if(!sel)return;
+  const src=window._nursingProcs||NURSING_PROCEDURES;
+  sel.innerHTML='<option value="">-- Select procedure to order --</option>'+
+    src.slice().sort((a,b)=>a.name.localeCompare(b.name))
+       .map(p=>`<option value="${enc(p.name)}|${p.price}">${p.name} — $${p.price.toFixed(2)}</option>`)
+       .join('');
+}
+
+function renderProcOrderRows(){
+  const v=visits.find(x=>x.id===activeVid);
+  const c=document.getElementById('proc-orders-list');
+  if(!c)return;
+  const procs=v?.procedures||[];
+  if(!procs.length){c.innerHTML='<div class="emp" style="font-size:12px;">No procedures ordered yet.</div>';return;}
+  c.innerHTML=procs.map((p,i)=>{
+    const statusBadge=p.completed
+      ?`<span style="background:#d1fae5;color:#065f46;padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;">✅ Done — ${p.completedBy||''} ${p.completedTime||''}</span>`
+      :`<span style="background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;">⏳ Pending</span>`;
+    return`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--lt);border:1.5px solid var(--bd);border-radius:6px;padding:8px 12px;margin-bottom:5px;gap:8px;flex-wrap:wrap;">
+      <div>
+        <b style="font-size:13px;">${p.name}</b>
+        <span style="font-size:12px;color:var(--mu);margin-left:8px;">$${p.price.toFixed(2)}</span>
+        <span style="margin-left:8px;">${statusBadge}</span>
+        ${p.notes?`<div style="font-size:11px;color:var(--mu);margin-top:3px;font-style:italic;">📝 ${p.notes}</div>`:''}
+      </div>
+      ${!p.completed?`<button class="bsm bd2" onclick="removeProcOrder(${i})">✕</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+function addProcOrder(){
+  const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  const sel=document.getElementById('proc-order-select');
+  if(!sel||!sel.value)return alert('Select a procedure first.');
+  const [rawName,priceStr]=sel.value.split('|');
+  const name=dec(rawName);const price=parseFloat(priceStr)||0;
+  if((v.procedures||[]).some(p=>p.name===name&&!p.completed))
+    return alert(name+' is already ordered and pending.');
+  if(!v.procedures)v.procedures=[];
+  v.procedures.push({name,price,ordered:true,completed:false,
+    orderedBy:currentUser.name,orderedDate:new Date().toLocaleDateString(),
+    notes:'',time:'',completedBy:'',completedTime:''});
+  if(!v.consultFee)v.consultFee=CONSULT_FEE;
+  lg(v,'Procedure ordered',`${name} — $${price.toFixed(2)}`);
+  sel.value='';
+  save();renderProcOrderRows();updateOrderSummary(v);
+}
+
+function removeProcOrder(idx){
+  const v=visits.find(x=>x.id===activeVid);if(!v||!v.procedures)return;
+  if(!confirm('Remove this procedure order?'))return;
+  v.procedures.splice(idx,1);
+  save();renderProcOrderRows();updateOrderSummary(v);
+}
+
+// ══════════════════════════════════════════════
+//  NURSE: VIEW & COMPLETE PROCEDURES
 // ══════════════════════════════════════════════
 
 function renderProcPatients(){
   const active=visits.filter(v=>!['DISCHARGED'].includes(v.status));
-  let h=`<tr><th>Patient</th><th>Status</th><th>Procedures Done</th><th>Bill</th><th>Action</th></tr>`;
+  let h=`<tr><th>Patient</th><th>Status</th><th>Procedures</th><th>Bill</th><th>Action</th></tr>`;
   if(!active.length)h+=`<tr><td colspan="5" class="emp">No active patients</td></tr>`;
   active.forEach(v=>{
     const procs=(v.procedures||[]);
     const done=procs.filter(p=>p.completed).length;
     const pending=procs.filter(p=>!p.completed).length;
     const bill=procs.reduce((s,p)=>s+p.price,0);
-    const badge=done?`<span style="background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:8px;font-size:11px;font-weight:700;">✓ ${done} done</span>`:'';
-    const pbadge=pending?`<span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:8px;font-size:11px;font-weight:700;">${pending} pending</span>`:'';
+    const doneBadge=done?`<span style="background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:8px;font-size:11px;font-weight:700;">✓ ${done} done</span> `:'';
+    const pendingBadge=pending?`<span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:8px;font-size:11px;font-weight:700;">⏳ ${pending} pending</span>`:'';
+    const noneLabel=(!done&&!pending)?'<span style="color:var(--mu);font-size:12px;">None ordered</span>':'';
     h+=`<tr>
       <td><b>${v.name}</b></td>
       <td><span class="badge bgr" style="font-size:10px;">${v.status.replace(/_/g,' ')}</span></td>
-      <td>${badge} ${pbadge}${!done&&!pending?'<span style="color:var(--mu);font-size:12px;">None yet</span>':''}</td>
+      <td>${doneBadge}${pendingBadge}${noneLabel}</td>
       <td style="font-weight:700;${bill>0?'color:var(--p);':'color:var(--mu);'}">$${bill.toFixed(2)}</td>
-      <td><button class="bsm ba" onclick="openProcDetail('${v.id}')">+ Record</button></td>
+      <td><button class="bsm ba" onclick="openProcDetail('${v.id}')">View</button></td>
     </tr>`;
   });
   const el=document.getElementById('table-proc-pats');
@@ -3978,19 +4038,6 @@ function openProcDetail(vid){
   activeVid=vid;
   const v=visits.find(x=>x.id===vid);if(!v)return;
   document.getElementById('proc-patient-name').innerText='🔪 Procedures — '+v.name;
-  // Populate procedure select
-  const sel=document.getElementById('procSelect');
-  if(sel){
-    const src=window._nursingProcs||NURSING_PROCEDURES;
-    sel.innerHTML='<option value="">-- Select procedure --</option>'+
-      src.slice().sort((a,b)=>a.name.localeCompare(b.name))
-         .map(p=>`<option value="${enc(p.name)}|${p.price}">${p.name} — $${p.price.toFixed(2)}</option>`)
-         .join('');
-  }
-  const timeEl=document.getElementById('procTime');
-  if(timeEl)timeEl.value=new Date().toTimeString().slice(0,5);
-  const notesEl=document.getElementById('procNotes');
-  if(notesEl)notesEl.value='';
   renderExistingProcs(v);
   document.getElementById('procedure-detail').style.display='block';
   document.getElementById('procedure-detail').scrollIntoView({behavior:'smooth'});
@@ -4000,60 +4047,59 @@ function renderExistingProcs(v){
   const procs=v.procedures||[];
   const el=document.getElementById('proc-existing');
   if(!el)return;
-  if(!procs.length){el.innerHTML='<div class="emp">No procedures recorded yet.</div>';return;}
+  if(!procs.length){
+    el.innerHTML='<div class="emp">No procedures ordered for this patient yet.</div>';
+    return;
+  }
   el.innerHTML=procs.map((p,i)=>`
-    <div style="background:${p.completed?'#f0fdf4':'#fffbeb'};border:1.5px solid ${p.completed?'#bbf7d0':'#fde68a'};border-radius:7px;padding:9px 13px;margin-bottom:7px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+    <div style="background:${p.completed?'#f0fdf4':'#fffbeb'};border:1.5px solid ${p.completed?'#bbf7d0':'#fde68a'};border-radius:7px;padding:10px 14px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
         <div>
           <span style="font-weight:700;font-size:14px;">${p.name}</span>
           <span style="font-size:12px;color:var(--mu);margin-left:8px;">$${p.price.toFixed(2)}</span>
-          ${p.completed?'<span style="background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:8px;font-size:11px;font-weight:700;margin-left:8px;">✅ Completed</span>':'<span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:8px;font-size:11px;font-weight:700;margin-left:8px;">⏳ Pending</span>'}
-        </div>
-        <div style="display:flex;gap:4px;">
-          ${!p.completed?`<button class="bsm ba" onclick="markProcDone('${v.id}',${i})">✓ Mark Done</button>`:''}
-          <button class="bsm bd2" onclick="deleteProcEntry('${v.id}',${i})">🗑</button>
+          ${p.completed
+            ?`<span style="background:#d1fae5;color:#065f46;padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;margin-left:8px;">✅ Completed</span>`
+            :`<span style="background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;margin-left:8px;">⏳ Pending</span>`}
         </div>
       </div>
-      <div style="font-size:12px;color:var(--mu);margin-top:4px;">
-        🕐 ${p.time||'—'} &nbsp;|&nbsp; 👤 ${p.by||'—'} &nbsp;|&nbsp; 📅 ${p.date||'—'}
+      <div style="font-size:12px;color:var(--mu);margin-top:5px;">
+        📋 Ordered by <b>${p.orderedBy||'Doctor'}</b> on ${p.orderedDate||v.date}
+        ${p.completed?` &nbsp;|&nbsp; ✅ Done by <b>${p.completedBy||''}</b> at ${p.completedTime||''}`:'' }
       </div>
-      ${p.notes?`<div style="font-size:12px;margin-top:4px;color:#334155;font-style:italic;">"${p.notes}"</div>`:''}
+      ${p.completed&&p.notes?`<div style="font-size:12px;margin-top:5px;padding:6px 10px;background:#fff;border-radius:5px;"><b>Observations:</b> ${p.notes}</div>`:''}
+      ${!p.completed?`
+      <div style="margin-top:8px;border-top:1px solid #fde68a;padding-top:8px;">
+        <div class="g2" style="margin-bottom:5px;">
+          <div><label style="font-size:11px;">Time Performed</label>
+            <input type="time" id="proc-time-${i}" value="${new Date().toTimeString().slice(0,5)}" style="margin:2px 0;font-size:13px;">
+          </div>
+          <div style="display:flex;align-items:flex-end;padding-bottom:2px;">
+            <button class="ba" style="width:100%;padding:7px;" onclick="completeProcedure('${v.id}',${i})">✅ Mark Completed</button>
+          </div>
+        </div>
+        <label style="font-size:11px;">Observations / Notes</label>
+        <textarea id="proc-notes-${i}" rows="2" placeholder="Patient response, complications, observations..." style="font-size:13px;"></textarea>
+      </div>`:''}
     </div>`).join('');
 }
 
-function addProcedureEntry(){
-  const v=visits.find(x=>x.id===activeVid);if(!v)return;
-  const sel=document.getElementById('procSelect');
-  if(!sel||!sel.value)return alert('Please select a procedure.');
-  const [name,priceStr]=sel.value.split('|').map(s=>dec(s));
-  const price=parseFloat(priceStr)||0;
-  const time=document.getElementById('procTime')?.value||new Date().toTimeString().slice(0,5);
-  const notes=document.getElementById('procNotes')?.value.trim()||'';
-  if(!v.procedures)v.procedures=[];
-  v.procedures.push({name,price,time,notes,completed:false,by:currentUser.name,date:new Date().toLocaleDateString()});
-  if(!v.consultFee)v.consultFee=CONSULT_FEE;
-  lg(v,'Procedure',`${name} — $${price.toFixed(2)}`);
-  save();
-  renderExistingProcs(v);
-  renderProcPatients();
-  if(sel)sel.value='';
-  const notesEl=document.getElementById('procNotes');
-  if(notesEl)notesEl.value='';
-}
-
-function markProcDone(vid,idx){
+function completeProcedure(vid,idx){
   const v=visits.find(x=>x.id===vid);if(!v||!v.procedures[idx])return;
-  v.procedures[idx].completed=true;
-  v.procedures[idx].completedTime=new Date().toLocaleTimeString();
-  v.procedures[idx].completedBy=currentUser.name;
-  lg(v,'Procedure completed',v.procedures[idx].name);
+  const p=v.procedures[idx];
+  const timeEl=document.getElementById('proc-time-'+idx);
+  const notesEl=document.getElementById('proc-notes-'+idx);
+  p.completed=true;
+  p.completedTime=timeEl?timeEl.value:new Date().toTimeString().slice(0,5);
+  p.completedBy=currentUser.name;
+  p.notes=notesEl?notesEl.value.trim():'';
+  lg(v,'Procedure completed',p.name+' by '+currentUser.name);
   save();renderExistingProcs(v);renderProcPatients();
 }
 
-function deleteProcEntry(vid,idx){
+function deleteProcEntry(vid,i){
   const v=visits.find(x=>x.id===vid);if(!v)return;
-  if(!confirm('Remove this procedure entry?'))return;
-  v.procedures.splice(idx,1);
+  if(!confirm('Remove this procedure?'))return;
+  v.procedures.splice(i,1);
   save();renderExistingProcs(v);renderProcPatients();
 }
 
