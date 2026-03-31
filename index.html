@@ -1388,7 +1388,19 @@ function lg(v,act,val=''){if(!v.timeline)v.timeline=[];v.timeline.push({act,val,
 // ══════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════
-window.addEventListener('DOMContentLoaded',async()=>{\n  // ── PATIENT FEEDBACK BYPASS: if URL has #feedback, skip login entirely ──\n  if(window.location.hash==='#feedback'){\n    document.getElementById('ls').style.display='none';\n    document.getElementById('lp').style.display='none';\n    const fbWrap=document.getElementById('feedback-public-wrap');\n    if(fbWrap)fbWrap.style.display='flex';\n    // Set logo on feedback form\n    if(typeof _LOGO_B64!=='undefined'){\n      const fl=document.getElementById('fb-logo');\n      if(fl)fl.src=_LOGO_B64;\n      const fl2=document.getElementById('fb-logo-public');\n      if(fl2)fl2.src=_LOGO_B64;\n    }\n    // Wire submit to save without needing currentUser\n    return;\n  }
+window.addEventListener('DOMContentLoaded',async()=>{
+  // ── PATIENT FEEDBACK BYPASS: if URL has #feedback, skip login entirely ──
+  if(window.location.hash==='#feedback'){
+    document.getElementById('ls').style.display='none';
+    document.getElementById('lp').style.display='none';
+    const fbWrap=document.getElementById('feedback-public-wrap');
+    if(fbWrap)fbWrap.style.display='flex';
+    if(typeof _LOGO_B64!=='undefined'){
+      const fl=document.getElementById('fb-logo');if(fl)fl.src=_LOGO_B64;
+      const fl2=document.getElementById('fb-logo-public');if(fl2)fl2.src=_LOGO_B64;
+    }
+    return;
+  }
   // Safety net: always show login after 12s even if fetch hangs
   const safetyTimer=setTimeout(()=>{
     document.getElementById('ls').style.display='none';
