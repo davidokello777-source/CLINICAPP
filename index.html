@@ -1007,8 +1007,11 @@ document.addEventListener("DOMContentLoaded", function(){
     <!-- FEEDBACK VIEWER (Director) -->
     <section id="sec-feedbacks">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
-        <h3>Patient Feedback Responses</h3>
-        <div id="fb-stats-row" style="font-size:13px;color:var(--mu);"></div>
+        <div><h3 style="margin:0;">Patient Feedback Responses</h3></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <div id="fb-stats-row" style="font-size:13px;color:var(--mu);"></div>
+          <button onclick="printFeedbackQR()" class="bo bsm" style="border-color:#1e3a8a;color:#1e3a8a;font-size:12px;">🖨 Print QR Card</button>
+        </div>
       </div>
       <div class="card" style="padding:9px;"><table id="table-feedbacks"></table></div>
     </section>
@@ -1385,7 +1388,7 @@ function lg(v,act,val=''){if(!v.timeline)v.timeline=[];v.timeline.push({act,val,
 // ══════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════
-window.addEventListener('DOMContentLoaded',async()=>{
+window.addEventListener('DOMContentLoaded',async()=>{\n  // ── PATIENT FEEDBACK BYPASS: if URL has #feedback, skip login entirely ──\n  if(window.location.hash==='#feedback'){\n    document.getElementById('ls').style.display='none';\n    document.getElementById('lp').style.display='none';\n    const fbWrap=document.getElementById('feedback-public-wrap');\n    if(fbWrap)fbWrap.style.display='flex';\n    // Set logo on feedback form\n    if(typeof _LOGO_B64!=='undefined'){\n      const fl=document.getElementById('fb-logo');\n      if(fl)fl.src=_LOGO_B64;\n      const fl2=document.getElementById('fb-logo-public');\n      if(fl2)fl2.src=_LOGO_B64;\n    }\n    // Wire submit to save without needing currentUser\n    return;\n  }
   // Safety net: always show login after 12s even if fetch hangs
   const safetyTimer=setTimeout(()=>{
     document.getElementById('ls').style.display='none';
@@ -4170,6 +4173,103 @@ function addNursingProc(){
   document.getElementById('new-np-price').value='';
   save();renderNursingProcsEditor();
 }
+
+// ══════════════════════════════════════════════
+//  PUBLIC FEEDBACK (no login)
+// ══════════════════════════════════════════════
+let _pubRating = 0;
+const _ratingLabels = ['','Poor','Fair','Good','Very Good','Excellent'];
+
+function setPubRating(n){
+  _pubRating = n;
+  [1,2,3,4,5].forEach(i=>{
+    const s = document.getElementById('pstar'+i);
+    if(s) s.classList.toggle('active', i<=n);
+  });
+  const lbl = document.getElementById('pub-rating-label');
+  if(lbl) lbl.textContent = _ratingLabels[n] || '';
+}
+
+async function submitPublicFeedback(){
+  const errEl = document.getElementById('fb-pub-err');
+  if(!_pubRating){ if(errEl)errEl.textContent='Please select a star rating.'; return; }
+  if(errEl) errEl.textContent = '';
+  const btn = document.querySelector('#fb-public-form button');
+  if(btn){ btn.disabled=true; btn.textContent='Submitting…'; }
+  const fb = {
+    id: 'FB-'+Date.now().toString().slice(-8),
+    date: new Date().toLocaleDateString(),
+    visitDate: document.getElementById('fb-pub-date')?.value || '',
+    name: document.getElementById('fb-pub-name')?.value || 'Anonymous',
+    dept: document.getElementById('fb-pub-dept')?.value || '',
+    rating: _pubRating,
+    waitTime: document.getElementById('fb-pub-wait')?.value || '',
+    staffRating: document.getElementById('fb-pub-staff')?.value || '',
+    recommend: document.getElementById('fb-pub-recommend')?.value || '',
+    comment: document.getElementById('fb-pub-comment')?.value || '',
+    submitted: new Date().toLocaleString(),
+    source: 'QR'
+  };
+  try{
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN}/latest`,{headers:{'X-Master-Key':MK}});
+    const j = await r.json(); const d = j.record || {};
+    d.feedbacks = [...(d.feedbacks||[]), fb];
+    await fetch(`https://api.jsonbin.io/v3/b/${BIN}`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},
+      body:JSON.stringify(d)
+    });
+    document.getElementById('fb-public-form').style.display='none';
+    document.getElementById('fb-public-thanks').style.display='block';
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='Submit Feedback'; }
+    if(errEl) errEl.textContent='Submission failed. Please check your connection and try again.';
+  }
+}
+
+// ══════════════════════════════════════════════
+//  PRINT QR CODE CARD
+// ══════════════════════════════════════════════
+function printFeedbackQR(){
+  const _lg = typeof _LOGO_B64!=='undefined'?_LOGO_B64:'';
+  const url = getQRUrl();
+  const qrWrap = document.createElement('div');
+  qrWrap.id = 'qr-card-tmp';
+  qrWrap.style.cssText = 'position:fixed;left:-9999px;top:0;';
+  document.body.appendChild(qrWrap);
+  try{ new QRCode(qrWrap,{text:url,width:200,height:200,correctLevel:QRCode.CorrectLevel.M}); }
+  catch(e){}
+  setTimeout(()=>{
+    const qrCanvas = qrWrap.querySelector('canvas');
+    const qrSrc = qrCanvas ? qrCanvas.toDataURL() : '';
+    document.getElementById('pra-sub').innerText = '';
+    document.getElementById('pra-con').innerHTML = `
+      <div id="pra-con" style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:10px;">
+        <div style="text-align:center;padding:30px 20px;border:3px solid #1e3a8a;border-radius:16px;background:#fff;">
+          ${_lg?`<img src="${_lg}" style="height:70px;width:auto;margin-bottom:12px;" alt="Tali Medicals">`:''}
+          <h2 style="color:#1e3a8a;margin:0 0 4px;font-size:22px;">TALI MEDICALS INTERNATIONAL</h2>
+          <p style="color:#64748b;font-style:italic;margin:0 0 20px;font-size:13px;">Care with Purpose. Healing with Love.</p>
+          <div style="background:#f0f9ff;border-radius:12px;padding:20px;margin-bottom:20px;">
+            <h3 style="color:#1e3a8a;margin:0 0 6px;font-size:18px;">📋 Share Your Experience</h3>
+            <p style="color:#475569;font-size:13px;margin:0 0 16px;">Your feedback helps us improve our services for you and everyone in our community.</p>
+            ${qrSrc?`<img src="${qrSrc}" style="width:180px;height:180px;border:3px solid #1e3a8a;border-radius:8px;padding:4px;background:#fff;" alt="QR Code">`:'<p style="color:#94a3b8;">QR unavailable</p>'}
+            <p style="margin:12px 0 0;font-size:12px;color:#1e3a8a;font-weight:700;">Scan with your phone camera</p>
+          </div>
+          <div style="background:#fef9c3;border:1.5px solid #fbbf24;border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:12px;color:#92400e;">
+            <b>Or visit:</b> ${url}
+          </div>
+          <div style="display:flex;justify-content:center;gap:24px;font-size:11px;color:#64748b;flex-wrap:wrap;">
+            <span>⭐ Rate your experience</span>
+            <span>⏱ Waiting time feedback</span>
+            <span>💬 Leave comments</span>
+          </div>
+          <p style="margin:16px 0 0;font-size:10px;color:#94a3b8;">Responses are reviewed by management. Thank you for helping us serve you better.</p>
+        </div>
+      </div>`;
+    document.body.removeChild(qrWrap);
+    doPrint();
+  }, 400);
+}
 </script>
 
 <script>
@@ -4502,6 +4602,67 @@ function renderDirRecords(){
 <div id="pra">
   <div id="pra-sub" style="font-size:11px;color:#64748b;margin-bottom:6px;"></div>
   <div id="pra-con"></div>
+</div>
+
+<!-- PUBLIC FEEDBACK PAGE: shown when URL has #feedback, no login needed -->
+<div id="feedback-public-wrap" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);z-index:9999;justify-content:center;align-items:flex-start;overflow-y:auto;padding:24px 12px;">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:520px;padding:28px 24px;margin:auto;box-shadow:0 8px 32px rgba(0,0,0,.25);">
+    <div style="text-align:center;margin-bottom:18px;">
+      <img id="fb-logo-public" src="" style="height:60px;width:auto;margin-bottom:10px;" alt="Tali Medicals International">
+      <h2 style="color:#1e3a8a;margin:0 0 3px;">Patient Feedback</h2>
+      <p style="color:#64748b;font-size:13px;font-style:italic;margin:0;">Care with Purpose. Healing with Love.</p>
+    </div>
+    <div id="fb-public-form">
+      <label>Your Name <span style="color:#94a3b8;font-weight:400;">(optional)</span></label>
+      <input id="fb-pub-name" placeholder="e.g. John Mensah" style="margin-bottom:10px;">
+      <label>Visit Date</label>
+      <input type="date" id="fb-pub-date" style="margin-bottom:10px;">
+      <label>Department Visited</label>
+      <select id="fb-pub-dept" style="margin-bottom:10px;">
+        <option value="">-- Select --</option>
+        <option>General Consultation</option><option>Laboratory</option><option>Pharmacy</option>
+        <option>Radiology</option><option>Dental</option><option>ENT</option>
+        <option>Triage / Nursing</option><option>Reception / Registration</option>
+      </select>
+      <label>Overall Experience</label>
+      <div style="text-align:center;margin:10px 0 14px;">
+        <span class="fb-star" onclick="setPubRating(1)" id="pstar1">★</span>
+        <span class="fb-star" onclick="setPubRating(2)" id="pstar2">★</span>
+        <span class="fb-star" onclick="setPubRating(3)" id="pstar3">★</span>
+        <span class="fb-star" onclick="setPubRating(4)" id="pstar4">★</span>
+        <span class="fb-star" onclick="setPubRating(5)" id="pstar5">★</span>
+        <div id="pub-rating-label" style="font-size:12px;color:#64748b;margin-top:4px;"></div>
+      </div>
+      <label>How was the waiting time?</label>
+      <select id="fb-pub-wait" style="margin-bottom:10px;">
+        <option value="">-- Select --</option>
+        <option>Very short (&lt;15 min)</option><option>Acceptable (15–30 min)</option>
+        <option>Long (30–60 min)</option><option>Very long (&gt;1 hour)</option>
+      </select>
+      <label>Was staff courteous and professional?</label>
+      <select id="fb-pub-staff" style="margin-bottom:10px;">
+        <option value="">-- Select --</option>
+        <option>Excellent</option><option>Good</option><option>Fair</option><option>Poor</option>
+      </select>
+      <label>Would you recommend us?</label>
+      <select id="fb-pub-recommend" style="margin-bottom:10px;">
+        <option value="">-- Select --</option>
+        <option>Definitely yes</option><option>Probably yes</option>
+        <option>Not sure</option><option>Probably not</option><option>Definitely not</option>
+      </select>
+      <label>Additional Comments</label>
+      <textarea id="fb-pub-comment" rows="3" placeholder="Tell us how we can improve..." style="margin-bottom:14px;"></textarea>
+      <button onclick="submitPublicFeedback()" style="width:100%;background:#1e3a8a;color:#fff;border:none;border-radius:7px;padding:12px;font-size:15px;font-weight:700;cursor:pointer;">Submit Feedback</button>
+      <div id="fb-pub-err" style="color:#ef4444;font-size:12px;margin-top:6px;text-align:center;"></div>
+    </div>
+    <div id="fb-public-thanks" style="display:none;text-align:center;padding:30px 0;">
+      <div style="font-size:56px;margin-bottom:12px;">🙏</div>
+      <h3 style="color:#10b981;margin-bottom:8px;">Thank You!</h3>
+      <p style="color:#64748b;margin-bottom:6px;">Your feedback helps us serve you better.</p>
+      <p style="font-style:italic;color:#1e3a8a;">Care with Purpose. Healing with Love.</p>
+      <p style="font-size:12px;color:#94a3b8;margin-top:16px;">You may now close this page.</p>
+    </div>
+  </div>
 </div>
 
 </body>
