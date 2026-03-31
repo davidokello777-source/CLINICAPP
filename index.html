@@ -2315,6 +2315,21 @@ function printPatientReport(){
     ${(cl.peGeneral||cl.peChest||cl.peAbdomen||cl.peCVS)?`<div style="margin-bottom:8px;"><b>(PE)</b> <table class="pit"><tr><th>System</th><th>Finding</th></tr>${[['General',cl.peGeneral],['Head/Neck',cl.peHead],['Respiratory',cl.peChest],['Cardiovascular',cl.peCVS],['Abdomen',cl.peAbdomen],['CNS',cl.peCNS],['Extremities',cl.peExtremities],['Skin',cl.peSkin],['Other',cl.peOther]].filter(x=>x[1]).map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td></tr>`).join('')}</table></div>`:''}
     ${cl.recommendations?`<div style="margin-bottom:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:5px;padding:9px;"><b>(Rec)</b> <div style="margin-top:4px;">${cl.recommendations}</div></div>`:''}
     ${(v.prescriptions||[]).filter(r=>r.name).length?`<div style="margin-bottom:8px;"><b>PRESCRIPTION:</b><table class="pit"><tr><th>Drug</th><th>Strength</th><th>Form.</th><th>Qty</th><th>Duration</th><th>Date</th><th>Patient Instructions</th></tr>${(v.prescriptions||[]).filter(r=>r.name).map(r=>`<tr><td>${r.name}</td><td>${r.strength||'—'}</td><td>${r.formulation||'—'}</td><td>${r.qty}</td><td>${r.duration||'—'}</td><td>${v.date}</td><td>${r.patientInstructions||'—'}</td></tr>`).join('')}</table></div>`:''}
+    ${(v.procedures||[]).filter(p=>p.name).length?`<div style="margin-bottom:8px;">
+      <b>PROCEDURES ORDERED:</b>
+      <table class="pit">
+        <tr><th>Procedure</th><th>Ordered By</th><th>Date</th><th>Status</th><th>Completed By</th><th>Time</th><th>Observations</th></tr>
+        ${(v.procedures||[]).filter(p=>p.name).map(p=>`<tr>
+          <td>${p.name}</td>
+          <td>${p.orderedBy||'—'}</td>
+          <td>${p.orderedDate||v.date}</td>
+          <td>${p.completed?'✅ Completed':'⏳ Pending'}</td>
+          <td>${p.completedBy||'—'}</td>
+          <td>${p.completedTime||'—'}</td>
+          <td>${p.notes||'—'}</td>
+        </tr>`).join('')}
+      </table>
+    </div>`:''}
     ${(v.treatmentChart||[]).length?`<div style="margin-bottom:8px;"><b>TREATMENT CHART:</b><table class="pit"><tr><th>Drug</th><th>Dose</th><th>Route</th><th>Time</th><th>Nurse</th><th>Notes</th></tr>${v.treatmentChart.map(e=>`<tr><td>${e.drug}</td><td>${e.dose}</td><td>${e.route}</td><td>${e.time}</td><td>${e.by}</td><td>${e.notes||'—'}</td></tr>`).join('')}</table></div>`:''}
     `+printFooter();
   doPrint();
@@ -3154,6 +3169,7 @@ function printInvoice(id){
       ${v.consultFee?`<tr><td>1</td><td>Consultation Fee</td><td>CONSULT</td><td>1</td><td>$${v.consultFee.toFixed(2)}</td><td>$${v.consultFee.toFixed(2)}</td></tr>`:''}
       ${(v.labs||[]).filter(l=>l.name).map((l,i)=>`<tr><td>${i+2}</td><td>${l.name}</td><td>LAB</td><td>1</td><td>$${l.price.toFixed(2)}</td><td>$${l.price.toFixed(2)}</td></tr>`).join('')}
       ${(v.radiology||[]).filter(r=>r.name).map((r,i)=>`<tr><td>${i+2}</td><td>${r.name}</td><td>RAD</td><td>1</td><td>$${r.price.toFixed(2)}</td><td>$${r.price.toFixed(2)}</td></tr>`).join('')}
+      ${(v.procedures||[]).filter(p=>p.name).map((p,i)=>`<tr><td>${i+2}</td><td>${p.name}${p.completed?' ✅':' ⏳'}</td><td>PROC</td><td>1</td><td>$${p.price.toFixed(2)}</td><td>$${p.price.toFixed(2)}</td></tr>`).join('')}
       ${(v.prescriptions||[]).filter(r=>r.name).map((r,i)=>`<tr><td>${i+2}</td><td>${r.name} ${r.strength||''}</td><td>Rx</td><td>${r.qty}</td><td>$${r.price.toFixed(2)}</td><td>$${(r.price*r.qty).toFixed(2)}</td></tr>`).join('')}
       ${v.discount?`<tr style="color:green;"><td colspan="5" style="text-align:right;">Discount (${v.discountReason||''})</td><td>-$${v.discount.toFixed(2)}</td></tr>`:''}
       <tr style="font-weight:700;background:#f1f5f9;"><td colspan="5" style="text-align:right;">TOTAL</td><td>$${tot.toFixed(2)}</td></tr>
@@ -3647,6 +3663,20 @@ function printDischargeSummary(vid){
         ${cl.recommendations||cl.notes||'No specific follow-up instructions recorded.'}
       </div>
     </div>
+    ${(v.procedures||[]).filter(p=>p.name).length?`
+    <div style="margin-bottom:14px;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;padding:5px 10px;background:#ede9fe;border-left:4px solid #7c3aed;">🔪 PROCEDURES PERFORMED</div>
+      <table class="pit">
+        <tr><th>Procedure</th><th>Status</th><th>Performed By</th><th>Time</th><th>Observations</th></tr>
+        ${(v.procedures).filter(p=>p.name).map(p=>`<tr>
+          <td>${p.name}</td>
+          <td style="font-weight:700;">${p.completed?'✅ Done':'⏳ Pending'}</td>
+          <td>${p.completedBy||'—'}</td>
+          <td>${p.completedTime||'—'}</td>
+          <td>${p.notes||'—'}</td>
+        </tr>`).join('')}
+      </table>
+    </div>`:''}
     ${cl.returnDate?`
     <div style="margin-bottom:14px;background:#fef9c3;border:1.5px solid #fbbf24;border-radius:6px;padding:10px 14px;font-size:13px;">
       <b>📅 Return Date:</b> ${cl.returnDate}
