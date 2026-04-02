@@ -301,16 +301,6 @@ document.addEventListener("DOMContentLoaded", function(){
         <div class="cg">
           <div class="cr2"><b>Director</b><br>director<br>TaliDir#2025</div>
           <div class="cr2"><b>Admin</b><br>admin<br>TaliAdm#2025</div>
-          <div class="cr2"><b>Reception</b><br>reception1<br>TaliRec1#2025</div>
-          <div class="cr2"><b>Nurse</b><br>nurse1<br>TaliNur1#2025</div>
-          <div class="cr2"><b>Doctor</b><br>doctor1<br>TaliDoc1#2025</div>
-          <div class="cr2"><b>Billing</b><br>billing1<br>TaliBil1#2025</div>
-          <div class="cr2"><b>Lab</b><br>lab1<br>TaliLab1#2025</div>
-          <div class="cr2"><b>Pharmacy</b><br>pharmacy1<br>TaliPha1#2025</div>
-          <div class="cr2"><b>Radiology</b><br>radiology1<br>TaliRad1#2025</div>
-          <div class="cr2"><b>Dentist</b><br>dentist1<br>TaliDen1#2025</div>
-          <div class="cr2"><b>ENT</b><br>ent1<br>TaliENT1#2025</div>
-          <div class="cr2"><b>Finance</b><br>finance1<br>TaliFin1#2025</div>
         </div>
       </details>
     </div>
@@ -943,6 +933,16 @@ document.addEventListener("DOMContentLoaded", function(){
         <table id="nursing-procs-editor-table" style="font-size:13px;"></table>
       </div>
 
+      <!-- Admin: SOPs -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:18px 0 10px;flex-wrap:wrap;gap:7px;">
+        <div>
+          <h3 style="margin-bottom:3px;">📋 Standard Operating Procedures</h3>
+          <p style="font-size:12px;color:var(--mu);margin:0;">Tali Medicals clinical and operational SOPs. Expand any procedure to view steps.</p>
+        </div>
+        <button onclick="printSOPs()" class="bo bsm" style="border-color:#1e3a8a;color:#1e3a8a;">🖨 Print All SOPs</button>
+      </div>
+      <div class="card" style="padding:12px;" id="sop-list"></div>
+
     </section>
 
 
@@ -1321,54 +1321,8 @@ function initInv(){
 
 function initStaff(){
   return[
-    // ── ADMIN / DIRECTOR ──
-    {id:'S01',name:'Medical Director',     username:'director',    password:'TaliDir#2025',  sections:[...ALL_SECS],isAdmin:true},
-    {id:'S02',name:'Admin Manager',        username:'admin',       password:'TaliAdm#2025',  sections:[...ALL_SECS],isAdmin:true},
-
-    // ── RECEPTION ──
-    {id:'S03',name:'Reception Officer 1',  username:'reception1',  password:'TaliRec1#2025', sections:['reception'],isAdmin:false},
-    {id:'S04',name:'Reception Officer 2',  username:'reception2',  password:'TaliRec2#2025', sections:['reception'],isAdmin:false},
-    {id:'S05',name:'Reception Officer 3',  username:'reception3',  password:'TaliRec3#2025', sections:['reception'],isAdmin:false},
-
-    // ── NURSING ──
-    {id:'S06',name:'Senior Nurse',         username:'nurse1',      password:'TaliNur1#2025', sections:['nurse','reception'],isAdmin:false},
-    {id:'S07',name:'Nurse 2',              username:'nurse2',      password:'TaliNur2#2025', sections:['nurse','reception'],isAdmin:false},
-    {id:'S08',name:'Nurse 3',              username:'nurse3',      password:'TaliNur3#2025', sections:['nurse','reception'],isAdmin:false},
-
-    // ── DOCTORS ──
-    {id:'S09',name:'Doctor 1 (General)',   username:'doctor1',     password:'TaliDoc1#2025', sections:['doctor','reception'],isAdmin:false},
-    {id:'S10',name:'Doctor 2 (General)',   username:'doctor2',     password:'TaliDoc2#2025', sections:['doctor','reception'],isAdmin:false},
-    {id:'S11',name:'Dental Officer',       username:'dentist1',    password:'TaliDen1#2025', sections:['doctor','reception'],isAdmin:false},
-    {id:'S12',name:'ENT Specialist',       username:'ent1',        password:'TaliENT1#2025', sections:['doctor','reception'],isAdmin:false},
-
-    // ── BILLING ──
-    {id:'S13',name:'Billing Officer 1',    username:'billing1',    password:'TaliBil1#2025', sections:['billing'],isAdmin:false},
-    {id:'S14',name:'Billing Officer 2',    username:'billing2',    password:'TaliBil2#2025', sections:['billing'],isAdmin:false},
-
-    // ── LABORATORY ──
-    {id:'S15',name:'Lab Technician 1',     username:'lab1',        password:'TaliLab1#2025', sections:['lab','inventory'],isAdmin:false},
-    {id:'S16',name:'Lab Technician 2',     username:'lab2',        password:'TaliLab2#2025', sections:['lab','inventory'],isAdmin:false},
-    {id:'S17',name:'Lab Technician 3',     username:'lab3',        password:'TaliLab3#2025', sections:['lab','inventory'],isAdmin:false},
-
-    // ── PHARMACY ──
-    {id:'S18',name:'Pharmacist 1',         username:'pharmacy1',   password:'TaliPha1#2025', sections:['pharmacy','inventory'],isAdmin:false},
-    {id:'S19',name:'Pharmacist 2',         username:'pharmacy2',   password:'TaliPha2#2025', sections:['pharmacy','inventory'],isAdmin:false},
-
-    // ── RADIOLOGY ──
-    {id:'S20',name:'Radiographer 1',       username:'radiology1',  password:'TaliRad1#2025', sections:['radiology'],isAdmin:false},
-    {id:'S21',name:'Radiographer 2',       username:'radiology2',  password:'TaliRad2#2025', sections:['radiology'],isAdmin:false},
-
-    // ── DENTAL ──
-    {id:'S22',name:'Dental Assistant 1',   username:'dental1',     password:'TaliDen2#2025', sections:['inventory'],isAdmin:false},
-    {id:'S23',name:'Dental Assistant 2',   username:'dental2',     password:'TaliDen3#2025', sections:['inventory'],isAdmin:false},
-
-    // ── ENT ──
-    {id:'S24',name:'ENT Nurse 1',          username:'entnurse1',   password:'TaliENT2#2025', sections:['nurse','inventory'],isAdmin:false},
-    {id:'S25',name:'ENT Nurse 2',          username:'entnurse2',   password:'TaliENT3#2025', sections:['nurse','inventory'],isAdmin:false},
-
-    // ── EXPENSES ──
-    {id:'S26',name:'Finance Officer 1',    username:'finance1',    password:'TaliFin1#2025', sections:['billing','expenses'],isAdmin:false},
-    {id:'S27',name:'Finance Officer 2',    username:'finance2',    password:'TaliFin2#2025', sections:['billing','expenses'],isAdmin:false},
+    {id:'S01',name:'Medical Director',username:'director',password:'TaliDir#2025',role:'Director',sections:[...ALL_SECS],isAdmin:true},
+    {id:'S02',name:'Admin Manager',   username:'admin',   password:'TaliAdm#2025',role:'Admin',   sections:[...ALL_SECS],isAdmin:true},
   ];
 }
 
@@ -1483,7 +1437,7 @@ function showSection(id){
     doctor:renderCons,billing:()=>renderBilling(),
     lab:()=>renderLab(),pharmacy:()=>renderPharm(),
     radiology:()=>renderRad(),inventory:()=>{renderInventory();checkNearExpiry();},
-    expenses:()=>renderExpenses(),admin:renderAdmin
+    expenses:()=>renderExpenses(),admin:renderAdmin,feedbacks:renderFeedbacks
   })[id]?.();},'showSection:'+id);
 }
 
@@ -2548,6 +2502,7 @@ function renderPharm(){
     h+=`<tr><td><b>${v.name}</b></td><td>${v.date}</td><td>${payBadge(v)}</td><td style="min-width:300px;">${medHtml}</td>
       <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
         ${rxs.some(r=>!r.dispensed)?`<button onclick="dispenseAll('${v.id}')" class="bsm ba">Dispense All</button>`:''}
+        <button class="bsm bo" onclick="printPharmReceipt('${v.id}')">🖨 Receipt</button>
         <button class="bsm" style="background:var(--s);color:#fff;" onclick="openChart('${v.id}')">Chart</button>
       </div></td></tr>`;
   });
@@ -3037,6 +2992,7 @@ function renderAdmin(){
   renderLabTestsEditor();
   renderRadProcsEditor();
   renderNursingProcsEditor();
+  renderSOPs();
 }
 
 function renderAdminPatients(){
@@ -4281,6 +4237,268 @@ function printFeedbackQR(){
     document.body.removeChild(qrWrap);
     doPrint();
   }, 400);
+}
+
+// ══════════════════════════════════════════════
+//  PHARMACY MEDICINE RECEIPT
+// ══════════════════════════════════════════════
+function printPharmReceipt(vid){
+  const v=visits.find(x=>x.id===vid);if(!v)return;
+  const p=patients.find(x=>x.id===v.patId);
+  const rxAll=(v.prescriptions||[]).filter(r=>r.name);
+  const rxDone=rxAll.filter(r=>r.dispensed);
+  const _lg=typeof _LOGO_B64!=='undefined'?_LOGO_B64:'';
+  document.getElementById('pra-sub').innerText='';
+  document.getElementById('pra-con').innerHTML=printHeader('PHARMACY DISPENSING RECEIPT')+`
+    <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:6px;padding:9px 14px;margin-bottom:12px;font-size:13px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+        <div><b>Patient:</b> ${v.name}</div>
+        <div><b>Date:</b> ${v.date}</div>
+        <div><b>Age:</b> ${p?p.ageVal+' '+p.ageUnit:'—'}</div>
+        <div><b>Gender:</b> ${p?p.gender:'—'}</div>
+        <div><b>Visit ID:</b> ${v.id}</div>
+        <div><b>Dispensed by:</b> ${rxDone[0]?.dispensedBy||currentUser?.name||'—'}</div>
+      </div>
+    </div>
+    <table class="pit" style="margin-bottom:12px;">
+      <tr><th>#</th><th>Medication</th><th>Strength</th><th>Form</th><th>Qty</th><th>Freq</th><th>Duration</th><th>Status</th></tr>
+      ${rxAll.map((r,i)=>`<tr style="${r.dispensed?'':'background:#fef9c3;'}">
+        <td>${i+1}</td>
+        <td><b>${r.name}</b>${r.patientInstructions?`<br><span style="font-size:10px;color:#1e40af;">📋 ${r.patientInstructions}</span>`:''}</td>
+        <td>${r.strength||'—'}</td>
+        <td>${r.formulation||'—'}</td>
+        <td><b>${r.qty}</b></td>
+        <td>${r.instructions||'—'}</td>
+        <td>${r.duration||'—'}</td>
+        <td style="font-weight:700;color:${r.dispensed?'#065f46':'#92400e'};">${r.dispensed?'✅ Dispensed':'⏳ Pending'}</td>
+      </tr>`).join('')}
+    </table>
+    <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:6px;padding:9px 14px;margin-bottom:12px;font-size:12px;">
+      <b>⚠ Patient Instructions:</b>
+      <ul style="margin:6px 0 0 16px;line-height:1.9;">
+        <li>Take all medications as prescribed — complete the full course.</li>
+        <li>Do not share medications with others.</li>
+        <li>Store in a cool, dry place away from sunlight.</li>
+        <li>Report any adverse reactions to the clinic immediately.</li>
+        <li>Keep all medications out of reach of children.</li>
+      </ul>
+    </div>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:8px 14px;font-size:12px;margin-bottom:10px;">
+      <b>Return Date:</b> ${(v.clinical||{}).returnDate||'As advised by doctor'}
+      ${(v.clinical||{}).returnNote?` &nbsp;—&nbsp; ${v.clinical.returnNote}`:''}
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:20px;gap:20px;">
+      <div style="flex:1;text-align:center;">
+        <div style="border-top:1.5px solid #334155;padding-top:6px;margin-top:30px;">&nbsp;</div>
+        <div style="font-size:11px;color:#64748b;">Pharmacist Signature &amp; Date</div>
+      </div>
+      <div style="flex:1;text-align:center;">
+        <div style="border-top:1.5px solid #334155;padding-top:6px;margin-top:30px;">&nbsp;</div>
+        <div style="font-size:11px;color:#64748b;">Patient / Guardian Signature</div>
+      </div>
+    </div>
+  `+printFooter();
+  doPrint();
+}
+
+// ══════════════════════════════════════════════
+//  STANDARD OPERATING PROCEDURES (SOPs)
+// ══════════════════════════════════════════════
+const TALI_SOPS = [
+  {
+    id:'SOP-001', category:'Patient Registration', title:'New Patient Registration',
+    steps:[
+      'Greet the patient courteously and offer assistance.',
+      'Collect full name, date of birth, gender, phone number, address, and next of kin.',
+      'Verify identity using a valid ID where possible.',
+      'Record chief complaint and assign a visit type (General, Lab Only, Dental, ENT, Radiology).',
+      'Issue patient a visit card/number and direct to triage.',
+      'Ensure patient consent form is signed for data capture.',
+    ]
+  },
+  {
+    id:'SOP-002', category:'Triage & Vital Signs', title:'Triage & Vital Signs Recording',
+    steps:[
+      'Call patient by name from the waiting area.',
+      'Record weight (kg), height (cm), blood pressure (mmHg), temperature (°C), pulse (bpm), SpO2 (%), respiratory rate.',
+      'Calculate BMI automatically — flag underweight (<18.5) or obese (>30) in notes.',
+      'Flag any critical values immediately: BP >180/110, SpO2 <90%, temp >39°C.',
+      'Escalate critical patients to the doctor immediately — do not keep them waiting.',
+      'Update patient status to "Waiting Consultation" after vitals are complete.',
+    ]
+  },
+  {
+    id:'SOP-003', category:'Doctor Consultation', title:'Doctor Consultation Protocol',
+    steps:[
+      'Review vitals and triage notes before calling patient.',
+      'Obtain and document: presenting complaint, history of presenting complaint, past medical/surgical history, drug history, allergies.',
+      'Perform and document physical examination findings by system.',
+      'Record differential diagnosis followed by final diagnosis.',
+      'Order investigations (lab, radiology) as needed.',
+      'Order any nursing procedures required.',
+      'Write prescriptions with drug name, strength, formulation, quantity, frequency, duration, and patient instructions.',
+      'Set a follow-up return date if required.',
+      'Save all clinical notes before ending the visit.',
+    ]
+  },
+  {
+    id:'SOP-004', category:'Laboratory', title:'Laboratory Sample Collection & Processing',
+    steps:[
+      'Receive lab request from the doctor's consultation form.',
+      'Confirm patient identity before sample collection (name + date of birth).',
+      'Collect sample using correct tube type for each test (EDTA for FBC, plain for biochemistry, etc.).',
+      'Label samples immediately at the point of collection with patient name, date, and test.',
+      'Process samples per test protocol — centrifuge serum samples within 30 minutes.',
+      'Enter results directly into the patient's lab result form in the system.',
+      'Flag critical/panic values to the doctor immediately by phone.',
+      'Mark results as complete only after verifying accuracy.',
+    ]
+  },
+  {
+    id:'SOP-005', category:'Pharmacy', title:'Medication Dispensing Protocol',
+    steps:[
+      'Receive prescription from the doctor's consultation — verify patient name and visit ID.',
+      'Check for drug allergies before dispensing — cross-reference the allergy alert banner.',
+      'Verify drug name, strength, formulation, quantity, and dosage instructions.',
+      'Check stock levels — do not dispense if stock is insufficient.',
+      'Dispense medications and deduct stock in the system.',
+      'Label each medication with patient name, drug name, dose, frequency, and duration.',
+      'Counsel patient on correct administration, storage, and completion of course.',
+      'Print and hand the pharmacy dispensing receipt to the patient.',
+      'Mark all dispensed items as complete in the system.',
+    ]
+  },
+  {
+    id:'SOP-006', category:'Radiology', title:'Radiology & Imaging Procedure',
+    steps:[
+      'Receive imaging request from the doctor's consultation form.',
+      'Confirm patient identity and type of imaging ordered.',
+      'Screen for contraindications (e.g. pregnancy for X-ray, pacemaker for MRI).',
+      'Explain the procedure to the patient and obtain consent.',
+      'Perform imaging following radiation safety protocols — wear PPE.',
+      'Enter imaging report and findings into the patient's radiology result in the system.',
+      'Flag urgent findings to the requesting doctor immediately.',
+      'Mark results as complete after verification.',
+    ]
+  },
+  {
+    id:'SOP-007', category:'Nursing Procedures', title:'Nursing Procedure Safety Checklist',
+    steps:[
+      'Confirm procedure order from the doctor's consultation form before starting.',
+      'Verify patient identity (name + visit ID).',
+      'Explain the procedure to the patient and obtain verbal consent.',
+      'Gather all required equipment before starting — sterile field where required.',
+      'Perform hand hygiene before and after the procedure.',
+      'Perform the procedure following aseptic technique.',
+      'Record time performed, observations, and any complications in the system.',
+      'Mark procedure as completed in the system immediately.',
+      'Report any adverse events or complications to the attending doctor immediately.',
+    ]
+  },
+  {
+    id:'SOP-008', category:'Billing & Finance', title:'Patient Billing & Payment',
+    steps:[
+      'Generate bill automatically from consultation, lab, radiology, pharmacy, and procedure orders.',
+      'Present bill to patient before or at discharge.',
+      'Accept payment by cash, mobile money, or insurance as applicable.',
+      'Record payment in the system immediately — specify method and amount.',
+      'Issue receipt to patient.',
+      'For partial payments, record balance outstanding and note payment plan.',
+      'Do not clear/discharge patient until billing is confirmed — coordinate with doctor.',
+    ]
+  },
+  {
+    id:'SOP-009', category:'Infection Control', title:'Infection Prevention & Control',
+    steps:[
+      'Perform hand hygiene (wash or sanitise) before and after every patient contact.',
+      'Wear appropriate PPE (gloves, mask, gown) for any procedure involving bodily fluids.',
+      'Dispose of sharps immediately in a puncture-resistant sharps container — never re-cap needles.',
+      'Dispose of clinical waste in yellow bags, general waste in black bags.',
+      'Disinfect all clinical surfaces between patients using approved disinfectants.',
+      'Report any needle-stick or sharps injury immediately to the medical officer.',
+      'Follow isolation protocols for patients with confirmed or suspected infectious disease.',
+    ]
+  },
+  {
+    id:'SOP-010', category:'Emergency', title:'Emergency & Resuscitation Protocol',
+    steps:[
+      'Recognise emergency: unresponsive, not breathing, severe bleeding, anaphylaxis, fitting.',
+      'Call for immediate help — shout or use emergency alert.',
+      'Commence Basic Life Support (BLS) if patient is unresponsive and not breathing.',
+      'Assign roles: one person on CPR, one for airway, one to call emergency services.',
+      'Retrieve emergency trolley/kit — check contents are complete and not expired.',
+      'Document time of collapse, interventions, and response.',
+      'Arrange urgent transfer if facility cannot manage — stabilise before transfer.',
+      'Complete incident report within 24 hours.',
+    ]
+  },
+  {
+    id:'SOP-011', category:'Discharge', title:'Patient Discharge Procedure',
+    steps:[
+      'Confirm all clinical notes are complete and saved by the doctor.',
+      'Confirm all lab and radiology results have been reviewed.',
+      'Confirm all medications have been dispensed by pharmacy.',
+      'Confirm billing is complete and payment received.',
+      'Print discharge summary and hand to patient.',
+      'Counsel patient on take-home medications, follow-up date, and warning signs.',
+      'Update patient status to Discharged in the system.',
+      'Remind patient of follow-up appointment date.',
+    ]
+  },
+  {
+    id:'SOP-012', category:'Data & Confidentiality', title:'Patient Data & Confidentiality',
+    steps:[
+      'All patient data is strictly confidential — do not share outside the clinical team.',
+      'Log out of the system when leaving a workstation unattended.',
+      'Do not write or display passwords visibly.',
+      'Do not photograph or screenshot patient records.',
+      'Access only records relevant to your role and current duties.',
+      'Report any suspected data breach to the Admin immediately.',
+      'Patient records must not be discussed in public areas.',
+    ]
+  },
+];
+
+function renderSOPs(){
+  const wrap=document.getElementById('sop-list');
+  if(!wrap)return;
+  const cats=[...new Set(TALI_SOPS.map(s=>s.category))];
+  wrap.innerHTML=cats.map(cat=>{
+    const sops=TALI_SOPS.filter(s=>s.category===cat);
+    return`<div style="margin-bottom:16px;">
+      <h4 style="color:var(--p);margin-bottom:8px;padding:6px 10px;background:#eff6ff;border-left:4px solid var(--p);border-radius:4px;">${cat}</h4>
+      ${sops.map(s=>`
+        <div class="cb" style="margin-bottom:6px;">
+          <div class="ch" onclick="tClin(this)" style="font-size:13px;">
+            <span><b style="color:var(--mu);font-size:11px;">${s.id}</b> &nbsp; ${s.title}</span>
+            <span class="cr">▼</span>
+          </div>
+          <div class="cbody" style="font-size:13px;">
+            <ol style="margin:4px 0 0 18px;line-height:2;">
+              ${s.steps.map(st=>`<li>${st}</li>`).join('')}
+            </ol>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function printSOPs(){
+  const _lg=typeof _LOGO_B64!=='undefined'?_LOGO_B64:'';
+  document.getElementById('pra-sub').innerText='';
+  document.getElementById('pra-con').innerHTML=printHeader('STANDARD OPERATING PROCEDURES')+
+    TALI_SOPS.map(s=>`
+    <div style="margin-bottom:18px;page-break-inside:avoid;">
+      <div style="background:#1e3a8a;color:#fff;padding:7px 12px;border-radius:5px 5px 0 0;display:flex;justify-content:space-between;">
+        <b>${s.title}</b><span style="font-size:11px;opacity:.8;">${s.id} | ${s.category}</span>
+      </div>
+      <div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 5px 5px;padding:10px 14px;">
+        <ol style="margin:0 0 0 16px;line-height:2;font-size:12px;">
+          ${s.steps.map(st=>`<li>${st}</li>`).join('')}
+        </ol>
+      </div>
+    </div>`).join('')+printFooter();
+  doPrint();
 }
 </script>
 
