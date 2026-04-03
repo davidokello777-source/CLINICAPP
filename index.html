@@ -946,6 +946,41 @@ document.addEventListener("DOMContentLoaded", function(){
     </section>
 
 
+    <!-- STAFF CHAT -->
+    <section id="sec-chat">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+        <h3>💬 Staff Chat</h3>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <select id="chat-filter" onchange="renderChat()" style="width:auto;margin:0;font-size:12px;">
+            <option value="all">📢 All Staff</option>
+            <option value="doctor">👨‍⚕️ Doctors</option>
+            <option value="nurse">💉 Nurses</option>
+            <option value="lab">🔬 Lab</option>
+            <option value="pharmacy">💊 Pharmacy</option>
+            <option value="radiology">🩻 Radiology</option>
+            <option value="billing">💳 Billing</option>
+            <option value="reception">🏥 Reception</option>
+          </select>
+          <span id="chat-online-count" style="font-size:12px;color:var(--a);font-weight:600;"></span>
+        </div>
+      </div>
+      <div class="card" style="padding:0;display:flex;flex-direction:column;height:70vh;">
+        <!-- Messages area -->
+        <div id="chat-messages" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;"></div>
+        <!-- Typing area -->
+        <div style="border-top:1.5px solid var(--bd);padding:10px 14px;background:#f8fafc;">
+          <div style="display:flex;gap:8px;align-items:flex-end;">
+            <select id="chat-to" style="width:auto;margin:0;font-size:12px;min-width:140px;">
+              <option value="all">📢 All Staff</option>
+            </select>
+            <textarea id="chat-input" rows="2" placeholder="Type a message... (Enter to send)" style="flex:1;margin:0;font-size:13px;resize:none;" onkeydown="chatKeyDown(event)"></textarea>
+            <button onclick="sendChat()" class="ba" style="padding:8px 16px;align-self:flex-end;">Send</button>
+          </div>
+          <div style="font-size:11px;color:var(--mu);margin-top:4px;">Messages are visible to all staff. Keep communications professional.</div>
+        </div>
+      </div>
+    </section>
+
     <!-- FEEDBACK FORM (QR accessible) -->
     <section id="sec-feedback">
       <div style="max-width:600px;margin:0 auto;">
@@ -1193,14 +1228,14 @@ const DOSAGE_OPTS=[
   'Stat (single dose)','Every other day','Once weekly','Before meals','After meals','With meals','Stat then OD',
 ];
 
-const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','suppliers','expenses'];
-const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',suppliers:'Suppliers',expenses:'Expenses'};
+const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','suppliers','expenses','chat'];
+const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',suppliers:'Suppliers',expenses:'Expenses',chat:'Staff Chat'};
 const CONSULT_FEE=10;
 
 // ══════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════
-let patients=[],visits=[],inventory=[],staffList=[],expenses=[],suppliers=[];
+let patients=[],visits=[],inventory=[],staffList=[],expenses=[],suppliers=[],chatMessages=[];
 // logo embedded in printHeader()
 let currentUser=null,activeVid=null,activePayVid=null;
 let radRowId=0,medRowId=0,radRows=[],medRows=[];
@@ -1236,6 +1271,7 @@ async function loadData(){
     }
     expenses  = d.expenses  ||[];
     suppliers = d.suppliers  ||[];
+    chatMessages = d.chatMessages||[];
     if(d.nursingProcs&&d.nursingProcs.length) window._nursingProcs=[...d.nursingProcs]; else window._nursingProcs=[...NURSING_PROCEDURES];
     if(d.labTests&&d.labTests.length) window._labTests=[...d.labTests]; else window._labTests=[...LAB_TESTS];
     if(d.radProcs&&d.radProcs.length) window._radProcs=[...d.radProcs]; else window._radProcs=[...RADIOLOGY_PROCS];
@@ -1246,7 +1282,7 @@ async function loadData(){
     if(!patients.length && !visits.length){
       patients=[];visits=[];expenses=[];
       inventory=initInv();staffList=initStaff();
-      window._labTests=[...LAB_TESTS];window._radProcs=[...RADIOLOGY_PROCS];window._nursingProcs=[...NURSING_PROCEDURES];suppliers=[];
+      window._labTests=[...LAB_TESTS];window._radProcs=[...RADIOLOGY_PROCS];window._nursingProcs=[...NURSING_PROCEDURES];suppliers=[];chatMessages=[];
     }
   }
 }
@@ -1331,7 +1367,7 @@ function save(){
   si('Saving…');
   saveTimer=setTimeout(async()=>{
     try{
-      await fetch(API,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},body:JSON.stringify({patients,visits,inventory,staffList,expenses,feedbacks:window.feedbacks||[],labTests:window._labTests||LAB_TESTS,radProcs:window._radProcs||RADIOLOGY_PROCS,nursingProcs:window._nursingProcs||NURSING_PROCEDURES,suppliers,...(window._pendingAlertOut?{pendingAlert:window._pendingAlertOut}:{})})});
+      await fetch(API,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},body:JSON.stringify({patients,visits,inventory,staffList,expenses,feedbacks:window.feedbacks||[],labTests:window._labTests||LAB_TESTS,radProcs:window._radProcs||RADIOLOGY_PROCS,nursingProcs:window._nursingProcs||NURSING_PROCEDURES,suppliers,chatMessages,...(window._pendingAlertOut?{pendingAlert:window._pendingAlertOut}:{})})});
       si('Saved ✓',true); window._pendingAlertOut=null;
     }catch(e){si('Save failed ✗');}
   },1200);
@@ -1382,6 +1418,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
       if(d.labTests&&d.labTests.length) window._labTests=d.labTests;
       if(d.radProcs&&d.radProcs.length) window._radProcs=d.radProcs;
       if(d.nursingProcs&&d.nursingProcs.length) window._nursingProcs=d.nursingProcs;
+      if(d.chatMessages) chatMessages=d.chatMessages;
       // Refresh current visible section silently
       const activeSec=document.querySelector('section.active');
       if(activeSec){
@@ -1422,7 +1459,7 @@ function login(){
 function renderNav(){
   const secs=currentUser.isAdmin?['director',...ALL_SECS,'admin','feedbacks']:(currentUser.sections||[]);
   const lbl={director:'Dashboard',...SEC_LABELS,admin:'Admin',feedbacks:'Feedback'};
-  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',suppliers:'🏪',expenses:'💰',admin:'⚙️',feedbacks:'⭐'};
+  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',suppliers:'🏪',expenses:'💰',chat:'💬',admin:'⚙️',feedbacks:'⭐'};
   document.getElementById('dn').innerHTML=secs.map(s=>`<button id="btn-${s}" class="nb" onclick="showSection('${s}')">${icons[s]||'•'} ${lbl[s]||s.toUpperCase()}</button>`).join('');
 }
 
@@ -1437,7 +1474,7 @@ function showSection(id){
     doctor:renderCons,billing:()=>renderBilling(),
     lab:()=>renderLab(),pharmacy:()=>renderPharm(),
     radiology:()=>renderRad(),inventory:()=>{renderInventory();checkNearExpiry();},
-    expenses:()=>renderExpenses(),admin:renderAdmin,feedbacks:renderFeedbacks
+    expenses:()=>renderExpenses(),admin:renderAdmin,feedbacks:renderFeedbacks,chat:renderChat
   })[id]?.();},'showSection:'+id);
 }
 
@@ -1559,7 +1596,7 @@ function registerPatient(){
 function renderPatients(){
   const term=(document.getElementById('patSearch')?.value||'').toLowerCase();
   let h=`<tr><th>Name</th><th>Age</th><th>Gender</th><th>Phone</th><th>Last Visit</th><th>Pay Status</th><th>Cleared</th><th>Actions</th></tr>`;
-  const f=patients.filter(p=>p.name.toLowerCase().includes(term));
+  const f=patients.filter(p=>p.name.toLowerCase().includes(term)).slice().reverse();
   if(!f.length){h+=`<tr><td colspan="8" class="emp">No patients found</td></tr>`;}
   f.forEach(p=>{
     const pv=visits.filter(v=>v.patId===p.id);const last=pv.length?pv[pv.length-1]:null;
@@ -3679,20 +3716,6 @@ function printDischargeSummary(vid){
 let activeSupId=null;
 
 function renderSuppliers(){
-  // Always rebuild the section header to guarantee the button is present
-  const secEl=document.getElementById('sec-suppliers');
-  if(!secEl)return;
-  let hdrEl=document.getElementById('sup-section-hdr');
-  if(!hdrEl){
-    hdrEl=document.createElement('div');
-    hdrEl.id='sup-section-hdr';
-    secEl.insertBefore(hdrEl,secEl.firstChild);
-  }
-  hdrEl.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
-      <h3>🏪 Supplier Management</h3>
-      <button onclick="oModal('sup-add-modal')" class="ba" style="font-size:14px;padding:8px 16px;">+ Add Supplier</button>
-    </div>`;
   const q=(document.getElementById('sup-search')?.value||'').toLowerCase();
   const list=suppliers.filter(s=>!q||(s.name+s.phone+s.email).toLowerCase().includes(q));
   // Summary cards
@@ -4499,6 +4522,112 @@ function printSOPs(){
       </div>
     </div>`).join('')+printFooter();
   doPrint();
+}
+
+// ══════════════════════════════════════════════
+//  STAFF CHAT
+// ══════════════════════════════════════════════
+let _chatRefreshTimer = null;
+
+function renderChat(){
+  if(!currentUser) return;
+  // Populate the "To" dropdown with online staff
+  const toSel = document.getElementById('chat-to');
+  if(toSel){
+    const others = staffList.filter(s=>s.id!==currentUser.id);
+    toSel.innerHTML = '<option value="all">📢 All Staff</option>' +
+      others.map(s=>`<option value="${s.id}">${s.name} (${s.role||s.username})</option>`).join('');
+  }
+  _renderChatMessages();
+  // Auto-refresh every 8s while chat is open
+  if(_chatRefreshTimer) clearInterval(_chatRefreshTimer);
+  _chatRefreshTimer = setInterval(async()=>{
+    const active = document.querySelector('section.active');
+    if(!active || active.id !== 'sec-chat'){ clearInterval(_chatRefreshTimer); _chatRefreshTimer=null; return; }
+    try{
+      const r = await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
+      const j = await r.json();
+      if(j.record?.chatMessages){
+        chatMessages = j.record.chatMessages;
+        _renderChatMessages();
+      }
+    }catch(e){}
+  }, 8000);
+}
+
+function _renderChatMessages(){
+  const filter = document.getElementById('chat-filter')?.value || 'all';
+  const el = document.getElementById('chat-messages');
+  if(!el) return;
+  // Keep only last 100 messages
+  const msgs = chatMessages.slice(-100);
+  // Filter by channel
+  const filtered = filter === 'all' ? msgs : msgs.filter(m=>
+    m.toId==='all' || m.toId===currentUser.id ||
+    m.fromId===currentUser.id ||
+    (m.channel && m.channel===filter)
+  );
+  if(!filtered.length){
+    el.innerHTML='<div class="emp" style="margin-top:20px;">No messages yet. Say hello! 👋</div>';
+    return;
+  }
+  const isMe = id => id === currentUser.id;
+  el.innerHTML = filtered.map(m=>{
+    const mine = isMe(m.fromId);
+    const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
+    const date = m.timestamp ? new Date(m.timestamp).toLocaleDateString() : '';
+    const isToday = date === new Date().toLocaleDateString();
+    const toLabel = m.toId==='all' ? '<span style="font-size:10px;background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:6px;margin-left:4px;">All Staff</span>'
+      : m.toId===currentUser.id ? '<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:6px;margin-left:4px;">You</span>'
+      : `<span style="font-size:10px;background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:6px;margin-left:4px;">→ ${m.toName||'Staff'}</span>`;
+    return`<div style="display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'};">
+      <div style="max-width:75%;background:${mine?'#1e3a8a':'#f1f5f9'};color:${mine?'#fff':'#0f172a'};border-radius:${mine?'12px 12px 2px 12px':'12px 12px 12px 2px'};padding:9px 13px;">
+        ${!mine?`<div style="font-size:11px;font-weight:700;color:${mine?'rgba(255,255,255,.7)':'#3b82f6'};margin-bottom:3px;">${m.fromName||'Staff'} ${toLabel}</div>`:''}
+        <div style="font-size:13px;line-height:1.5;">${m.text.replace(/
+/g,'<br>')}</div>
+        <div style="font-size:10px;opacity:.6;margin-top:4px;text-align:right;">${isToday?time:date+' '+time}</div>
+      </div>
+    </div>`;
+  }).join('');
+  // Scroll to bottom
+  el.scrollTop = el.scrollHeight;
+}
+
+function chatKeyDown(e){
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); }
+}
+
+async function sendChat(){
+  const input = document.getElementById('chat-input');
+  const toSel = document.getElementById('chat-to');
+  if(!input || !input.value.trim()) return;
+  const text = input.value.trim();
+  const toId = toSel?.value || 'all';
+  const toStaff = staffList.find(s=>s.id===toId);
+  const msg = {
+    id: 'MSG-'+Date.now(),
+    fromId: currentUser.id,
+    fromName: currentUser.name,
+    fromRole: currentUser.role || currentUser.username,
+    toId,
+    toName: toStaff ? toStaff.name : 'All Staff',
+    text,
+    timestamp: new Date().toISOString(),
+  };
+  chatMessages.push(msg);
+  // Keep only last 200 messages in storage
+  if(chatMessages.length > 200) chatMessages = chatMessages.slice(-200);
+  input.value = '';
+  _renderChatMessages();
+  // Save async - don't wait
+  try{
+    const r = await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
+    const j = await r.json(); const d = j.record||{};
+    d.chatMessages = chatMessages;
+    await fetch(API,{method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},
+      body:JSON.stringify(d)});
+  }catch(e){ console.warn('Chat save failed',e); }
 }
 </script>
 
