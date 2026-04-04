@@ -4583,8 +4583,7 @@ function _renderChatMessages(){
     return`<div style="display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'};">
       <div style="max-width:75%;background:${mine?'#1e3a8a':'#f1f5f9'};color:${mine?'#fff':'#0f172a'};border-radius:${mine?'12px 12px 2px 12px':'12px 12px 12px 2px'};padding:9px 13px;">
         ${!mine?`<div style="font-size:11px;font-weight:700;color:${mine?'rgba(255,255,255,.7)':'#3b82f6'};margin-bottom:3px;">${m.fromName||'Staff'} ${toLabel}</div>`:''}
-        <div style="font-size:13px;line-height:1.5;">${m.text.replace(/
-/g,'<br>')}</div>
+        <div style="font-size:13px;line-height:1.5;">${m.text.replace(/\n/g,'<br>')}</div>
         <div style="font-size:10px;opacity:.6;margin-top:4px;text-align:right;">${isToday?time:date+' '+time}</div>
       </div>
     </div>`;
