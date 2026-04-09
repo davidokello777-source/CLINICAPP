@@ -378,6 +378,18 @@ document.addEventListener("DOMContentLoaded", function(){
           <table id="dept-rev-table" style="font-size:13px;"></table>
         </div>
       </div>
+      <!-- Patient Feedback Summary for Director -->
+      <div class="card" style="border-left:4px solid var(--w);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+          <h4 style="margin:0;color:var(--w);">⭐ Patient Feedback Summary</h4>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span id="dir-fb-stats" style="font-size:12px;color:var(--mu);"></span>
+            <button onclick="renderDirFeedback()" style="background:var(--p);color:#fff;border:none;padding:4px 10px;border-radius:5px;font-size:12px;cursor:pointer;">🔄 Refresh</button>
+          </div>
+        </div>
+        <div id="dir-fb-stars" style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px;padding:10px;background:var(--lt);border-radius:7px;"></div>
+        <div style="overflow-x:auto;"><table id="dir-fb-table" style="font-size:12px;"><tr><td colspan="8" class="emp">Click Refresh to load feedback.</td></tr></table></div>
+      </div>
     </section>
 
     <!-- RECEPTION -->
@@ -1499,6 +1511,32 @@ function renderDash(){
   document.getElementById('d-disc').innerText=tv.filter(v=>v.status==='DISCHARGED').length;
   buildRevExpChart();buildVisitsChart();buildDebtChart();buildLabChart();
   buildStockValTable();buildLowStockTable();buildDeptRevChart();
+  renderDirFeedback();
+}
+
+function renderDirFeedback(){
+  const tbl=document.getElementById('dir-fb-table');
+  const starsEl=document.getElementById('dir-fb-stars');
+  const statsEl=document.getElementById('dir-fb-stats');
+  if(tbl) tbl.innerHTML='<tr><td colspan="8" class="emp">Loading…</td></tr>';
+  fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}}).then(r=>r.json()).then(j=>{
+    const fbs=(j.record||{}).feedbacks||[];
+    const avg=fbs.length?(fbs.reduce((s,f)=>s+(f.rating||0),0)/fbs.length).toFixed(1):'N/A';
+    if(statsEl) statsEl.innerHTML=`<b>${fbs.length}</b> total &nbsp;|&nbsp; Avg: <b style="color:var(--w);">${avg} ★</b>`;
+    const dist={1:0,2:0,3:0,4:0,5:0};
+    fbs.forEach(f=>{if(f.rating>=1&&f.rating<=5)dist[f.rating]++;});
+    if(starsEl) starsEl.innerHTML=[5,4,3,2,1].map(n=>{
+      const pct=fbs.length?Math.round(dist[n]/fbs.length*100):0;
+      return `<div style="min-width:110px;"><div style="font-size:11px;color:var(--mu);margin-bottom:3px;">${"★".repeat(n)} ${n}-star</div><div style="background:#e2e8f0;border-radius:4px;height:9px;"><div style="background:var(--w);height:9px;border-radius:4px;width:${pct}%;transition:.4s;"></div></div><div style="font-size:10px;color:var(--mu);margin-top:2px;">${dist[n]} response${dist[n]!==1?'s':''} (${pct}%)</div></div>`;
+    }).join('');
+    let h=`<tr><th>Date</th><th>Name</th><th>Dept</th><th>Rating</th><th>Wait</th><th>Staff</th><th>Recommend</th><th>Comment</th></tr>`;
+    if(!fbs.length) h+=`<tr><td colspan="8" class="emp">No patient feedback submitted yet.</td></tr>`;
+    [...fbs].reverse().slice(0,25).forEach(f=>{
+      const st="★".repeat(f.rating||0)+"☆".repeat(5-(f.rating||0));
+      h+=`<tr><td style="white-space:nowrap;">${f.date||"—"}</td><td>${f.name||'<i style="color:#94a3b8;">Anonymous</i>'}</td><td>${f.dept||"—"}</td><td style="color:var(--w);font-weight:700;white-space:nowrap;">${st} ${f.rating||0}/5</td><td style="font-size:11px;">${f.waitTime||"—"}</td><td style="font-size:11px;">${f.staffRating||"—"}</td><td style="font-size:11px;">${f.recommend||"—"}</td><td style="font-size:11px;max-width:200px;">${f.comment||"—"}</td></tr>`;
+    });
+    if(tbl) tbl.innerHTML=h;
+  }).catch(()=>{ if(tbl) tbl.innerHTML='<tr><td colspan="8" class="emp">Could not load feedback — check connection.</td></tr>'; });
 }
 
 function getLast7Days(){
@@ -1674,6 +1712,7 @@ function openChart(pId){
           <button class="bsm bo" onclick="printVisitReport('${v.id}')">📄 Print</button>
           <button class="bsm bo" onclick="printInvoice('${v.id}')">🖨 Invoice</button>
           ${(v.labs||[]).some(l=>l.done)?`<button class="bsm" style="background:var(--a);color:#fff;" onclick="printAllLabs('${v.id}')">🔬 Labs PDF</button>`:''}
+          ${v.status==='DISCHARGED'?`<button class="bsm" style="background:#10b981;color:#fff;" onclick="cModal('chart-modal');printDischargeSummary('${v.id}')">🏥 Discharge Summary</button>`:''}
         </div>
       </div>
       <div style="font-size:12px;margin-bottom:7px;">${labItems} ${radItems} ${rxItems}</div>
@@ -1864,6 +1903,7 @@ function renderAllPats(){
               <span style="font-size:11px;color:var(--mu);flex:1;">${v.consultType||'GEN'} — ${dx}</span>
               <button class="bsm ${isDone?'':'bp'}" style="${isDone?'background:#6366f1;color:#fff;':''}" onclick="${isDone?`viewVisitRecord('${v.id}')`:`openCons('${v.id}')`}">${isDone?'🗂 View':'▶ Open'}</button>
               <button class="bsm bo" onclick="printVisitReport('${v.id}')">📄 Print</button>
+              ${v.status==='DISCHARGED'?`<button class="bsm" style="background:#10b981;color:#fff;" onclick="printDischargeSummary('${v.id}')">🏥 Discharge</button>`:''}
             </div>`;
           }).join('')}
         </div>
@@ -1930,6 +1970,7 @@ function viewVisitRecord(vid){
     <button onclick="printVisitReport('${v.id}')" class="bo" style="padding:6px 14px;">📄 Print Full Report</button>
     <button onclick="printInvoice('${v.id}')" class="bsm bo">🖨 Print Invoice</button>
     ${(v.labs||[]).some(l=>l.done)?`<button onclick="printAllLabs('${v.id}')" class="bsm" style="background:var(--a);color:#fff;">🔬 Lab PDF</button>`:''}
+    ${v.status==='DISCHARGED'?`<button onclick="printDischargeSummary('${v.id}')" class="bsm" style="background:#10b981;color:#fff;">🏥 Discharge Summary</button>`:''}
     <button onclick="closeVisitRecord()" class="bd2" style="padding:6px 12px;">✕ Close</button>`;
   // Switch to queue tab so cons-form is visible
   const queueTab=document.querySelector('#sec-doctor .st');
@@ -1961,6 +2002,59 @@ function printVisitReport(vid){
   activeVid=vid;
   printPatientReport();
   activeVid=prevActive;
+}
+
+function _renderConsLabResults(){
+  // Called from openCons (active visit) and on manual refresh — shows all lab/rad results inline
+  const v=visits.find(x=>x.id===activeVid); if(!v) return;
+  const labsAll=(v.labs||[]).filter(l=>l.name);
+  const radAll=(v.radiology||[]).filter(r=>r.name);
+  const labsDone=labsAll.filter(l=>l.done);
+  const radDone=radAll.filter(r=>r.done);
+  const labsPending=labsAll.filter(l=>!l.done);
+  const radPending=radAll.filter(r=>!r.done);
+
+  // Lab results panel
+  const lPanel=document.getElementById('lab-res-panel');
+  const lDisp=document.getElementById('lab-res-display');
+  if(lPanel&&lDisp){
+    if(labsAll.length){
+      lPanel.style.display='block';
+      let html='';
+      if(labsDone.length) html+=labsDone.map(l=>`<div class="lrc"><b>${l.name}</b> <span class="badge bpd" style="font-size:10px;">Result Ready</span><div style="margin-top:3px;white-space:pre-wrap;font-size:13px;">${l.result}</div><div style="font-size:11px;color:var(--mu);margin-top:2px;">${l.resultTime} — ${l.resultBy}</div></div>`).join('');
+      if(labsPending.length) html+=`<div style="background:#fef9c3;border:1.5px solid #fbbf24;border-radius:6px;padding:8px 12px;margin-top:6px;font-size:12px;">⏳ <b>Awaiting lab results for:</b> ${labsPending.map(l=>`<span class="badge bwn" style="font-size:10px;margin:2px;">${l.name}</span>`).join(' ')}</div>`;
+      lDisp.innerHTML=html;
+    } else { lPanel.style.display='none'; }
+  }
+
+  // Rad results panel
+  const rPanel=document.getElementById('rad-res-panel');
+  const rDisp=document.getElementById('rad-res-display');
+  if(rPanel&&rDisp){
+    if(radAll.length){
+      rPanel.style.display='block';
+      let html='';
+      if(radDone.length) html+=radDone.map(r=>`<div class="lrc" style="border-color:var(--pu);"><b>${r.name}</b> <span class="badge bpu2" style="font-size:10px;">Result Ready</span><div style="margin-top:3px;white-space:pre-wrap;font-size:13px;">${r.result}</div><div style="font-size:11px;color:var(--mu);margin-top:2px;">${r.resultTime} — ${r.resultBy}</div></div>`).join('');
+      if(radPending.length) html+=`<div style="background:#fef9c3;border:1.5px solid #fbbf24;border-radius:6px;padding:8px 12px;margin-top:6px;font-size:12px;">⏳ <b>Awaiting radiology results for:</b> ${radPending.map(r=>`<span class="badge bwn" style="font-size:10px;margin:2px;">${r.name}</span>`).join(' ')}</div>`;
+      rDisp.innerHTML=html;
+    } else { rPanel.style.display='none'; }
+  }
+}
+
+async function refreshConsResults(){
+  // Pull latest data from server and re-render results while keeping consultation open
+  if(!activeVid) return;
+  try{
+    const r=await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
+    const j=await r.json(); const d=j.record||{};
+    if(d.visits) visits=d.visits;
+    _renderConsLabResults();
+    // Flash the panels to signal update
+    ['lab-res-panel','rad-res-panel'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el&&el.style.display!=='none'){el.style.transition='opacity .2s';el.style.opacity='.4';setTimeout(()=>{el.style.opacity='1';},200);}
+    });
+  }catch(e){ alert('Could not refresh — check connection.'); }
 }
 
 function openCons(id){
@@ -1997,13 +2091,8 @@ function openCons(id){
   document.getElementById('hPEExtremities').value=cl.peExtremities||'';document.getElementById('hPESkin').value=cl.peSkin||'';
   document.getElementById('hPEOther').value=cl.peOther||'';
   document.getElementById('cRecommendations').value=cl.recommendations||'';
-  // Lab results panel
-  const labsWithRes=(v.labs||[]).filter(l=>l.done);
-  const radWithRes=(v.radiology||[]).filter(r=>r.done);
-  document.getElementById('lab-res-panel').style.display=labsWithRes.length?'block':'none';
-  document.getElementById('rad-res-panel').style.display=radWithRes.length?'block':'none';
-  if(labsWithRes.length)document.getElementById('lab-res-display').innerHTML=labsWithRes.map(l=>`<div class="lrc"><b>${l.name}</b><div style="margin-top:3px;white-space:pre-wrap;">${l.result}</div><div style="font-size:11px;color:var(--mu);margin-top:2px;">${l.resultTime} — ${l.resultBy}</div></div>`).join('');
-  if(radWithRes.length)document.getElementById('rad-res-display').innerHTML=radWithRes.map(r=>`<div class="lrc" style="border-color:var(--pu);"><b>${r.name}</b><div style="margin-top:3px;white-space:pre-wrap;">${r.result}</div><div style="font-size:11px;color:var(--mu);margin-top:2px;">${r.resultTime} — ${r.resultBy}</div></div>`).join('');
+  // Lab results panel — show completed results + pending awaiting banner
+  _renderConsLabResults();
   // Lab order section visibility
   document.getElementById('lab-order-sec').style.display=(v.consultType==='LAB_ONLY'||v.consultType==='RADIOLOGY')?'none':'block';
   // Build lab checkboxes
@@ -2025,7 +2114,7 @@ function openCons(id){
   updateOrderSummary(v);
   // Actions
   const ab=document.getElementById('cons-actions');
-  ab.innerHTML=`<button onclick="saveClinical()" style="background:#475569;color:#fff;font-weight:600;">💾 Save Notes</button><button onclick="openAdmit()" class="bpu">🛏 Admit</button><button onclick="printPatientReport()" class="bo bsm">📄 Print Report</button><button onclick="printDischargeSummary()" class="bo bsm" style="border-color:#10b981;color:#10b981;">📋 Discharge Summary</button><button onclick="endVisit()" class="bd2" style="padding:6px 12px;font-size:13px;">✓ End Visit</button>`;
+  ab.innerHTML=`<button onclick="saveClinical()" style="background:#475569;color:#fff;font-weight:600;">💾 Save Notes</button><button onclick="openAdmit()" class="bpu">🛏 Admit</button><button onclick="refreshConsResults()" style="background:#0ea5e9;color:#fff;font-weight:600;" title="Pull latest lab/rad results from server">🔄 Refresh Results</button><button onclick="printPatientReport()" class="bo bsm">📄 Print Report</button><button onclick="printDischargeSummary()" class="bo bsm" style="border-color:#10b981;color:#10b981;">📋 Discharge Summary</button><button onclick="endVisit()" class="bd2" style="padding:6px 12px;font-size:13px;">✓ End Visit</button>`;
   document.getElementById('queue-list-card').style.display='none';
   document.getElementById('cons-form').style.display='block';
   document.getElementById('cons-form').scrollIntoView({behavior:'smooth'});
@@ -2338,7 +2427,7 @@ function printPatientReport(){
     </div>`:''}
     ${(v.treatmentChart||[]).length?`<div style="margin-bottom:8px;"><b>TREATMENT CHART:</b><table class="pit"><tr><th>Drug</th><th>Dose</th><th>Route</th><th>Time</th><th>Nurse</th><th>Notes</th></tr>${v.treatmentChart.map(e=>`<tr><td>${e.drug}</td><td>${e.dose}</td><td>${e.route}</td><td>${e.time}</td><td>${e.by}</td><td>${e.notes||'—'}</td></tr>`).join('')}</table></div>`:''}
     `+printFooter();
-  doPrint();
+  doPrint(activeVid);
 }
 
 // ══════════════════════════════════════════════
@@ -2516,7 +2605,7 @@ function printAllLabs(id){
         <div style="font-size:10px;color:#64748b;margin-top:5px;">Reported: ${l.resultTime} &nbsp;|&nbsp; By: ${l.resultBy}</div>
       </div>`).join(''):'<p style="color:#64748b;">No completed lab results.</p>'}
     `+printFooter();
-  doPrint();
+  doPrint(id);
 }
 function printLabResults(){printAllLabs(activeVid);}
 
@@ -2647,7 +2736,7 @@ function printRadResults(id){
         <div style="font-size:10px;color:#64748b;margin-top:5px;">${r.resultTime} &nbsp;|&nbsp; ${r.resultBy}</div>
       </div>`).join(''):'<p style="color:#64748b;">No completed radiology results.</p>'}
     `+printFooter();
-  doPrint();
+  doPrint(id);
 }
 function swInv(sec,btn){
   invSection=sec;
@@ -3127,7 +3216,7 @@ function printHeader(subtitle){
       <div style="font-size:11px;color:#475569;font-weight:700;margin-top:4px;">${subtitle}</div>
     </div>
     <div class="print-right">
-      <div style="font-size:9px;color:#888;margin-bottom:4px;">Scan for Patient Feedback</div>
+      <div style="font-size:9px;color:#888;margin-bottom:4px;">Scan for Visit Details &amp; Feedback</div>
       <div id="qr-print" style="width:80px;height:80px;margin-left:auto;"></div>
       <div style="font-size:9px;color:#888;margin-top:3px;">HIMS v3.3</div>
     </div>
@@ -3140,14 +3229,43 @@ function printFooter(){
     <div style="font-size:10px;color:#555;"><i>Care with Purpose. Healing with Love.</i> | TALI MEDICALS INTERNATIONAL | HIMS v3.3 | Printed: ${new Date().toLocaleString()}</div>
   </div>`;
 }
-function doPrint(){
+function buildVisitQRText(vid){
+  // Build a rich text payload for the QR: patient info + services + feedback URL
+  const v=visits.find(x=>x.id===(vid||activeVid));
+  const fbUrl=getQRUrl();
+  if(!v) return fbUrl;
+  const p=patients.find(x=>x.id===v.patId);
+  const lines=[];
+  lines.push('TALI MEDICALS INTERNATIONAL');
+  lines.push('----------------------------');
+  lines.push('Patient: '+v.name);
+  if(p){ lines.push('Age: '+p.ageVal+' '+p.ageUnit+' | Gender: '+p.gender); if(p.phone) lines.push('Phone: '+p.phone); }
+  lines.push('Date: '+v.date+' | Type: '+(v.consultType||'GENERAL'));
+  if(v.vitals){ const vt=v.vitals; lines.push('Vitals: '+[vt.bp?'BP:'+vt.bp:'',vt.temp?'Temp:'+vt.temp+'C':'',vt.pulse?'Pulse:'+vt.pulse:'',vt.spo2?'SpO2:'+vt.spo2+'%':''].filter(Boolean).join(' | ')); }
+  const labs=(v.labs||[]).filter(l=>l.name);
+  if(labs.length){ lines.push('Lab Tests: '+labs.map(l=>l.name+(l.done?' (Done)':' (Pending)')).join(', ')); }
+  const rads=(v.radiology||[]).filter(r=>r.name);
+  if(rads.length){ lines.push('Radiology: '+rads.map(r=>r.name+(r.done?' (Done)':' (Pending)')).join(', ')); }
+  const rxs=(v.prescriptions||[]).filter(r=>r.name);
+  if(rxs.length){ lines.push('Medications: '+rxs.map(r=>r.name+' x'+r.qty+(r.dispensed?' (Dispensed)':' (Pending)')).join(', ')); }
+  const dx=(v.clinical||{}).finalDx||(v.clinical||{}).diffDx;
+  if(dx) lines.push('Diagnosis: '+dx);
+  lines.push('Status: '+v.status.replace(/_/g,' '));
+  lines.push('----------------------------');
+  lines.push('Feedback: '+fbUrl);
+  lines.push('Scan above link to rate your visit');
+  return lines.join('\n');
+}
+
+function doPrint(vid){
   // Temporarily make pra visible so QRCode canvas can render (hidden=0 size)
   const pra = document.getElementById('pra');
   pra.style.display = 'block';
   pra.style.position = 'fixed';
   pra.style.left = '-9999px';
   pra.style.top = '0';
-  generateQR('qr-print', getQRUrl());
+  const qrText = buildVisitQRText(vid);
+  generateQR('qr-print', qrText);
   setTimeout(()=>{
     pra.style.display = '';
     pra.style.position = '';
@@ -3189,7 +3307,7 @@ function printInvoice(id){
     </div>
     ${v.payments?.length?`<div style="margin-top:7px;font-size:12px;border-top:1px solid #e2e8f0;padding-top:5px;"><b>Payment History:</b><br>${v.payments.map(pp=>`${pp.time} — $${pp.amount.toFixed(2)} via ${pp.method} (${pp.by})`).join('<br>')}</div>`:''}
     `+printFooter();
-  doPrint();
+  doPrint(id);
 }
 function injectReg(containerId){
   const c=document.getElementById(containerId);if(!c)return;
@@ -3707,7 +3825,7 @@ function printDischargeSummary(vid){
       </div>
     </div>
   `+printFooter();
-  doPrint();
+  doPrint(vId);
 }
 
 // ══════════════════════════════════════════════
@@ -4321,7 +4439,7 @@ function printPharmReceipt(vid){
       </div>
     </div>
   `+printFooter();
-  doPrint();
+  doPrint(vid);
 }
 
 // ══════════════════════════════════════════════
