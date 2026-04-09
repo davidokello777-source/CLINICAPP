@@ -1699,7 +1699,7 @@ function swNurse(tab,btn){
 }
 
 function renderTriage(){
-  const q=visits.filter(v=>v.status==='WAITING_TRIAGE');
+  const q=visits.filter(v=>v.status==='WAITING_TRIAGE').sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Type</th><th>Date</th><th>Pay Status</th><th>Action</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No patients waiting for triage</td></tr>`;
   q.forEach(v=>{const p=patients.find(x=>x.id===v.patId);
@@ -1750,7 +1750,7 @@ function submitTriage(){
 }
 
 function renderTreatList(){
-  const active=visits.filter(v=>!['DISCHARGED'].includes(v.status));
+  const active=visits.filter(v=>!['DISCHARGED'].includes(v.status)).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
   let h=`<tr><th>Patient</th><th>Status</th><th>Diagnosis</th><th>Pay Status</th><th>Action</th></tr>`;
   if(!active.length)h+=`<tr><td colspan="5" class="emp">No active patients</td></tr>`;
   active.forEach(v=>{
@@ -1810,7 +1810,7 @@ function swDoc(tab,btn){
 }
 
 function renderCons(){
-  const q=visits.filter(v=>!['DISCHARGED','ADMITTED'].includes(v.status));
+  const q=visits.filter(v=>!['DISCHARGED','ADMITTED'].includes(v.status)).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Type</th><th>Status</th><th>Pay</th><th>Labs</th><th>Rad</th><th>Rx</th><th>Action</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="9" class="emp"><div>No active patients in queue</div><button onclick="renderCons()" style="margin-top:6px;background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;">🔄 Refresh Queue</button></td></tr>`;
   q.forEach(v=>{
@@ -2433,9 +2433,9 @@ function renderLab(){
   document.getElementById('lab-entry').style.display='none';
   if(labTab==='summary'){buildLabSummary();return;}
   let q;
-  if(labTab==='pending')q=visits.filter(v=>(v.labs||[]).some(l=>l.name&&!l.done));
-  else if(labTab==='completed')q=visits.filter(v=>(v.labs||[]).some(l=>l.done));
-  else q=visits.filter(v=>(v.labs||[]).some(l=>l.name));
+  if(labTab==='pending')q=visits.filter(v=>(v.labs||[]).some(l=>l.name&&!l.done)).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
+  else if(labTab==='completed')q=visits.filter(v=>(v.labs||[]).some(l=>l.done)).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
+  else q=visits.filter(v=>(v.labs||[]).some(l=>l.name)).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
   let h=`<tr><th>Patient</th><th>Date</th><th>Type</th><th>Pay Status</th><th>Tests</th><th>Status</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="7" class="emp">No records</td></tr>`;
   q.forEach(v=>{
@@ -2526,8 +2526,8 @@ function printLabResults(){printAllLabs(activeVid);}
 function swPharm(tab,btn){pharmTab=tab;document.querySelectorAll('#sec-pharmacy .st').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderPharm();}
 function renderPharm(){
   let q;
-  if(pharmTab==='pending')q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.name&&!r.dispensed));
-  else q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.dispensed));
+  if(pharmTab==='pending')q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.name&&!r.dispensed)).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
+  else q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.dispensed)).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
   let h=`<tr><th>Patient</th><th>Date</th><th>Pay Status</th><th>Medications</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="5" class="emp">No records</td></tr>`;
   q.forEach(v=>{
@@ -2590,9 +2590,9 @@ function checkFullyDispensed(v){
 function swRad(tab,btn){radTab=tab;document.querySelectorAll('#sec-radiology .st').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderRad();}
 function renderRad(){
   let q;
-  if(radTab==='pending')q=visits.filter(v=>(v.radiology||[]).some(r=>r.name&&!r.done));
-  else if(radTab==='completed')q=visits.filter(v=>(v.radiology||[]).some(r=>r.done));
-  else q=visits.filter(v=>(v.radiology||[]).some(r=>r.name));
+  if(radTab==='pending')q=visits.filter(v=>(v.radiology||[]).some(r=>r.name&&!r.done)).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
+  else if(radTab==='completed')q=visits.filter(v=>(v.radiology||[]).some(r=>r.done)).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
+  else q=visits.filter(v=>(v.radiology||[]).some(r=>r.name)).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
   let h=`<tr><th>Patient</th><th>Date</th><th>Pay</th><th>Procedures</th><th>Status</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No radiology requests</td></tr>`;
   q.forEach(v=>{
@@ -3216,7 +3216,7 @@ function renderPatsIn(p){
   const term=(document.getElementById(`${p}-search`)?.value||'').toLowerCase();
   const t=document.getElementById(`${p}-table`);if(!t)return;
   let h=`<tr><th>Name</th><th>Age</th><th>Gender</th><th>Last Status</th><th>Action</th></tr>`;
-  patients.filter(x=>x.name.toLowerCase().includes(term)).forEach(x=>{
+  patients.filter(x=>x.name.toLowerCase().includes(term)).slice().reverse().forEach(x=>{
     const pv=visits.filter(v=>v.patId===x.id);const last=pv.length?pv[pv.length-1]:null;
     const st=last?`<span class="badge bgr" style="font-size:10px;">${last.status.replace(/_/g,' ')}</span>`:'-';
     h+=`<tr><td><b>${x.name}</b></td><td>${x.ageVal} ${x.ageUnit}</td><td>${x.gender}</td><td>${st}</td><td><button class="bsm bo" onclick="startVisit('${x.id}','${enc(x.name)}')">+ Visit</button></td></tr>`;
