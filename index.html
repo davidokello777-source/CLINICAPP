@@ -528,7 +528,10 @@ document.addEventListener("DOMContentLoaded", function(){
         <div id="cons-form" class="card" style="display:none;">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:11px;">
             <div><h3 id="c-name" style="color:var(--p);margin:0;"></h3><span id="c-type-badge" style="margin-top:3px;display:inline-block;"></span></div>
-            <div style="display:flex;gap:5px;align-items:center;"><span id="c-date" style="font-size:12px;color:var(--mu);"></span><span id="c-pay"></span></div>
+            <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;"><span id="c-date" style="font-size:12px;color:var(--mu);"></span><span id="c-pay"></span>
+              <button onclick="openDocDemoEdit()" class="bsm bo" style="border-color:#7c3aed;color:#7c3aed;font-size:11px;">✏️ Edit Info</button>
+              <button onclick="openDocVitalsEdit()" class="bsm bo" style="border-color:#0891b2;color:#0891b2;font-size:11px;">🩺 Edit Vitals</button>
+            </div>
           </div>
           <div id="c-hist" style="background:var(--lt);border-left:3px solid var(--s);padding:8px 12px;border-radius:5px;margin-bottom:12px;font-size:12px;max-height:100px;overflow-y:auto;"></div>
           <!-- Vitals summary -->
@@ -1699,7 +1702,7 @@ function swNurse(tab,btn){
 }
 
 function renderTriage(){
-  const q=visits.filter(v=>v.status==='WAITING_TRIAGE').slice().reverse();
+  const q=visits.filter(v=>v.status==='WAITING_TRIAGE');
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Type</th><th>Date</th><th>Pay Status</th><th>Action</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No patients waiting for triage</td></tr>`;
   q.forEach(v=>{const p=patients.find(x=>x.id===v.patId);
@@ -1810,7 +1813,7 @@ function swDoc(tab,btn){
 }
 
 function renderCons(){
-  const q=visits.filter(v=>!['DISCHARGED','ADMITTED'].includes(v.status)).slice().reverse();
+  const q=visits.filter(v=>!['DISCHARGED','ADMITTED'].includes(v.status));
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Type</th><th>Status</th><th>Pay</th><th>Labs</th><th>Rad</th><th>Rx</th><th>Action</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="9" class="emp"><div>No active patients in queue</div><button onclick="renderCons()" style="margin-top:6px;background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;">🔄 Refresh Queue</button></td></tr>`;
   q.forEach(v=>{
@@ -1830,7 +1833,7 @@ function renderAllPats(){
   const term=(document.getElementById('allpat-search')?.value||'').toLowerCase();
   const ageF=parseInt(document.getElementById('allpat-age')?.value)||0;
   let h=`<tr><th>Patient</th><th>Age/Sex</th><th>Visits</th><th>Last Visit</th><th>Diagnoses</th><th>Actions</th></tr>`;
-  let filtered=patients.filter(p=>p.name.toLowerCase().includes(term)).slice().reverse();
+  let filtered=patients.filter(p=>p.name.toLowerCase().includes(term));
   if(ageF>0)filtered=filtered.filter(p=>p.ageVal===ageF);
   if(!filtered.length)h+=`<tr><td colspan="6" class="emp">No patients found</td></tr>`;
   filtered.forEach(p=>{
@@ -2433,9 +2436,9 @@ function renderLab(){
   document.getElementById('lab-entry').style.display='none';
   if(labTab==='summary'){buildLabSummary();return;}
   let q;
-  if(labTab==='pending')q=visits.filter(v=>(v.labs||[]).some(l=>l.name&&!l.done)).slice().reverse();
-  else if(labTab==='completed')q=visits.filter(v=>(v.labs||[]).some(l=>l.done)).slice().reverse();
-  else q=visits.filter(v=>(v.labs||[]).some(l=>l.name)).slice().reverse();
+  if(labTab==='pending')q=visits.filter(v=>(v.labs||[]).some(l=>l.name&&!l.done));
+  else if(labTab==='completed')q=visits.filter(v=>(v.labs||[]).some(l=>l.done));
+  else q=visits.filter(v=>(v.labs||[]).some(l=>l.name));
   let h=`<tr><th>Patient</th><th>Date</th><th>Type</th><th>Pay Status</th><th>Tests</th><th>Status</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="7" class="emp">No records</td></tr>`;
   q.forEach(v=>{
@@ -2526,8 +2529,8 @@ function printLabResults(){printAllLabs(activeVid);}
 function swPharm(tab,btn){pharmTab=tab;document.querySelectorAll('#sec-pharmacy .st').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderPharm();}
 function renderPharm(){
   let q;
-  if(pharmTab==='pending')q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.name&&!r.dispensed)).slice().reverse();
-  else q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.dispensed)).slice().reverse();
+  if(pharmTab==='pending')q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.name&&!r.dispensed));
+  else q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.dispensed));
   let h=`<tr><th>Patient</th><th>Date</th><th>Pay Status</th><th>Medications</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="5" class="emp">No records</td></tr>`;
   q.forEach(v=>{
@@ -2590,9 +2593,9 @@ function checkFullyDispensed(v){
 function swRad(tab,btn){radTab=tab;document.querySelectorAll('#sec-radiology .st').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderRad();}
 function renderRad(){
   let q;
-  if(radTab==='pending')q=visits.filter(v=>(v.radiology||[]).some(r=>r.name&&!r.done)).slice().reverse();
-  else if(radTab==='completed')q=visits.filter(v=>(v.radiology||[]).some(r=>r.done)).slice().reverse();
-  else q=visits.filter(v=>(v.radiology||[]).some(r=>r.name)).slice().reverse();
+  if(radTab==='pending')q=visits.filter(v=>(v.radiology||[]).some(r=>r.name&&!r.done));
+  else if(radTab==='completed')q=visits.filter(v=>(v.radiology||[]).some(r=>r.done));
+  else q=visits.filter(v=>(v.radiology||[]).some(r=>r.name));
   let h=`<tr><th>Patient</th><th>Date</th><th>Pay</th><th>Procedures</th><th>Status</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No radiology requests</td></tr>`;
   q.forEach(v=>{
@@ -2609,14 +2612,315 @@ function renderRad(){
   document.getElementById('table-rad').innerHTML=h;
 }
 
+
+// ══════════════════════════════════════════════
+//  DOCTOR: EDIT PATIENT DEMOGRAPHICS
+// ══════════════════════════════════════════════
+function openDocDemoEdit(){
+  const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  const p=patients.find(x=>x.id===v.patId);if(!p)return alert('Patient record not found.');
+  document.getElementById('docDemoPid').value=p.id;
+  document.getElementById('docDemoName').value=p.name||'';
+  document.getElementById('docDemoGender').value=p.gender||'Male';
+  document.getElementById('docDemoAgeVal').value=p.ageVal||'';
+  document.getElementById('docDemoAgeUnit').value=p.ageUnit||'Years';
+  document.getElementById('docDemoPhone').value=p.phone||'';
+  document.getElementById('docDemoAddress').value=p.address||'';
+  document.getElementById('docDemoKin').value=p.kinName||'';
+  document.getElementById('docDemoKinPhone').value=p.kinPhone||'';
+  oModal('doc-demo-modal');
+}
+function saveDoctorDemo(){
+  const pid=document.getElementById('docDemoPid').value;
+  const p=patients.find(x=>x.id===pid);if(!p)return;
+  const name=document.getElementById('docDemoName').value.trim();
+  if(!name)return alert('Name is required.');
+  p.name=name;
+  p.gender=document.getElementById('docDemoGender').value;
+  p.ageVal=parseInt(document.getElementById('docDemoAgeVal').value)||p.ageVal;
+  p.ageUnit=document.getElementById('docDemoAgeUnit').value;
+  p.phone=document.getElementById('docDemoPhone').value.trim();
+  p.address=document.getElementById('docDemoAddress').value.trim();
+  p.kinName=document.getElementById('docDemoKin').value.trim();
+  p.kinPhone=document.getElementById('docDemoKinPhone').value.trim();
+  // Update name on current visit too
+  const v=visits.find(x=>x.id===activeVid);
+  if(v){v.name=name;lg(v,'Demographics Updated','By: '+currentUser.name);}
+  document.getElementById('c-name').innerText=name;
+  // Refresh obs/gyn block visibility
+  document.getElementById('ogBlock').style.display=(p.gender==='Female')?'block':'none';
+  save();cModal('doc-demo-modal');
+  alert('Patient demographics updated.');
+}
+
+// ══════════════════════════════════════════════
+//  DOCTOR: EDIT VITALS
+// ══════════════════════════════════════════════
+function openDocVitalsEdit(){
+  const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  const vt=v.vitals||{};
+  document.getElementById('docVBP').value=vt.bp||'';
+  document.getElementById('docVTemp').value=vt.temp||'';
+  document.getElementById('docVWeight').value=vt.weight||'';
+  document.getElementById('docVHeight').value=vt.height||'';
+  document.getElementById('docVPulse').value=vt.pulse||'';
+  document.getElementById('docVSpO2').value=vt.spo2||'';
+  document.getElementById('docVRR').value=vt.rr||'';
+  updateDocBMI();
+  oModal('doc-vitals-modal');
+}
+function updateDocBMI(){
+  const w=parseFloat(document.getElementById('docVWeight')?.value);
+  const h=parseFloat(document.getElementById('docVHeight')?.value);
+  const el=document.getElementById('docVBMI-display');
+  if(!el)return;
+  if(w&&h&&h>0){
+    const bmi=(w/((h/100)*(h/100))).toFixed(1);
+    let cat='',col='#0f172a';
+    if(bmi<18.5){cat='Underweight';col='#0891b2';}
+    else if(bmi<25){cat='Normal';col='#16a34a';}
+    else if(bmi<30){cat='Overweight';col='#d97706';}
+    else{cat='Obese';col='#dc2626';}
+    el.innerHTML=`BMI: <span style="color:${col};">${bmi}</span><br><span style="font-size:11px;font-weight:400;color:${col};">${cat}</span>`;
+  }else{el.innerHTML='BMI: —';}
+}
+function saveDoctorVitals(){
+  const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  const bp=document.getElementById('docVBP').value.trim();
+  const temp=document.getElementById('docVTemp').value.trim();
+  const weight=document.getElementById('docVWeight').value.trim();
+  const height=document.getElementById('docVHeight').value.trim();
+  const pulse=document.getElementById('docVPulse').value.trim();
+  const spo2=document.getElementById('docVSpO2').value.trim();
+  const rr=document.getElementById('docVRR').value.trim();
+  if(!bp&&!temp&&!weight&&!pulse)return alert('Enter at least one vital sign.');
+  v.vitals=v.vitals||{};
+  if(bp)v.vitals.bp=bp;
+  if(temp)v.vitals.temp=temp;
+  if(weight)v.vitals.weight=weight;
+  if(height)v.vitals.height=height;
+  if(pulse)v.vitals.pulse=pulse;
+  if(spo2)v.vitals.spo2=spo2;
+  if(rr)v.vitals.rr=rr;
+  v.vitals.time=v.vitals.time||new Date().toLocaleTimeString();
+  v.vitals.correctedBy=currentUser.name;
+  v.vitals.correctedAt=new Date().toLocaleTimeString();
+  lg(v,'Vitals Corrected','By: '+currentUser.name);
+  // Refresh vitals strip in consultation form
+  const vt=v.vitals;
+  const bmiStr=(vt.weight&&vt.height)?` | BMI:${(vt.weight/((vt.height/100)*(vt.height/100))).toFixed(1)}`:'';
+  document.getElementById('c-vitals').style.display='block';
+  document.getElementById('c-vitals').innerHTML=`<b>Vitals (${vt.time}):</b> ${[vt.bp?'BP:'+vt.bp:'',vt.temp?'T:'+vt.temp+'°C':'',vt.weight?'Wt:'+vt.weight+'kg':'',vt.height?'Ht:'+vt.height+'cm':'',vt.pulse?'PR:'+vt.pulse:'',vt.spo2?'SpO2:'+vt.spo2+'%':'',vt.rr?'RR:'+vt.rr:''].filter(Boolean).join(' | ')}${bmiStr}<span style="font-size:11px;color:var(--mu);margin-left:8px;">(edited by Dr. ${currentUser.name})</span>`;
+  save();cModal('doc-vitals-modal');
+  alert('Vitals updated.');
+}
+
+// ══════════════════════════════════════════════
+//  RADIOLOGY: REPORTING TEMPLATES
+// ══════════════════════════════════════════════
+const RAD_TEMPLATES={
+  'Chest X-Ray':`CHEST X-RAY REPORT
+Technique: PA view / AP view
+Clinical Indication: [state indication]
+
+FINDINGS:
+Lung fields: [Clear / Consolidation noted in ... / Ground glass opacities / Pleural effusion ...]
+Cardiac silhouette: [Normal size / Cardiomegaly — CTR: ...]
+Mediastinum: [Normal width / Widened / Shift to ...]
+Costophrenic angles: [Acute and clear / Blunted bilaterally / Right blunted]
+Bony structures: [Ribs and clavicles intact / Fracture noted at ...]
+Diaphragm: [Normal / Elevated / Air under diaphragm]
+Soft tissues: [Unremarkable]
+
+IMPRESSION:
+[Normal chest X-ray / Pneumonia / Pleural effusion / Cardiomegaly / Other]`,
+
+  'Abdominal Ultrasound':`ABDOMINAL ULTRASOUND REPORT
+Technique: B-mode real-time ultrasound, [MHz] MHz transducer
+Clinical Indication: [state indication]
+
+FINDINGS:
+Liver: [Normal size and echogenicity / Enlarged / Fatty changes / Mass lesion — describe ...]
+Gallbladder: [Normal / Distended / Calculus — size ... / Sludge / Wall thickening]
+Common bile duct: [Not dilated / Dilated — ... mm]
+Spleen: [Normal / Splenomegaly — ... cm]
+Pancreas: [Visualised and normal / Not well visualised due to bowel gas / Mass ...]
+Kidneys (Right): [Normal size and corticomedullary differentiation / Hydronephrosis / Stone / Cyst ...]
+Kidneys (Left): [Normal / Hydronephrosis / Stone / Cyst ...]
+Bladder: [Adequately distended / Wall thickened / Calculus / Mass]
+Aorta: [Normal calibre / AAA — ... cm]
+Free fluid: [None / Present in ... space]
+
+IMPRESSION:
+[Normal abdominal ultrasound / Cholelithiasis / Hepatomegaly / Splenomegaly / Other]`,
+
+  'Pelvic Ultrasound':`PELVIC ULTRASOUND REPORT
+Technique: Transabdominal / Transvaginal (with consent)
+Clinical Indication: [state indication]
+
+FINDINGS:
+Uterus: [Normal size — ... x ... x ... cm / Retroverted / Anteverted / Enlarged / Fibroid — location, size ...]
+Endometrium: [Thickness: ... mm — appropriate for phase / Thickened / Irregular]
+Ovaries (Right): [Normal — ... x ... cm / Cyst — ... cm / PCOS appearance / Not visualised]
+Ovaries (Left): [Normal / Cyst / Not visualised]
+POD (Pouch of Douglas): [Free / Free fluid — ... ml]
+Adnexa: [No adnexal mass / Mass noted — describe ...]
+[If pregnant] Gestation: [Intrauterine sac / CRL / BPD / Fetal heart: present/absent]
+
+IMPRESSION:
+[Normal pelvic ultrasound / Uterine fibroid / Ovarian cyst / PCOS / Ectopic pregnancy not excluded / Other]`,
+
+  'CT Head':`CT HEAD REPORT
+Technique: Non-contrast CT / Contrast-enhanced CT
+Slice thickness: [... mm]
+Clinical Indication: [state indication]
+
+FINDINGS:
+Brain parenchyma: [No abnormal density / Hyperdense lesion at ... / Hypodense area at ...]
+Grey-white matter differentiation: [Preserved / Loss of differentiation ...]
+Ventricles: [Normal size and configuration / Dilated / Compressed]
+Sulci and gyri: [Normal / Effaced / Prominent — age-related]
+Basal ganglia: [Normal / Calcifications / Bleed ...]
+Posterior fossa / Cerebellum: [Unremarkable / Mass / Bleed ...]
+Midline shift: [None / ... mm to the left/right]
+Bone windows: [Calvarium intact / Fracture at ...]
+Sinuses / Mastoids: [Clear / Opacified]
+
+IMPRESSION:
+[No intracranial haemorrhage / Ischaemic stroke / Intracerebral haemorrhage / Mass lesion / Normal CT head]`,
+
+  'CT Abdomen/Pelvis':`CT ABDOMEN & PELVIS REPORT
+Technique: [Non-contrast / Arterial / Portal venous / Delayed phase]
+Contrast: [None / IV — ... ml / Oral]
+Clinical Indication: [state indication]
+
+FINDINGS:
+Liver: [Homogeneous / Lesion — segment ..., size ...]
+Gallbladder & biliary: [Normal / Calculus / Dilated CBD — ... mm]
+Spleen: [Normal / Splenomegaly / Lesion]
+Pancreas: [Normal / Oedematous / Mass / Calcification]
+Kidneys: [Bilateral normal / Hydronephrosis / Calculus — ... mm / Cyst / Mass]
+Adrenal glands: [Normal / Mass — right/left ...]
+Bowel: [Normal calibre / Distension / Wall thickening / Transition point at ...]
+Appendix: [Normal / Dilated — ... mm / Appendicolith]
+Lymph nodes: [No significant lymphadenopathy / Enlarged nodes at ...]
+Vessels: [Aorta normal / Aneurysm — ... cm]
+Bones: [No lytic or sclerotic lesions]
+Free fluid / air: [None / Present — location ...]
+
+IMPRESSION:
+[describe main findings]`,
+
+  'MRI Brain':`MRI BRAIN REPORT
+Sequences: T1, T2, FLAIR, DWI, [+/- Gadolinium contrast]
+Clinical Indication: [state indication]
+
+FINDINGS:
+T2/FLAIR signal: [No abnormal signal / Hyperintense focus at — location, size ...]
+DWI restriction: [None / Restricted diffusion at ... — consistent with acute ischaemia]
+White matter: [Normal / Small vessel ischaemic changes / Demyelinating plaques ...]
+Grey matter: [Preserved / Cortical thinning / Focal lesion ...]
+Corpus callosum: [Intact / Lesion ...]
+Ventricles: [Normal / Dilated / Compressed]
+Posterior fossa: [Unremarkable / Lesion ...]
+Cerebellopontine angle: [Clear / Mass]
+Pituitary: [Normal size / Microadenoma / Macroadenoma]
+Midline shift: [None / ... mm]
+Enhancement post-contrast: [No abnormal enhancement / Ring-enhancing lesion / Meningeal enhancement]
+
+IMPRESSION:
+[Normal MRI brain / Ischaemic stroke / MS plaques / Intracranial mass / Other]`,
+
+  'X-Ray Spine':`X-RAY SPINE REPORT
+Region: [Cervical / Thoracic / Lumbar / Full spine]
+Views: [AP & Lateral / + Oblique]
+Clinical Indication: [state indication]
+
+FINDINGS:
+Alignment: [Normal lordosis/kyphosis maintained / Loss of lordosis / Scoliosis — Cobb angle: ... degrees]
+Vertebral bodies: [Normal height and density / Anterior wedging at ... / Compression fracture at ... / Osteophytes ...]
+Intervertebral disc spaces: [Maintained / Reduced at ... / Disc space collapse at ...]
+Pedicles: [Intact / Pedicle erosion at ...]
+Posterior elements: [Intact / Spondylolysis at ... / Spondylolisthesis grade ... at ...]
+Paravertebral soft tissues: [Unremarkable / Soft tissue mass / Prevertebral swelling]
+Sacroiliac joints (if visible): [Normal / Sclerosis / Erosion]
+
+IMPRESSION:
+[Normal spine X-ray / Degenerative disc disease at ... / Spondylosis / Fracture at ... / Scoliosis]`,
+
+  'ECG Report':`ECG REPORT
+Date & Time: [auto-fill]
+Clinical Indication: [state indication]
+Rate: [... bpm]
+Rhythm: [Sinus rhythm / Atrial fibrillation / Other]
+
+FINDINGS:
+Rate: [... bpm]
+Axis: [Normal / Left axis deviation / Right axis deviation]
+P wave: [Normal / Absent / Broad / Peaked]
+PR interval: [Normal / Prolonged — ... ms / Short]
+QRS complex: [Narrow / Broad — ... ms / LBBB / RBBB]
+ST segment: [Isoelectric / ST elevation in leads: ... / ST depression in leads: ...]
+T wave: [Normal / Inverted in leads: ... / Tall peaked]
+QT interval: [Normal / Prolonged — QTc: ... ms]
+Other: [Delta waves / Q waves in ... / LVH criteria met]
+
+IMPRESSION:
+[Normal sinus rhythm / AF / STEMI — territory / NSTEMI changes / LVH / Other]`,
+
+  'Free Text':''
+};
+
 function openRadEntry(id){
   activeVid=id;const v=visits.find(x=>x.id===id);
   const pending=(v.radiology||[]).filter(r=>r.name&&!r.done);
   document.getElementById('rad-hdr').innerText=`Radiology Results — ${v.name}`;
-  document.getElementById('rad-tests-entry').innerHTML=pending.map((r,i)=>`<div style="margin-bottom:10px;"><label>${r.name} ${payBadge(v)}</label><textarea id="rad-result-${i}" data-rid="${r.id}" rows="3" placeholder="Enter report for ${r.name}..."></textarea></div>`).join('');
+  document.getElementById('rad-tests-entry').innerHTML=pending.map((r,i)=>{
+    const tplOptions=Object.keys(RAD_TEMPLATES).map(k=>{
+      // Auto-select best template based on procedure name
+      const name=r.name.toLowerCase();
+      const match=(k==='Chest X-Ray'&&(name.includes('chest')||name.includes('x-ray cxr')))||
+        (k==='Abdominal Ultrasound'&&(name.includes('abdo')||name.includes('abdominal us')||name.includes('ruo')||name.includes('abdominal ultrasound')))||
+        (k==='Pelvic Ultrasound'&&(name.includes('pelv')||name.includes('pelvic')||name.includes('obstetric')))||
+        (k==='CT Head'&&(name.includes('ct head')||name.includes('brain ct')))||
+        (k==='CT Abdomen/Pelvis'&&(name.includes('ct abdo')||name.includes('ct pelv')||name.includes('ct abdomen')))||
+        (k==='MRI Brain'&&(name.includes('mri')))||
+        (k==='X-Ray Spine'&&(name.includes('spine')||name.includes('lumbar')||name.includes('cervical')||name.includes('thoracic')))||
+        (k==='ECG Report'&&(name.includes('ecg')||name.includes('ekg')));
+      return`<option value="${k}" ${match?'selected':''}>${k}</option>`;
+    }).join('');
+    return`<div style="margin-bottom:14px;background:var(--lt);border:1.5px solid var(--bd);border-radius:7px;padding:10px 12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+        <label style="margin:0;font-size:13px;font-weight:700;color:var(--p);">📡 ${r.name} ${payBadge(v)}</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="font-size:11px;color:var(--mu);">Template:</span>
+          <select id="rad-tpl-${i}" onchange="applyRadTemplate(${i})" style="width:auto;margin:0;font-size:12px;">${tplOptions}</select>
+          <button onclick="applyRadTemplate(${i})" class="bsm bo" style="font-size:11px;">Load</button>
+        </div>
+      </div>
+      <textarea id="rad-result-${i}" data-rid="${r.id}" rows="14" placeholder="Type report here or select a template above…" style="font-family:monospace;font-size:12px;line-height:1.7;"></textarea>
+    </div>`;
+  }).join('');
+  // Auto-apply matched templates on open
+  pending.forEach((_,i)=>{
+    const tplSel=document.getElementById(`rad-tpl-${i}`);
+    if(tplSel&&tplSel.value&&tplSel.value!=='Free Text')applyRadTemplate(i);
+  });
   document.getElementById('rad-entry').style.display='block';
   document.getElementById('rad-entry').scrollIntoView({behavior:'smooth'});
 }
+
+function applyRadTemplate(i){
+  const sel=document.getElementById(`rad-tpl-${i}`);
+  const ta=document.getElementById(`rad-result-${i}`);
+  if(!sel||!ta)return;
+  const tpl=RAD_TEMPLATES[sel.value];
+  if(tpl===undefined)return;
+  if(ta.value.trim()&&!confirm('Replace current report text with the selected template?'))return;
+  ta.value=tpl;
+  ta.focus();
+}
+
 function updateRad(){
   const v=visits.find(x=>x.id===activeVid);
   const pending=(v.radiology||[]).filter(r=>r.name&&!r.done);
@@ -4955,6 +5259,68 @@ function renderDirRecords(){
     </section>
   </div><!-- /main-wrap -->
 </div><!-- /app -->
+
+<!-- ══ DOCTOR: EDIT DEMOGRAPHICS MODAL ══ -->
+<div id="doc-demo-modal" class="mo">
+  <div class="mb" style="max-width:520px;">
+    <button class="mc" onclick="cModal('doc-demo-modal')">✕</button>
+    <h3 style="color:var(--p);margin-bottom:12px;">✏️ Edit Patient Demographics</h3>
+    <input type="hidden" id="docDemoPid">
+    <label>Full Name *</label><input id="docDemoName" placeholder="Patient full name">
+    <div class="g2">
+      <div><label>Gender</label>
+        <select id="docDemoGender"><option>Male</option><option>Female</option><option>Other</option></select>
+      </div>
+      <div><label>Age</label>
+        <div style="display:flex;gap:5px;">
+          <input type="number" id="docDemoAgeVal" placeholder="e.g. 32" style="width:70px;flex-shrink:0;">
+          <select id="docDemoAgeUnit" style="flex:1;"><option>Years</option><option>Months</option><option>Days</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="g2">
+      <div><label>Phone</label><input id="docDemoPhone" placeholder="+256..."></div>
+      <div><label>Address</label><input id="docDemoAddress" placeholder="Physical address"></div>
+    </div>
+    <div class="g2">
+      <div><label>Next of Kin</label><input id="docDemoKin" placeholder="Name of kin"></div>
+      <div><label>Kin Phone</label><input id="docDemoKinPhone" placeholder="+256..."></div>
+    </div>
+    <div class="ab">
+      <button onclick="saveDoctorDemo()" class="ba">💾 Save Changes</button>
+      <button onclick="cModal('doc-demo-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DOCTOR: EDIT VITALS MODAL ══ -->
+<div id="doc-vitals-modal" class="mo">
+  <div class="mb" style="max-width:480px;">
+    <button class="mc" onclick="cModal('doc-vitals-modal')">✕</button>
+    <h3 style="color:var(--p);margin-bottom:12px;">🩺 Edit / Correct Vitals</h3>
+    <p style="font-size:12px;color:var(--mu);margin-bottom:10px;">Correct or update vitals for this visit. Changes will reflect immediately in clinical notes.</p>
+    <div class="g2">
+      <div><label>Blood Pressure (mmHg)</label><input id="docVBP" placeholder="e.g. 120/80"></div>
+      <div><label>Temperature (°C)</label><input type="number" step="0.1" id="docVTemp" placeholder="e.g. 37.0"></div>
+    </div>
+    <div class="g2">
+      <div><label>Weight (kg)</label><input type="number" step="0.1" id="docVWeight" placeholder="e.g. 68" oninput="updateDocBMI()"></div>
+      <div><label>Height (cm)</label><input type="number" id="docVHeight" placeholder="e.g. 170" oninput="updateDocBMI()"></div>
+    </div>
+    <div class="g2">
+      <div><label>Pulse (bpm)</label><input type="number" id="docVPulse" placeholder="e.g. 78"></div>
+      <div><label>SpO2 (%)</label><input type="number" id="docVSpO2" placeholder="e.g. 98"></div>
+    </div>
+    <div class="g2">
+      <div><label>Respiratory Rate (/min)</label><input type="number" id="docVRR" placeholder="e.g. 16"></div>
+      <div id="docVBMI-display" style="padding-top:22px;font-size:13px;font-weight:700;color:var(--p);"></div>
+    </div>
+    <div class="ab">
+      <button onclick="saveDoctorVitals()" class="ba">💾 Save Vitals</button>
+      <button onclick="cModal('doc-vitals-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <!-- PRINT AREA: must be direct child of body for print CSS to work -->
 <div id="pra">
