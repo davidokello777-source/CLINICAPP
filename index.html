@@ -1603,7 +1603,8 @@ function buildLowStockTable(){
 //  RECEPTION
 // ══════════════════════════════════════════════
 function newVisit(vId,patId,name,consultType='GENERAL'){
-  const statusMap={GENERAL:'WAITING_TRIAGE',LAB_ONLY:'WAITING_LAB',RADIOLOGY:'WAITING_RADIOLOGY',DENTAL:'WAITING_SPECIAL',ENT:'WAITING_SPECIAL',OTHER_SPECIAL:'WAITING_SPECIAL'};
+  // ALL patients pass through triage first — nurse routes to dept after vitals
+  const statusMap={GENERAL:'WAITING_TRIAGE',LAB_ONLY:'WAITING_TRIAGE',RADIOLOGY:'WAITING_TRIAGE',DENTAL:'WAITING_TRIAGE',ENT:'WAITING_TRIAGE',OTHER_SPECIAL:'WAITING_TRIAGE'};
   return{id:vId,patId,name,consultType,status:statusMap[consultType]||'WAITING_TRIAGE',date:new Date().toLocaleDateString(),
     timeline:[],vitals:null,clinical:{pc:'',hpc:'',pmh:'',lmp:'',gravPara:'',obsGyn:'',fsh:'',drugHx:'',allergies:'',diffDx:'',finalDx:'',notes:''},
     labs:[],radiology:[],prescriptions:[],treatmentChart:[],
@@ -1780,10 +1781,13 @@ function submitTriage(){
   if(!parts.length)return alert('Enter at least one vital sign.');
   v.vitals={bp:document.getElementById('vBP').value,temp:document.getElementById('vTemp').value,weight:document.getElementById('vWeight').value,height:document.getElementById('vHeight').value,pulse:document.getElementById('vPulse').value,spo2:document.getElementById('vSpO2').value,rr:document.getElementById('vRR').value,time:new Date().toLocaleTimeString(),by:currentUser.name};
   lg(v,'Vitals',parts.join(' | '));
-  v.status='WAITING_CONSULTATION';
+  // Route to correct department after triage based on consultation type
+  const postTriageStatus={GENERAL:'WAITING_CONSULTATION',LAB_ONLY:'WAITING_LAB',RADIOLOGY:'WAITING_RADIOLOGY',DENTAL:'WAITING_SPECIAL',ENT:'WAITING_SPECIAL',OTHER_SPECIAL:'WAITING_SPECIAL'};
+  v.status=postTriageStatus[v.consultType]||'WAITING_CONSULTATION';
   if(!v.cleared.includes('Triage'))v.cleared.push('Triage');
   save();
-  speak(`Patient ${v.name} vitals recorded. Ready for doctor consultation.`);
+  const deptSpeech={GENERAL:'doctor consultation',LAB_ONLY:'laboratory',RADIOLOGY:'radiology',DENTAL:'dental clinic',ENT:'ENT clinic',OTHER_SPECIAL:'special consultation'};
+  speak(`Patient ${v.name} vitals recorded. Routed to ${deptSpeech[v.consultType]||'next department'}.`);
   buildNurseVitalsTrend(v.patId);
   document.getElementById('triage-form').style.display='none';renderTriage();
 }
@@ -2115,6 +2119,12 @@ function openCons(id){
   // Actions
   const ab=document.getElementById('cons-actions');
   ab.innerHTML=`<button onclick="saveClinical()" style="background:#475569;color:#fff;font-weight:600;">💾 Save Notes</button><button onclick="openAdmit()" class="bpu">🛏 Admit</button><button onclick="refreshConsResults()" style="background:#0ea5e9;color:#fff;font-weight:600;" title="Pull latest lab/rad results from server">🔄 Refresh Results</button><button onclick="printPatientReport()" class="bo bsm">📄 Print Report</button><button onclick="printDischargeSummary()" class="bo bsm" style="border-color:#10b981;color:#10b981;">📋 Discharge Summary</button><button onclick="endVisit()" class="bd2" style="padding:6px 12px;font-size:13px;">✓ End Visit</button>`;
+  // Ensure doc-queue tab is active so cons-form is visible (fixes "Open" from All Patients tab)
+  document.querySelectorAll('#sec-doctor .st').forEach(b=>b.classList.remove('active'));
+  const qTab=document.querySelector('#sec-doctor .st:first-child');if(qTab)qTab.classList.add('active');
+  document.getElementById('doc-queue').style.display='block';
+  document.getElementById('doc-allpats').style.display='none';
+  document.getElementById('doc-reg').style.display='none';
   document.getElementById('queue-list-card').style.display='none';
   document.getElementById('cons-form').style.display='block';
   document.getElementById('cons-form').scrollIntoView({behavior:'smooth'});
@@ -3230,31 +3240,14 @@ function printFooter(){
   </div>`;
 }
 function buildVisitQRText(vid){
-  // Build a rich text payload for the QR: patient info + services + feedback URL
+  // QR must stay short (<200 chars) to scan reliably at 80x80px
+  // Encode feedback URL + patient name + date only; full details print as text beside QR
   const v=visits.find(x=>x.id===(vid||activeVid));
   const fbUrl=getQRUrl();
   if(!v) return fbUrl;
-  const p=patients.find(x=>x.id===v.patId);
-  const lines=[];
-  lines.push('TALI MEDICALS INTERNATIONAL');
-  lines.push('----------------------------');
-  lines.push('Patient: '+v.name);
-  if(p){ lines.push('Age: '+p.ageVal+' '+p.ageUnit+' | Gender: '+p.gender); if(p.phone) lines.push('Phone: '+p.phone); }
-  lines.push('Date: '+v.date+' | Type: '+(v.consultType||'GENERAL'));
-  if(v.vitals){ const vt=v.vitals; lines.push('Vitals: '+[vt.bp?'BP:'+vt.bp:'',vt.temp?'Temp:'+vt.temp+'C':'',vt.pulse?'Pulse:'+vt.pulse:'',vt.spo2?'SpO2:'+vt.spo2+'%':''].filter(Boolean).join(' | ')); }
-  const labs=(v.labs||[]).filter(l=>l.name);
-  if(labs.length){ lines.push('Lab Tests: '+labs.map(l=>l.name+(l.done?' (Done)':' (Pending)')).join(', ')); }
-  const rads=(v.radiology||[]).filter(r=>r.name);
-  if(rads.length){ lines.push('Radiology: '+rads.map(r=>r.name+(r.done?' (Done)':' (Pending)')).join(', ')); }
-  const rxs=(v.prescriptions||[]).filter(r=>r.name);
-  if(rxs.length){ lines.push('Medications: '+rxs.map(r=>r.name+' x'+r.qty+(r.dispensed?' (Dispensed)':' (Pending)')).join(', ')); }
-  const dx=(v.clinical||{}).finalDx||(v.clinical||{}).diffDx;
-  if(dx) lines.push('Diagnosis: '+dx);
-  lines.push('Status: '+v.status.replace(/_/g,' '));
-  lines.push('----------------------------');
-  lines.push('Feedback: '+fbUrl);
-  lines.push('Scan above link to rate your visit');
-  return lines.join('\n');
+  // Short payload: feedback URL + patient identifier — always scannable
+  const short=[fbUrl,'Patient: '+v.name,'Date: '+v.date,'Type: '+(v.consultType||'GENERAL')].join('\n');
+  return short.length<=250?short:fbUrl;
 }
 
 function doPrint(vid){
@@ -3497,7 +3490,7 @@ function generateQR(containerId, url){
   if(!el) return;
   el.innerHTML = '';
   try{
-    new QRCode(el, {text:url, width:80, height:80, correctLevel:QRCode.CorrectLevel.M});
+    new QRCode(el, {text:url, width:80, height:80, correctLevel:QRCode.CorrectLevel.L});
   }catch(e){ el.innerHTML='<div style="font-size:9px;color:#666;">QR N/A</div>'; }
 }
 
@@ -3906,6 +3899,18 @@ function openSupDetail(id){
   const bb=document.getElementById('sup-balance-bar');
   if(bb)bb.innerHTML=`<b>Account Summary:</b> &nbsp; Total Ordered: <b>$${totalAmt.toFixed(2)}</b> &nbsp;|&nbsp; Total Paid: <b style="color:#10b981;">$${totalPaid.toFixed(2)}</b> &nbsp;|&nbsp; Outstanding: <b style="color:${totalOwed>0?'#dc2626':'#10b981'};">$${totalOwed.toFixed(2)}</b>`;
   document.getElementById('sup-detail-wrap').scrollIntoView({behavior:'smooth'});
+}
+
+function openAddSupplier(){
+  // Clear all form fields so we're definitely adding, not editing
+  document.getElementById('supEditId').value='';
+  document.getElementById('supName').value='';
+  document.getElementById('supPhone').value='';
+  document.getElementById('supEmail').value='';
+  document.getElementById('supAddress').value='';
+  document.getElementById('supNotes').value='';
+  document.getElementById('sup-modal-title').textContent='Add New Supplier';
+  oModal('sup-add-modal');
 }
 
 function saveSupplier(){
@@ -5002,7 +5007,7 @@ function renderDirRecords(){
     <section id="sec-suppliers">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
         <h3>🏪 Supplier Management</h3>
-        <button onclick="oModal('sup-add-modal')" class="ba" style="font-size:14px;padding:8px 18px;">+ Add Supplier</button>
+        <button onclick="openAddSupplier()" class="ba" style="font-size:14px;padding:8px 18px;">+ Add Supplier</button>
       </div>
       <!-- Summary cards -->
       <div class="g4" style="margin-bottom:12px;" id="sup-summary-cards"></div>
