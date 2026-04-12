@@ -528,10 +528,7 @@ document.addEventListener("DOMContentLoaded", function(){
         <div id="cons-form" class="card" style="display:none;">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:11px;">
             <div><h3 id="c-name" style="color:var(--p);margin:0;"></h3><span id="c-type-badge" style="margin-top:3px;display:inline-block;"></span></div>
-            <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;"><span id="c-date" style="font-size:12px;color:var(--mu);"></span><span id="c-pay"></span>
-              <button onclick="openDocDemoEdit()" class="bsm bo" style="border-color:#7c3aed;color:#7c3aed;font-size:11px;">✏️ Edit Info</button>
-              <button onclick="openDocVitalsEdit()" class="bsm bo" style="border-color:#0891b2;color:#0891b2;font-size:11px;">🩺 Edit Vitals</button>
-            </div>
+            <div style="display:flex;gap:5px;align-items:center;"><span id="c-date" style="font-size:12px;color:var(--mu);"></span><span id="c-pay"></span></div>
           </div>
           <div id="c-hist" style="background:var(--lt);border-left:3px solid var(--s);padding:8px 12px;border-radius:5px;margin-bottom:12px;font-size:12px;max-height:100px;overflow-y:auto;"></div>
           <!-- Vitals summary -->
@@ -904,19 +901,29 @@ document.addEventListener("DOMContentLoaded", function(){
           <button class="mc" onclick="cModal('staff-modal')">✕</button>
           <h3 id="staff-modal-title" style="color:var(--p);margin-bottom:11px;"></h3>
           <input type="hidden" id="staffEid">
+
+          <!-- ROLE SELECTOR -->
+          <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:11px 14px;margin-bottom:12px;">
+            <label style="margin:0 0 5px;font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;">Staff Role *</label>
+            <select id="staffRolePreset" onchange="applyRolePreset()" style="margin:0 0 6px;font-size:13px;font-weight:600;">
+              <option value="">— Select a role —</option>
+            </select>
+            <div id="role-desc" style="font-size:12px;color:var(--mu);font-style:italic;min-height:16px;"></div>
+          </div>
+
           <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:7px;">Basic Info</p>
           <div class="g2"><div><label>Full Name *</label><input id="staffName" placeholder="e.g. Dr. John Smith"></div><div><label>Username *</label><input id="staffUser" placeholder="login username"></div></div>
           <label>Password *</label><input type="password" id="staffPass">
-          <div class="g2"><div><label>Role / Position</label><input id="staffRole" placeholder="e.g. Senior Nurse, Pharmacist"></div><div><label>Employee / Staff ID</label><input id="staffEmpId" placeholder="e.g. EMP-001"></div></div>
+          <div class="g2"><div><label>Role / Position (Free text)</label><input id="staffRole" placeholder="e.g. Senior Nurse"></div><div><label>Employee / Staff ID</label><input id="staffEmpId" placeholder="e.g. EMP-001"></div></div>
           <div class="g2"><div><label>Gender</label><select id="staffGender"><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select></div><div><label>Date of Birth</label><input type="date" id="staffDOB"></div></div>
           <div class="g2"><div><label>Phone</label><input id="staffPhone" placeholder="e.g. +1 555 000 0000"></div><div><label>Email</label><input type="email" id="staffEmail" placeholder="staff@email.com"></div></div>
           <label>Address</label><input id="staffAddress" placeholder="Home address">
           <div class="g2"><div><label>Emergency Contact Name</label><input id="staffECName" placeholder="Next of kin name"></div><div><label>Emergency Contact Phone</label><input id="staffECPhone" placeholder="Emergency phone"></div></div>
           <div class="g2"><div><label>Date Joined</label><input type="date" id="staffJoined"></div><div><label>National ID / Passport</label><input id="staffNatId" placeholder="ID number"></div></div>
           <hr class="dv">
-          <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:7px;">Section Access</p>
-          <div id="sec-checks" style="display:flex;flex-wrap:wrap;gap:7px;"></div>
-          <div style="margin-top:8px;"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;text-transform:none;font-size:13px;"><input type="checkbox" id="staffAdmin" style="width:auto;margin:0;"> Grant full Admin / Director access</label></div>
+          <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:4px;">Section Access <span style="font-weight:400;font-style:italic;text-transform:none;">(auto-filled by role — override if needed)</span></p>
+          <div id="sec-checks" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px;"></div>
+          <div style="margin-top:4px;"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;text-transform:none;font-size:13px;"><input type="checkbox" id="staffAdmin" style="width:auto;margin:0;" onchange="syncAdminCheck()"> Grant full Admin / Director access</label></div>
           <div class="ab"><button onclick="saveStaff()" class="bp">Save</button><button onclick="cModal('staff-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
         </div>
       </div>
@@ -1231,6 +1238,89 @@ const DOSAGE_OPTS=[
   'Stat (single dose)','Every other day','Once weekly','Before meals','After meals','With meals','Stat then OD',
 ];
 
+// ══════════════════════════════════════════════
+//  ROLE-BASED ACCESS CONTROL (RBAC)
+// ══════════════════════════════════════════════
+const STAFF_ROLES={
+  'Receptionist':{
+    color:'#0891b2',bg:'#e0f2fe',
+    sections:['reception','chat'],
+    landing:'reception',
+    canEditInv:false,canAddInv:false,isAdmin:false,
+    desc:'Patient registration & routing only'
+  },
+  'Nurse':{
+    color:'#0d9488',bg:'#ccfbf1',
+    sections:['nurse','chat'],
+    landing:'nurse',
+    canEditInv:false,canAddInv:false,isAdmin:false,
+    desc:'Triage, vitals, treatment chart & procedures'
+  },
+  'Doctor':{
+    color:'#1e3a8a',bg:'#dbeafe',
+    sections:['doctor','chat'],
+    landing:'doctor',
+    canEditInv:false,canAddInv:false,isAdmin:false,
+    desc:'Full clinical consultation & prescribing'
+  },
+  'Lab Technician':{
+    color:'#7c3aed',bg:'#ede9fe',
+    sections:['lab','chat'],
+    landing:'lab',
+    canEditInv:false,canAddInv:false,isAdmin:false,
+    desc:'Lab orders, sample processing & results entry'
+  },
+  'Radiographer':{
+    color:'#6d28d9',bg:'#f5f3ff',
+    sections:['radiology','chat'],
+    landing:'radiology',
+    canEditInv:false,canAddInv:false,isAdmin:false,
+    desc:'Imaging orders & radiology report entry'
+  },
+  'Pharmacist':{
+    color:'#16a34a',bg:'#dcfce7',
+    sections:['pharmacy','inventory','chat'],
+    landing:'pharmacy',
+    canEditInv:false,canAddInv:true,isAdmin:false,
+    desc:'Dispenses meds; can add stock but not edit item details'
+  },
+  'Billing Officer':{
+    color:'#b45309',bg:'#fef3c7',
+    sections:['billing','chat'],
+    landing:'billing',
+    canEditInv:false,canAddInv:false,isAdmin:false,
+    desc:'Processes payments & invoices only'
+  },
+  'Inventory Manager':{
+    color:'#c2410c',bg:'#ffedd5',
+    sections:['inventory','suppliers','chat'],
+    landing:'inventory',
+    canEditInv:true,canAddInv:true,isAdmin:false,
+    desc:'Full inventory & supplier management'
+  },
+  'Accountant':{
+    color:'#92400e',bg:'#fef3c7',
+    sections:['billing','expenses','suppliers','chat'],
+    landing:'billing',
+    canEditInv:false,canAddInv:false,isAdmin:false,
+    desc:'Revenue, expenses & supplier balances'
+  },
+  'Medical Director':{
+    color:'#1e3a8a',bg:'#eff6ff',
+    sections:[],
+    landing:'director',
+    canEditInv:true,canAddInv:true,isAdmin:true,
+    desc:'Full system access — clinical & administrative'
+  },
+  'System Admin':{
+    color:'#374151',bg:'#f3f4f6',
+    sections:[],
+    landing:'admin',
+    canEditInv:true,canAddInv:true,isAdmin:true,
+    desc:'Full access including staff & system management'
+  },
+};
+
 const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','suppliers','expenses','chat'];
 const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',suppliers:'Suppliers',expenses:'Expenses',chat:'Staff Chat'};
 const CONSULT_FEE=10;
@@ -1360,8 +1450,8 @@ function initInv(){
 
 function initStaff(){
   return[
-    {id:'S01',name:'Medical Director',username:'director',password:'TaliDir#2025',role:'Director',sections:[...ALL_SECS],isAdmin:true},
-    {id:'S02',name:'Admin Manager',   username:'admin',   password:'TaliAdm#2025',role:'Admin',   sections:[...ALL_SECS],isAdmin:true},
+    {id:'S01',name:'Medical Director',username:'director',password:'TaliDir#2025',role:'Medical Director',staffRoleKey:'Medical Director',sections:[...ALL_SECS],isAdmin:true,canEditInv:true,canAddInv:true,landing:'director'},
+    {id:'S02',name:'Admin Manager',   username:'admin',   password:'TaliAdm#2025',role:'System Admin',   staffRoleKey:'System Admin',   sections:[...ALL_SECS],isAdmin:true,canEditInv:true,canAddInv:true,landing:'admin'},
   ];
 }
 
@@ -1450,13 +1540,14 @@ function login(){
   document.getElementById('lp').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('du').innerText=`${s.name}`;
-  // Multi-device: show active badge + device info
   const devBadge=document.getElementById('device-badge');
   if(devBadge){devBadge.style.display='inline';devBadge.title='Multiple staff can be logged in simultaneously from different devices';}
-  // Track session start time
   window._sessionStart=new Date();
-  renderNav();showSection(s.isAdmin?'director':(s.sections[0]||'reception'));
-  _startAlertPolling(); // Begin cross-device alert polling
+  renderNav();
+  // Land on role's designated home section
+  const landing=s.isAdmin?'director':(s.landing||s.sections?.[0]||'reception');
+  showSection(landing);
+  _startAlertPolling();
 }
 
 function renderNav(){
@@ -1464,6 +1555,20 @@ function renderNav(){
   const lbl={director:'Dashboard',...SEC_LABELS,admin:'Admin',feedbacks:'Feedback'};
   const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',suppliers:'🏪',expenses:'💰',chat:'💬',admin:'⚙️',feedbacks:'⭐'};
   document.getElementById('dn').innerHTML=secs.map(s=>`<button id="btn-${s}" class="nb" onclick="showSection('${s}')">${icons[s]||'•'} ${lbl[s]||s.toUpperCase()}</button>`).join('');
+  // Show role badge below name in sidebar footer
+  const rk=currentUser.staffRoleKey||currentUser.role||'';
+  const rc=STAFF_ROLES[rk];
+  const duel=document.getElementById('du');
+  if(duel&&rc){
+    const existing=document.getElementById('sidebar-role-badge');
+    if(!existing){
+      const badge=document.createElement('div');
+      badge.id='sidebar-role-badge';
+      badge.style.cssText=`display:inline-block;margin-top:4px;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;background:${rc.bg};color:${rc.color};`;
+      badge.textContent=rk;
+      duel.parentNode&&duel.parentNode.insertBefore(badge,duel.nextSibling);
+    }
+  }
 }
 
 function showSection(id){
@@ -2612,315 +2717,14 @@ function renderRad(){
   document.getElementById('table-rad').innerHTML=h;
 }
 
-
-// ══════════════════════════════════════════════
-//  DOCTOR: EDIT PATIENT DEMOGRAPHICS
-// ══════════════════════════════════════════════
-function openDocDemoEdit(){
-  const v=visits.find(x=>x.id===activeVid);if(!v)return;
-  const p=patients.find(x=>x.id===v.patId);if(!p)return alert('Patient record not found.');
-  document.getElementById('docDemoPid').value=p.id;
-  document.getElementById('docDemoName').value=p.name||'';
-  document.getElementById('docDemoGender').value=p.gender||'Male';
-  document.getElementById('docDemoAgeVal').value=p.ageVal||'';
-  document.getElementById('docDemoAgeUnit').value=p.ageUnit||'Years';
-  document.getElementById('docDemoPhone').value=p.phone||'';
-  document.getElementById('docDemoAddress').value=p.address||'';
-  document.getElementById('docDemoKin').value=p.kinName||'';
-  document.getElementById('docDemoKinPhone').value=p.kinPhone||'';
-  oModal('doc-demo-modal');
-}
-function saveDoctorDemo(){
-  const pid=document.getElementById('docDemoPid').value;
-  const p=patients.find(x=>x.id===pid);if(!p)return;
-  const name=document.getElementById('docDemoName').value.trim();
-  if(!name)return alert('Name is required.');
-  p.name=name;
-  p.gender=document.getElementById('docDemoGender').value;
-  p.ageVal=parseInt(document.getElementById('docDemoAgeVal').value)||p.ageVal;
-  p.ageUnit=document.getElementById('docDemoAgeUnit').value;
-  p.phone=document.getElementById('docDemoPhone').value.trim();
-  p.address=document.getElementById('docDemoAddress').value.trim();
-  p.kinName=document.getElementById('docDemoKin').value.trim();
-  p.kinPhone=document.getElementById('docDemoKinPhone').value.trim();
-  // Update name on current visit too
-  const v=visits.find(x=>x.id===activeVid);
-  if(v){v.name=name;lg(v,'Demographics Updated','By: '+currentUser.name);}
-  document.getElementById('c-name').innerText=name;
-  // Refresh obs/gyn block visibility
-  document.getElementById('ogBlock').style.display=(p.gender==='Female')?'block':'none';
-  save();cModal('doc-demo-modal');
-  alert('Patient demographics updated.');
-}
-
-// ══════════════════════════════════════════════
-//  DOCTOR: EDIT VITALS
-// ══════════════════════════════════════════════
-function openDocVitalsEdit(){
-  const v=visits.find(x=>x.id===activeVid);if(!v)return;
-  const vt=v.vitals||{};
-  document.getElementById('docVBP').value=vt.bp||'';
-  document.getElementById('docVTemp').value=vt.temp||'';
-  document.getElementById('docVWeight').value=vt.weight||'';
-  document.getElementById('docVHeight').value=vt.height||'';
-  document.getElementById('docVPulse').value=vt.pulse||'';
-  document.getElementById('docVSpO2').value=vt.spo2||'';
-  document.getElementById('docVRR').value=vt.rr||'';
-  updateDocBMI();
-  oModal('doc-vitals-modal');
-}
-function updateDocBMI(){
-  const w=parseFloat(document.getElementById('docVWeight')?.value);
-  const h=parseFloat(document.getElementById('docVHeight')?.value);
-  const el=document.getElementById('docVBMI-display');
-  if(!el)return;
-  if(w&&h&&h>0){
-    const bmi=(w/((h/100)*(h/100))).toFixed(1);
-    let cat='',col='#0f172a';
-    if(bmi<18.5){cat='Underweight';col='#0891b2';}
-    else if(bmi<25){cat='Normal';col='#16a34a';}
-    else if(bmi<30){cat='Overweight';col='#d97706';}
-    else{cat='Obese';col='#dc2626';}
-    el.innerHTML=`BMI: <span style="color:${col};">${bmi}</span><br><span style="font-size:11px;font-weight:400;color:${col};">${cat}</span>`;
-  }else{el.innerHTML='BMI: —';}
-}
-function saveDoctorVitals(){
-  const v=visits.find(x=>x.id===activeVid);if(!v)return;
-  const bp=document.getElementById('docVBP').value.trim();
-  const temp=document.getElementById('docVTemp').value.trim();
-  const weight=document.getElementById('docVWeight').value.trim();
-  const height=document.getElementById('docVHeight').value.trim();
-  const pulse=document.getElementById('docVPulse').value.trim();
-  const spo2=document.getElementById('docVSpO2').value.trim();
-  const rr=document.getElementById('docVRR').value.trim();
-  if(!bp&&!temp&&!weight&&!pulse)return alert('Enter at least one vital sign.');
-  v.vitals=v.vitals||{};
-  if(bp)v.vitals.bp=bp;
-  if(temp)v.vitals.temp=temp;
-  if(weight)v.vitals.weight=weight;
-  if(height)v.vitals.height=height;
-  if(pulse)v.vitals.pulse=pulse;
-  if(spo2)v.vitals.spo2=spo2;
-  if(rr)v.vitals.rr=rr;
-  v.vitals.time=v.vitals.time||new Date().toLocaleTimeString();
-  v.vitals.correctedBy=currentUser.name;
-  v.vitals.correctedAt=new Date().toLocaleTimeString();
-  lg(v,'Vitals Corrected','By: '+currentUser.name);
-  // Refresh vitals strip in consultation form
-  const vt=v.vitals;
-  const bmiStr=(vt.weight&&vt.height)?` | BMI:${(vt.weight/((vt.height/100)*(vt.height/100))).toFixed(1)}`:'';
-  document.getElementById('c-vitals').style.display='block';
-  document.getElementById('c-vitals').innerHTML=`<b>Vitals (${vt.time}):</b> ${[vt.bp?'BP:'+vt.bp:'',vt.temp?'T:'+vt.temp+'°C':'',vt.weight?'Wt:'+vt.weight+'kg':'',vt.height?'Ht:'+vt.height+'cm':'',vt.pulse?'PR:'+vt.pulse:'',vt.spo2?'SpO2:'+vt.spo2+'%':'',vt.rr?'RR:'+vt.rr:''].filter(Boolean).join(' | ')}${bmiStr}<span style="font-size:11px;color:var(--mu);margin-left:8px;">(edited by Dr. ${currentUser.name})</span>`;
-  save();cModal('doc-vitals-modal');
-  alert('Vitals updated.');
-}
-
-// ══════════════════════════════════════════════
-//  RADIOLOGY: REPORTING TEMPLATES
-// ══════════════════════════════════════════════
-const RAD_TEMPLATES={
-  'Chest X-Ray':`CHEST X-RAY REPORT
-Technique: PA view / AP view
-Clinical Indication: [state indication]
-
-FINDINGS:
-Lung fields: [Clear / Consolidation noted in ... / Ground glass opacities / Pleural effusion ...]
-Cardiac silhouette: [Normal size / Cardiomegaly — CTR: ...]
-Mediastinum: [Normal width / Widened / Shift to ...]
-Costophrenic angles: [Acute and clear / Blunted bilaterally / Right blunted]
-Bony structures: [Ribs and clavicles intact / Fracture noted at ...]
-Diaphragm: [Normal / Elevated / Air under diaphragm]
-Soft tissues: [Unremarkable]
-
-IMPRESSION:
-[Normal chest X-ray / Pneumonia / Pleural effusion / Cardiomegaly / Other]`,
-
-  'Abdominal Ultrasound':`ABDOMINAL ULTRASOUND REPORT
-Technique: B-mode real-time ultrasound, [MHz] MHz transducer
-Clinical Indication: [state indication]
-
-FINDINGS:
-Liver: [Normal size and echogenicity / Enlarged / Fatty changes / Mass lesion — describe ...]
-Gallbladder: [Normal / Distended / Calculus — size ... / Sludge / Wall thickening]
-Common bile duct: [Not dilated / Dilated — ... mm]
-Spleen: [Normal / Splenomegaly — ... cm]
-Pancreas: [Visualised and normal / Not well visualised due to bowel gas / Mass ...]
-Kidneys (Right): [Normal size and corticomedullary differentiation / Hydronephrosis / Stone / Cyst ...]
-Kidneys (Left): [Normal / Hydronephrosis / Stone / Cyst ...]
-Bladder: [Adequately distended / Wall thickened / Calculus / Mass]
-Aorta: [Normal calibre / AAA — ... cm]
-Free fluid: [None / Present in ... space]
-
-IMPRESSION:
-[Normal abdominal ultrasound / Cholelithiasis / Hepatomegaly / Splenomegaly / Other]`,
-
-  'Pelvic Ultrasound':`PELVIC ULTRASOUND REPORT
-Technique: Transabdominal / Transvaginal (with consent)
-Clinical Indication: [state indication]
-
-FINDINGS:
-Uterus: [Normal size — ... x ... x ... cm / Retroverted / Anteverted / Enlarged / Fibroid — location, size ...]
-Endometrium: [Thickness: ... mm — appropriate for phase / Thickened / Irregular]
-Ovaries (Right): [Normal — ... x ... cm / Cyst — ... cm / PCOS appearance / Not visualised]
-Ovaries (Left): [Normal / Cyst / Not visualised]
-POD (Pouch of Douglas): [Free / Free fluid — ... ml]
-Adnexa: [No adnexal mass / Mass noted — describe ...]
-[If pregnant] Gestation: [Intrauterine sac / CRL / BPD / Fetal heart: present/absent]
-
-IMPRESSION:
-[Normal pelvic ultrasound / Uterine fibroid / Ovarian cyst / PCOS / Ectopic pregnancy not excluded / Other]`,
-
-  'CT Head':`CT HEAD REPORT
-Technique: Non-contrast CT / Contrast-enhanced CT
-Slice thickness: [... mm]
-Clinical Indication: [state indication]
-
-FINDINGS:
-Brain parenchyma: [No abnormal density / Hyperdense lesion at ... / Hypodense area at ...]
-Grey-white matter differentiation: [Preserved / Loss of differentiation ...]
-Ventricles: [Normal size and configuration / Dilated / Compressed]
-Sulci and gyri: [Normal / Effaced / Prominent — age-related]
-Basal ganglia: [Normal / Calcifications / Bleed ...]
-Posterior fossa / Cerebellum: [Unremarkable / Mass / Bleed ...]
-Midline shift: [None / ... mm to the left/right]
-Bone windows: [Calvarium intact / Fracture at ...]
-Sinuses / Mastoids: [Clear / Opacified]
-
-IMPRESSION:
-[No intracranial haemorrhage / Ischaemic stroke / Intracerebral haemorrhage / Mass lesion / Normal CT head]`,
-
-  'CT Abdomen/Pelvis':`CT ABDOMEN & PELVIS REPORT
-Technique: [Non-contrast / Arterial / Portal venous / Delayed phase]
-Contrast: [None / IV — ... ml / Oral]
-Clinical Indication: [state indication]
-
-FINDINGS:
-Liver: [Homogeneous / Lesion — segment ..., size ...]
-Gallbladder & biliary: [Normal / Calculus / Dilated CBD — ... mm]
-Spleen: [Normal / Splenomegaly / Lesion]
-Pancreas: [Normal / Oedematous / Mass / Calcification]
-Kidneys: [Bilateral normal / Hydronephrosis / Calculus — ... mm / Cyst / Mass]
-Adrenal glands: [Normal / Mass — right/left ...]
-Bowel: [Normal calibre / Distension / Wall thickening / Transition point at ...]
-Appendix: [Normal / Dilated — ... mm / Appendicolith]
-Lymph nodes: [No significant lymphadenopathy / Enlarged nodes at ...]
-Vessels: [Aorta normal / Aneurysm — ... cm]
-Bones: [No lytic or sclerotic lesions]
-Free fluid / air: [None / Present — location ...]
-
-IMPRESSION:
-[describe main findings]`,
-
-  'MRI Brain':`MRI BRAIN REPORT
-Sequences: T1, T2, FLAIR, DWI, [+/- Gadolinium contrast]
-Clinical Indication: [state indication]
-
-FINDINGS:
-T2/FLAIR signal: [No abnormal signal / Hyperintense focus at — location, size ...]
-DWI restriction: [None / Restricted diffusion at ... — consistent with acute ischaemia]
-White matter: [Normal / Small vessel ischaemic changes / Demyelinating plaques ...]
-Grey matter: [Preserved / Cortical thinning / Focal lesion ...]
-Corpus callosum: [Intact / Lesion ...]
-Ventricles: [Normal / Dilated / Compressed]
-Posterior fossa: [Unremarkable / Lesion ...]
-Cerebellopontine angle: [Clear / Mass]
-Pituitary: [Normal size / Microadenoma / Macroadenoma]
-Midline shift: [None / ... mm]
-Enhancement post-contrast: [No abnormal enhancement / Ring-enhancing lesion / Meningeal enhancement]
-
-IMPRESSION:
-[Normal MRI brain / Ischaemic stroke / MS plaques / Intracranial mass / Other]`,
-
-  'X-Ray Spine':`X-RAY SPINE REPORT
-Region: [Cervical / Thoracic / Lumbar / Full spine]
-Views: [AP & Lateral / + Oblique]
-Clinical Indication: [state indication]
-
-FINDINGS:
-Alignment: [Normal lordosis/kyphosis maintained / Loss of lordosis / Scoliosis — Cobb angle: ... degrees]
-Vertebral bodies: [Normal height and density / Anterior wedging at ... / Compression fracture at ... / Osteophytes ...]
-Intervertebral disc spaces: [Maintained / Reduced at ... / Disc space collapse at ...]
-Pedicles: [Intact / Pedicle erosion at ...]
-Posterior elements: [Intact / Spondylolysis at ... / Spondylolisthesis grade ... at ...]
-Paravertebral soft tissues: [Unremarkable / Soft tissue mass / Prevertebral swelling]
-Sacroiliac joints (if visible): [Normal / Sclerosis / Erosion]
-
-IMPRESSION:
-[Normal spine X-ray / Degenerative disc disease at ... / Spondylosis / Fracture at ... / Scoliosis]`,
-
-  'ECG Report':`ECG REPORT
-Date & Time: [auto-fill]
-Clinical Indication: [state indication]
-Rate: [... bpm]
-Rhythm: [Sinus rhythm / Atrial fibrillation / Other]
-
-FINDINGS:
-Rate: [... bpm]
-Axis: [Normal / Left axis deviation / Right axis deviation]
-P wave: [Normal / Absent / Broad / Peaked]
-PR interval: [Normal / Prolonged — ... ms / Short]
-QRS complex: [Narrow / Broad — ... ms / LBBB / RBBB]
-ST segment: [Isoelectric / ST elevation in leads: ... / ST depression in leads: ...]
-T wave: [Normal / Inverted in leads: ... / Tall peaked]
-QT interval: [Normal / Prolonged — QTc: ... ms]
-Other: [Delta waves / Q waves in ... / LVH criteria met]
-
-IMPRESSION:
-[Normal sinus rhythm / AF / STEMI — territory / NSTEMI changes / LVH / Other]`,
-
-  'Free Text':''
-};
-
 function openRadEntry(id){
   activeVid=id;const v=visits.find(x=>x.id===id);
   const pending=(v.radiology||[]).filter(r=>r.name&&!r.done);
   document.getElementById('rad-hdr').innerText=`Radiology Results — ${v.name}`;
-  document.getElementById('rad-tests-entry').innerHTML=pending.map((r,i)=>{
-    const tplOptions=Object.keys(RAD_TEMPLATES).map(k=>{
-      // Auto-select best template based on procedure name
-      const name=r.name.toLowerCase();
-      const match=(k==='Chest X-Ray'&&(name.includes('chest')||name.includes('x-ray cxr')))||
-        (k==='Abdominal Ultrasound'&&(name.includes('abdo')||name.includes('abdominal us')||name.includes('ruo')||name.includes('abdominal ultrasound')))||
-        (k==='Pelvic Ultrasound'&&(name.includes('pelv')||name.includes('pelvic')||name.includes('obstetric')))||
-        (k==='CT Head'&&(name.includes('ct head')||name.includes('brain ct')))||
-        (k==='CT Abdomen/Pelvis'&&(name.includes('ct abdo')||name.includes('ct pelv')||name.includes('ct abdomen')))||
-        (k==='MRI Brain'&&(name.includes('mri')))||
-        (k==='X-Ray Spine'&&(name.includes('spine')||name.includes('lumbar')||name.includes('cervical')||name.includes('thoracic')))||
-        (k==='ECG Report'&&(name.includes('ecg')||name.includes('ekg')));
-      return`<option value="${k}" ${match?'selected':''}>${k}</option>`;
-    }).join('');
-    return`<div style="margin-bottom:14px;background:var(--lt);border:1.5px solid var(--bd);border-radius:7px;padding:10px 12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
-        <label style="margin:0;font-size:13px;font-weight:700;color:var(--p);">📡 ${r.name} ${payBadge(v)}</label>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <span style="font-size:11px;color:var(--mu);">Template:</span>
-          <select id="rad-tpl-${i}" onchange="applyRadTemplate(${i})" style="width:auto;margin:0;font-size:12px;">${tplOptions}</select>
-          <button onclick="applyRadTemplate(${i})" class="bsm bo" style="font-size:11px;">Load</button>
-        </div>
-      </div>
-      <textarea id="rad-result-${i}" data-rid="${r.id}" rows="14" placeholder="Type report here or select a template above…" style="font-family:monospace;font-size:12px;line-height:1.7;"></textarea>
-    </div>`;
-  }).join('');
-  // Auto-apply matched templates on open
-  pending.forEach((_,i)=>{
-    const tplSel=document.getElementById(`rad-tpl-${i}`);
-    if(tplSel&&tplSel.value&&tplSel.value!=='Free Text')applyRadTemplate(i);
-  });
+  document.getElementById('rad-tests-entry').innerHTML=pending.map((r,i)=>`<div style="margin-bottom:10px;"><label>${r.name} ${payBadge(v)}</label><textarea id="rad-result-${i}" data-rid="${r.id}" rows="3" placeholder="Enter report for ${r.name}..."></textarea></div>`).join('');
   document.getElementById('rad-entry').style.display='block';
   document.getElementById('rad-entry').scrollIntoView({behavior:'smooth'});
 }
-
-function applyRadTemplate(i){
-  const sel=document.getElementById(`rad-tpl-${i}`);
-  const ta=document.getElementById(`rad-result-${i}`);
-  if(!sel||!ta)return;
-  const tpl=RAD_TEMPLATES[sel.value];
-  if(tpl===undefined)return;
-  if(ta.value.trim()&&!confirm('Replace current report text with the selected template?'))return;
-  ta.value=tpl;
-  ta.focus();
-}
-
 function updateRad(){
   const v=visits.find(x=>x.id===activeVid);
   const pending=(v.radiology||[]).filter(r=>r.name&&!r.done);
@@ -3026,8 +2830,8 @@ function renderInventory(){
     }
     h+=`<tr><td><b>${i.name}</b><br><span style="font-size:10px;color:var(--mu);">${i.invSection||'general'}</span></td><td>${i.strength||'—'}</td><td>${formBadge(i.formulation||'N/A')}</td><td style="font-size:12px;">${i.drugClass||'—'}</td><td><b>${i.stock}</b></td><td>${i.unit}</td><td>$${i.price.toFixed(2)}</td><td>$${val}</td><td style="font-size:12px;">${expiryHtml}</td><td>${st}</td>
       <td><div style="display:flex;gap:3px;">
-        <button class="bsm bo" onclick="editInv('${i.id}')">Edit</button>
-        <button class="bsm ba" onclick="restockInv('${i.id}')">+ Stock</button>
+        ${(currentUser&&(currentUser.canEditInv||currentUser.isAdmin))?`<button class="bsm bo" onclick="editInv('${i.id}')">Edit</button>`:''}
+        ${(currentUser&&(currentUser.canAddInv||currentUser.canEditInv||currentUser.isAdmin))?`<button class="bsm ba" onclick="restockInv('${i.id}')">+ Stock</button>`:''}
         ${currentUser&&currentUser.isAdmin?`<button class="bsm bd2" onclick="deleteInvItem('${i.id}')">🗑</button>`:''}
       </div></td></tr>`;
   });
@@ -3259,7 +3063,21 @@ function restockInv(id){
 function saveInvItem(){
   const name=document.getElementById('invName').value.trim();if(!name)return alert('Enter item name.');
   const editId2=document.getElementById('invEditId').value;
-  if(!editId2&&(!currentUser||!currentUser.isAdmin))return alert('Only administrators can add new inventory items. You can restock existing items.');
+  const canEdit=currentUser&&(currentUser.canEditInv||currentUser.isAdmin);
+  const canAdd=currentUser&&(currentUser.canAddInv||currentUser.canEditInv||currentUser.isAdmin);
+  // Pharmacist opening "Edit" route — block detail edits, only allow qty
+  if(editId2&&!canEdit){
+    // Allow only qty addition
+    const qty=parseInt(document.getElementById('invQty').value)||0;
+    if(!qty)return alert('As Pharmacist you can only add stock quantity. Enter a quantity to restock.');
+    const i=inventory.find(x=>x.id===editId2);if(!i)return;
+    i.stock+=qty;
+    i.history=i.history||[];
+    i.history.push({type:'IN',qty,batch:document.getElementById('invBatch').value,expiry:document.getElementById('invExpiry').value,supplier:'',date:new Date().toLocaleDateString(),by:currentUser.name});
+    save();cModal('inv-add-modal');renderInventory();document.getElementById('invEditId').value='';
+    return;
+  }
+  if(!editId2&&!canEdit)return alert('You do not have permission to add new inventory items.');
   const price=parseFloat(document.getElementById('invPrice').value)||0;
   const qty=parseInt(document.getElementById('invQty').value)||0;
   const reorder=parseInt(document.getElementById('invReorder').value)||10;
@@ -3321,8 +3139,19 @@ function saveExpense(){
 function renderAdmin(){
   let h=`<tr><th>Name</th><th>Role</th><th>Username</th><th>Phone</th><th>Sections</th><th>Admin</th><th>Actions</th></tr>`;
   staffList.forEach(s=>{
+    const rk=s.staffRoleKey||'';
+    const rc=STAFF_ROLES[rk];
+    const roleBadge=rc
+      ?`<span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700;background:${rc.bg};color:${rc.color};">${rk}</span>`
+      :`<span style="font-size:12px;color:var(--mu);">${s.role||'—'}</span>`;
     const sects=s.isAdmin?'<span class="sp2">All Sections</span>':(s.sections||[]).map(x=>`<span class="sp2">${SEC_LABELS[x]||x}</span>`).join('');
-    h+=`<tr><td><b>${s.name}</b>${s.empId?`<br><span style="font-size:11px;color:var(--mu);">${s.empId}</span>`:''}</td><td style="font-size:12px;">${s.role||'—'}</td><td>${s.username}</td><td style="font-size:12px;">${s.phone||'—'}</td><td>${sects}</td><td>${s.isAdmin?'✅':''}</td>
+    h+=`<tr>
+      <td><b>${s.name}</b>${s.empId?`<br><span style="font-size:11px;color:var(--mu);">${s.empId}</span>`:''}</td>
+      <td>${roleBadge}</td>
+      <td style="font-size:12px;">${s.username}</td>
+      <td style="font-size:12px;">${s.phone||'—'}</td>
+      <td>${sects}</td>
+      <td>${s.isAdmin?'<span style="color:var(--a);font-weight:700;">✅ Yes</span>':''}</td>
       <td><div style="display:flex;gap:3px;">
         <button class="bsm bo" onclick="oStaffModal('${s.id}')">Edit</button>
         <button class="bsm bd2" onclick="delStaff('${s.id}')">Delete</button>
@@ -3368,6 +3197,41 @@ function adminDeletePatient(pid){
   save();renderAdminPatients();
   alert(`${p.name} and ${pv.length} visit(s) deleted.`);
 }
+function _populateRoleDropdown(selectedRole){
+  const sel=document.getElementById('staffRolePreset');
+  if(!sel)return;
+  sel.innerHTML='<option value="">— Select a role —</option>'+
+    Object.keys(STAFF_ROLES).map(r=>`<option value="${r}" ${r===selectedRole?'selected':''}>${r}</option>`).join('');
+  if(selectedRole){
+    const rd=document.getElementById('role-desc');
+    if(rd)rd.textContent=STAFF_ROLES[selectedRole]?.desc||'';
+  }
+}
+function applyRolePreset(){
+  const sel=document.getElementById('staffRolePreset');
+  const key=sel.value;
+  const rd=document.getElementById('role-desc');
+  if(!key){if(rd)rd.textContent='';return;}
+  const role=STAFF_ROLES[key];
+  if(!role)return;
+  if(rd)rd.textContent=role.desc;
+  // Auto-fill role text box
+  const rt=document.getElementById('staffRole');
+  if(rt&&!rt.value)rt.value=key;
+  // Set admin checkbox
+  document.getElementById('staffAdmin').checked=!!role.isAdmin;
+  // Tick sections
+  const secs=role.isAdmin?ALL_SECS:role.sections;
+  ALL_SECS.forEach(sec=>{
+    const cb=document.querySelector(`input[name="sc_${sec}"]`);
+    if(cb)cb.checked=secs.includes(sec);
+  });
+}
+function syncAdminCheck(){
+  if(document.getElementById('staffAdmin').checked){
+    ALL_SECS.forEach(sec=>{const cb=document.querySelector(`input[name="sc_${sec}"]`);if(cb)cb.checked=true;});
+  }
+}
 function oStaffModal(id){
   const s=id?staffList.find(x=>x.id===id):null;
   document.getElementById('staff-modal-title').innerText=s?'Edit Staff':'Add Staff';
@@ -3389,6 +3253,11 @@ function oStaffModal(id){
   document.getElementById('staffNatId').value=s?s.natId||'':'';
   const assigned=s?s.sections||[]:[];
   document.getElementById('sec-checks').innerHTML=ALL_SECS.map(sec=>`<label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;background:var(--lt);padding:4px 9px;border-radius:5px;font-size:12px;text-transform:none;"><input type="checkbox" name="sc_${sec}" value="${sec}" style="width:auto;margin:0;" ${assigned.includes(sec)?'checked':''}> ${SEC_LABELS[sec]}</label>`).join('');
+  // Populate role dropdown — match existing staffRole to a preset key
+  const presetMatch=s?Object.keys(STAFF_ROLES).find(k=>k===s.staffRoleKey||k===s.role)||'':'';
+  _populateRoleDropdown(presetMatch);
+  const rd=document.getElementById('role-desc');
+  if(rd&&presetMatch)rd.textContent=STAFF_ROLES[presetMatch]?.desc||'';
   oModal('staff-modal');
 }
 function saveStaff(){
@@ -3396,12 +3265,37 @@ function saveStaff(){
   const username=document.getElementById('staffUser').value.trim();
   const password=document.getElementById('staffPass').value;
   const isAdmin=document.getElementById('staffAdmin').checked;
-  if(!name||!username||!password)return alert('Fill all required fields.');
+  if(!name||!username||!password)return alert('Fill all required fields (Name, Username, Password).');
+  const staffRoleKey=document.getElementById('staffRolePreset').value||'';
+  if(!staffRoleKey)return alert('Please select a Staff Role from the dropdown.');
   const sections=ALL_SECS.filter(sec=>document.querySelector(`input[name="sc_${sec}"]`)?.checked);
   const eid=document.getElementById('staffEid').value;
-  const demo={role:document.getElementById('staffRole').value.trim(),empId:document.getElementById('staffEmpId').value.trim(),gender:document.getElementById('staffGender').value,dob:document.getElementById('staffDOB').value,phone:document.getElementById('staffPhone').value.trim(),email:document.getElementById('staffEmail').value.trim(),address:document.getElementById('staffAddress').value.trim(),ecName:document.getElementById('staffECName').value.trim(),ecPhone:document.getElementById('staffECPhone').value.trim(),joined:document.getElementById('staffJoined').value,natId:document.getElementById('staffNatId').value.trim()};
-  if(eid){const s=staffList.find(x=>x.id===eid);if(!s)return;s.name=name;s.username=username;s.password=password;s.isAdmin=isAdmin;s.sections=sections;Object.assign(s,demo);}
-  else{if(staffList.some(s=>s.username===username))return alert('Username already exists.');staffList.push({id:'S-'+Date.now().toString().slice(-6),name,username,password,isAdmin,sections,...demo});}
+  const rolePerms=STAFF_ROLES[staffRoleKey]||{};
+  const demo={
+    role:document.getElementById('staffRole').value.trim()||staffRoleKey,
+    staffRoleKey,
+    canEditInv:!!rolePerms.canEditInv,
+    canAddInv:!!rolePerms.canAddInv,
+    landing:rolePerms.landing||sections[0]||'reception',
+    empId:document.getElementById('staffEmpId').value.trim(),
+    gender:document.getElementById('staffGender').value,
+    dob:document.getElementById('staffDOB').value,
+    phone:document.getElementById('staffPhone').value.trim(),
+    email:document.getElementById('staffEmail').value.trim(),
+    address:document.getElementById('staffAddress').value.trim(),
+    ecName:document.getElementById('staffECName').value.trim(),
+    ecPhone:document.getElementById('staffECPhone').value.trim(),
+    joined:document.getElementById('staffJoined').value,
+    natId:document.getElementById('staffNatId').value.trim()
+  };
+  if(eid){
+    const s=staffList.find(x=>x.id===eid);if(!s)return;
+    s.name=name;s.username=username;s.password=password;s.isAdmin=isAdmin;s.sections=sections;
+    Object.assign(s,demo);
+  }else{
+    if(staffList.some(s=>s.username===username))return alert('Username already exists.');
+    staffList.push({id:'S-'+Date.now().toString().slice(-6),name,username,password,isAdmin,sections,...demo});
+  }
   save();cModal('staff-modal');renderAdmin();
 }
 function delStaff(id){if(!confirm('Delete this staff member?'))return;staffList=staffList.filter(s=>s.id!==id);save();renderAdmin();}
@@ -5259,68 +5153,6 @@ function renderDirRecords(){
     </section>
   </div><!-- /main-wrap -->
 </div><!-- /app -->
-
-<!-- ══ DOCTOR: EDIT DEMOGRAPHICS MODAL ══ -->
-<div id="doc-demo-modal" class="mo">
-  <div class="mb" style="max-width:520px;">
-    <button class="mc" onclick="cModal('doc-demo-modal')">✕</button>
-    <h3 style="color:var(--p);margin-bottom:12px;">✏️ Edit Patient Demographics</h3>
-    <input type="hidden" id="docDemoPid">
-    <label>Full Name *</label><input id="docDemoName" placeholder="Patient full name">
-    <div class="g2">
-      <div><label>Gender</label>
-        <select id="docDemoGender"><option>Male</option><option>Female</option><option>Other</option></select>
-      </div>
-      <div><label>Age</label>
-        <div style="display:flex;gap:5px;">
-          <input type="number" id="docDemoAgeVal" placeholder="e.g. 32" style="width:70px;flex-shrink:0;">
-          <select id="docDemoAgeUnit" style="flex:1;"><option>Years</option><option>Months</option><option>Days</option></select>
-        </div>
-      </div>
-    </div>
-    <div class="g2">
-      <div><label>Phone</label><input id="docDemoPhone" placeholder="+256..."></div>
-      <div><label>Address</label><input id="docDemoAddress" placeholder="Physical address"></div>
-    </div>
-    <div class="g2">
-      <div><label>Next of Kin</label><input id="docDemoKin" placeholder="Name of kin"></div>
-      <div><label>Kin Phone</label><input id="docDemoKinPhone" placeholder="+256..."></div>
-    </div>
-    <div class="ab">
-      <button onclick="saveDoctorDemo()" class="ba">💾 Save Changes</button>
-      <button onclick="cModal('doc-demo-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ DOCTOR: EDIT VITALS MODAL ══ -->
-<div id="doc-vitals-modal" class="mo">
-  <div class="mb" style="max-width:480px;">
-    <button class="mc" onclick="cModal('doc-vitals-modal')">✕</button>
-    <h3 style="color:var(--p);margin-bottom:12px;">🩺 Edit / Correct Vitals</h3>
-    <p style="font-size:12px;color:var(--mu);margin-bottom:10px;">Correct or update vitals for this visit. Changes will reflect immediately in clinical notes.</p>
-    <div class="g2">
-      <div><label>Blood Pressure (mmHg)</label><input id="docVBP" placeholder="e.g. 120/80"></div>
-      <div><label>Temperature (°C)</label><input type="number" step="0.1" id="docVTemp" placeholder="e.g. 37.0"></div>
-    </div>
-    <div class="g2">
-      <div><label>Weight (kg)</label><input type="number" step="0.1" id="docVWeight" placeholder="e.g. 68" oninput="updateDocBMI()"></div>
-      <div><label>Height (cm)</label><input type="number" id="docVHeight" placeholder="e.g. 170" oninput="updateDocBMI()"></div>
-    </div>
-    <div class="g2">
-      <div><label>Pulse (bpm)</label><input type="number" id="docVPulse" placeholder="e.g. 78"></div>
-      <div><label>SpO2 (%)</label><input type="number" id="docVSpO2" placeholder="e.g. 98"></div>
-    </div>
-    <div class="g2">
-      <div><label>Respiratory Rate (/min)</label><input type="number" id="docVRR" placeholder="e.g. 16"></div>
-      <div id="docVBMI-display" style="padding-top:22px;font-size:13px;font-weight:700;color:var(--p);"></div>
-    </div>
-    <div class="ab">
-      <button onclick="saveDoctorVitals()" class="ba">💾 Save Vitals</button>
-      <button onclick="cModal('doc-vitals-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button>
-    </div>
-  </div>
-</div>
 
 <!-- PRINT AREA: must be direct child of body for print CSS to work -->
 <div id="pra">
