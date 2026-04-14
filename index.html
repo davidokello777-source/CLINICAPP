@@ -764,10 +764,17 @@ document.addEventListener("DOMContentLoaded", function(){
     <!-- PHARMACY -->
     <section id="sec-pharmacy">
       <div class="stabs">
-        <button class="st active" onclick="swPharm('pending',this)">💊 Pending</button>
+        <button class="st active" onclick="swPharm('pending',this)">💊 Pending Prescriptions</button>
+        <button class="st" onclick="swPharm('walkin',this)">🚶 Walk-in Collection</button>
         <button class="st" onclick="swPharm('dispensed',this)">✅ Dispensed History</button>
       </div>
       <div class="card"><table id="table-pharm"></table></div>
+      <!-- Walk-in panel -->
+      <div id="pharm-walkin-panel" style="display:none;" class="card">
+        <h4 style="color:var(--pu);margin-bottom:8px;">🚶 Pharmacy Only — Walk-in Patients</h4>
+        <p style="font-size:12px;color:var(--mu);margin-bottom:10px;">Patients registered as <b>Pharmacy Only</b> — here to collect previously prescribed medication. Record and discharge when done.</p>
+        <table id="table-pharm-walkin" style="font-size:13px;"></table>
+      </div>
     </section>
 
     <!-- RADIOLOGY -->
@@ -1519,7 +1526,7 @@ function showSection(id){
   document.getElementById('btn-'+id)?.classList.add('active');
   safeCall(()=>{({
     director:renderDash,reception:()=>{renderPatients();renderFollowups();},suppliers:renderSuppliers,
-    nurse:()=>{renderTriage();renderTreatList();},
+    nurse:()=>{renderTriage();renderTreatList();renderNurseQueue();},
     doctor:renderCons,billing:()=>renderBilling(),
     lab:()=>renderLab(),pharmacy:()=>renderPharm(),
     radiology:()=>renderRad(),inventory:()=>{renderInventory();checkNearExpiry();},
@@ -1684,7 +1691,7 @@ function renderPatients(){
   f.forEach(p=>{
     const pv=visits.filter(v=>v.patId===p.id);const last=pv.length?pv[pv.length-1]:null;
     const chips=last?last.cleared.map(d=>`<span class="dc">${d}</span>`).join(''):'';
-    const st=last?`<span class="badge bgr" style="font-size:10px;">${last.status.replace(/_/g,' ')}</span> <span class="consult-type-badge ct-${(last.consultType||'gen').toLowerCase().split('_')[0]}">${last.consultType||'GENERAL'}</span>`:'No visits';
+    const st=last?`<span class="badge bgr" style="font-size:10px;">${last.status.replace(/_/g,' ')}</span> ${ctBadge(last.consultType)}`:'No visits';
     h+=`<tr><td><b>${p.name}</b></td><td>${p.ageVal} ${p.ageUnit}</td><td>${p.gender}</td><td>${p.phone||'—'}</td><td>${st}</td><td>${last?payBadge(last):'—'}</td><td>${chips||'<span style="color:#94a3b8;font-size:11px;">None</span>'}</td>
       <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
         <button class="bsm bo" onclick="startVisit('${p.id}','${enc(p.name)}')">+ Visit</button>
@@ -2648,18 +2655,25 @@ function printLabResults(){printAllLabs(activeVid);}
 // ══════════════════════════════════════════════
 function swPharm(tab,btn){pharmTab=tab;document.querySelectorAll('#sec-pharmacy .st').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderPharm();}
 function renderPharm(){
+  document.getElementById('pharm-walkin-panel').style.display='none';
+  document.getElementById('table-pharm').closest('.card').style.display='block';
+  if(pharmTab==='walkin'){
+    document.getElementById('table-pharm').closest('.card').style.display='none';
+    document.getElementById('pharm-walkin-panel').style.display='block';
+    renderPharmWalkin();return;
+  }
   let q;
-  if(pharmTab==='pending')q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.name&&!r.dispensed));
-  else q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.dispensed));
-  let h=`<tr><th>Patient</th><th>Date</th><th>Pay Status</th><th>Medications</th><th>Actions</th></tr>`;
-  if(!q.length)h+=`<tr><td colspan="5" class="emp">No records</td></tr>`;
+  if(pharmTab==='pending')q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.name&&!r.dispensed)).slice().reverse();
+  else q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.dispensed)).slice().reverse();
+  let h=`<tr><th>Patient</th><th>Date</th><th>Type</th><th>Pay Status</th><th>Medications</th><th>Actions</th></tr>`;
+  if(!q.length)h+=`<tr><td colspan="6" class="emp">No records</td></tr>`;
   q.forEach(v=>{
     const rxs=(v.prescriptions||[]).filter(r=>r.name);
     const medHtml=rxs.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px dashed var(--bd);">
       <div><span style="margin-right:6px;">${r.dispensed?'✅':'⏳'}</span><b>${r.name}</b> ${r.strength||''} ${formBadge(r.formulation||'')} × ${r.qty} <span style="color:var(--mu);font-size:11px;">(${r.instructions})</span>${r.patientInstructions?`<div style="font-size:11px;color:#1e40af;margin-top:2px;padding-left:20px;">📋 ${r.patientInstructions}</div>`:''} ${r.dispensed?`<span style="font-size:11px;color:var(--a);margin-left:6px;">${r.dispensedTime} — ${r.dispensedBy}</span>`:''}</div>
       ${!r.dispensed?`<button class="bsm ba" onclick="dispenseOne('${v.id}','${r.id}')">Dispense</button>`:''}
     </div>`).join('');
-    h+=`<tr><td><b>${v.name}</b></td><td>${v.date}</td><td>${payBadge(v)}</td><td style="min-width:300px;">${medHtml}</td>
+    h+=`<tr><td><b>${v.name}</b></td><td>${v.date}</td><td>${ctBadge(v.consultType)}</td><td>${payBadge(v)}</td><td style="min-width:300px;">${medHtml}</td>
       <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
         ${rxs.some(r=>!r.dispensed)?`<button onclick="dispenseAll('${v.id}')" class="bsm ba">Dispense All</button>`:''}
         <button class="bsm bo" onclick="printPharmReceipt('${v.id}')">🖨 Receipt</button>
@@ -2667,6 +2681,37 @@ function renderPharm(){
       </div></td></tr>`;
   });
   document.getElementById('table-pharm').innerHTML=h;
+}
+
+function renderPharmWalkin(){
+  const q=visits.filter(v=>v.consultType==='PHARMACY_ONLY'&&!['DISCHARGED'].includes(v.status)).slice().reverse();
+  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Date</th><th>Pay Status</th><th>Note</th><th>Action</th></tr>`;
+  if(!q.length)h+=`<tr><td colspan="6" class="emp">No pharmacy walk-in patients waiting</td></tr>`;
+  q.forEach(v=>{
+    const p=patients.find(x=>x.id===v.patId);
+    const note=(v.timeline||[]).find(t=>t.act==='Registration Note');
+    h+=`<tr>
+      <td><b>${v.name}</b></td>
+      <td>${p?p.ageVal+' '+p.ageUnit+'/'+p.gender:'—'}</td>
+      <td>${v.date}</td>
+      <td>${payBadge(v)}</td>
+      <td style="font-size:12px;color:var(--mu);">${note?note.val:'—'}</td>
+      <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
+        <button class="bsm bo" onclick="openChart('${v.id}')">Chart</button>
+        <button class="bsm bd2" onclick="dischargeWalkin('${v.id}')">✓ Served &amp; Discharge</button>
+      </div></td>
+    </tr>`;
+  });
+  document.getElementById('table-pharm-walkin').innerHTML=h;
+}
+
+function dischargeWalkin(vid){
+  const v=visits.find(x=>x.id===vid);if(!v)return;
+  if(!confirm(`Mark ${v.name} as served and discharge?`))return;
+  v.status='DISCHARGED';
+  if(!v.cleared.includes('Pharmacy'))v.cleared.push('Pharmacy');
+  lg(v,'Pharmacy Walk-in Served','By: '+currentUser.name);
+  save();renderPharmWalkin();
 }
 
 function dispenseOne(vid,rxId){
@@ -5268,6 +5313,8 @@ function renderDirRecords(){
 </div>
 
 
+<!-- PRINT AREA: must be direct child of body for print CSS to work -->
+<div id="pra">
   <div id="pra-sub" style="font-size:11px;color:#64748b;margin-bottom:6px;"></div>
   <div id="pra-con"></div>
 </div>
