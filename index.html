@@ -767,6 +767,7 @@ document.addEventListener("DOMContentLoaded", function(){
         <button class="st active" onclick="swPharm('pending',this)">💊 Pending Prescriptions</button>
         <button class="st" onclick="swPharm('walkin',this)">🚶 Walk-in Collection</button>
         <button class="st" onclick="swPharm('dispensed',this)">✅ Dispensed History</button>
+        <button class="st" onclick="swPharm('reg',this)">➕ Register Patient</button>
       </div>
       <div class="card"><table id="table-pharm"></table></div>
       <!-- Walk-in panel -->
@@ -775,6 +776,8 @@ document.addEventListener("DOMContentLoaded", function(){
         <p style="font-size:12px;color:var(--mu);margin-bottom:10px;">Patients registered as <b>Pharmacy Only</b> — here to collect previously prescribed medication. Record and discharge when done.</p>
         <table id="table-pharm-walkin" style="font-size:13px;"></table>
       </div>
+      <!-- Register patient panel -->
+      <div id="pharm-reg" style="display:none;"></div>
     </section>
 
     <!-- RADIOLOGY -->
@@ -2653,9 +2656,24 @@ function printLabResults(){printAllLabs(activeVid);}
 // ══════════════════════════════════════════════
 //  PHARMACY (PARTIAL DISPENSING)
 // ══════════════════════════════════════════════
-function swPharm(tab,btn){pharmTab=tab;document.querySelectorAll('#sec-pharmacy .st').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderPharm();}
+function swPharm(tab,btn){
+  pharmTab=tab;
+  document.querySelectorAll('#sec-pharmacy .st').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('pharm-walkin-panel').style.display='none';
+  document.getElementById('pharm-reg').style.display='none';
+  document.getElementById('table-pharm').closest('.card').style.display='block';
+  if(tab==='reg'){
+    document.getElementById('table-pharm').closest('.card').style.display='none';
+    document.getElementById('pharm-reg').style.display='block';
+    injectReg('pharm-reg');
+    return;
+  }
+  renderPharm();
+}
 function renderPharm(){
   document.getElementById('pharm-walkin-panel').style.display='none';
+  document.getElementById('pharm-reg').style.display='none';
   document.getElementById('table-pharm').closest('.card').style.display='block';
   if(pharmTab==='walkin'){
     document.getElementById('table-pharm').closest('.card').style.display='none';
