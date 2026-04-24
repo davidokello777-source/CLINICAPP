@@ -2795,13 +2795,206 @@ function renderRad(){
   document.getElementById('table-rad').innerHTML=h;
 }
 
+// ══════════════════════════════════════════════
+//  RADIOLOGY REPORTING TEMPLATES
+// ══════════════════════════════════════════════
+const RAD_TEMPLATES={
+  'Chest X-Ray':`CHEST X-RAY REPORT
+Technique: PA view / AP view
+Clinical Indication: [state indication]
+
+FINDINGS:
+Lung fields: [Clear / Consolidation noted in ... / Ground glass opacities / Pleural effusion ...]
+Cardiac silhouette: [Normal size / Cardiomegaly — CTR: ...]
+Mediastinum: [Normal width / Widened / Shift to ...]
+Costophrenic angles: [Acute and clear / Blunted bilaterally / Right blunted]
+Bony structures: [Ribs and clavicles intact / Fracture noted at ...]
+Diaphragm: [Normal / Elevated / Air under diaphragm]
+Soft tissues: [Unremarkable]
+
+IMPRESSION:
+[Normal chest X-ray / Pneumonia / Pleural effusion / Cardiomegaly / Other]`,
+
+  'Abdominal Ultrasound':`ABDOMINAL ULTRASOUND REPORT
+Technique: B-mode real-time ultrasound
+Clinical Indication: [state indication]
+
+FINDINGS:
+Liver: [Normal size and echogenicity / Enlarged / Fatty changes / Mass lesion ...]
+Gallbladder: [Normal / Distended / Calculus — size ... / Sludge / Wall thickening]
+Common bile duct: [Not dilated / Dilated — ... mm]
+Spleen: [Normal / Splenomegaly — ... cm]
+Pancreas: [Visualised and normal / Not well visualised / Mass ...]
+Kidneys (Right): [Normal / Hydronephrosis / Stone / Cyst ...]
+Kidneys (Left): [Normal / Hydronephrosis / Stone / Cyst ...]
+Bladder: [Adequately distended / Wall thickened / Calculus / Mass]
+Aorta: [Normal calibre / AAA — ... cm]
+Free fluid: [None / Present in ... space]
+
+IMPRESSION:
+[Normal abdominal ultrasound / Cholelithiasis / Hepatomegaly / Other]`,
+
+  'Pelvic Ultrasound':`PELVIC ULTRASOUND REPORT
+Technique: Transabdominal / Transvaginal (with consent)
+Clinical Indication: [state indication]
+
+FINDINGS:
+Uterus: [Normal size ... x ... x ... cm / Retroverted / Anteverted / Enlarged / Fibroid ...]
+Endometrium: [Thickness: ... mm / Thickened / Irregular]
+Ovaries (Right): [Normal — ... x ... cm / Cyst / PCOS appearance / Not visualised]
+Ovaries (Left): [Normal / Cyst / Not visualised]
+POD (Pouch of Douglas): [Free / Free fluid — ... ml]
+Adnexa: [No adnexal mass / Mass noted ...]
+[If pregnant] Gestation: [Intrauterine sac / CRL / BPD / Fetal heart: present/absent]
+
+IMPRESSION:
+[Normal pelvic ultrasound / Uterine fibroid / Ovarian cyst / PCOS / Other]`,
+
+  'CT Head':`CT HEAD REPORT
+Technique: Non-contrast CT / Contrast-enhanced CT
+Clinical Indication: [state indication]
+
+FINDINGS:
+Brain parenchyma: [No abnormal density / Hyperdense lesion at ... / Hypodense area at ...]
+Grey-white matter differentiation: [Preserved / Loss of differentiation ...]
+Ventricles: [Normal size / Dilated / Compressed]
+Sulci and gyri: [Normal / Effaced / Prominent]
+Basal ganglia: [Normal / Calcifications / Bleed ...]
+Posterior fossa / Cerebellum: [Unremarkable / Mass / Bleed ...]
+Midline shift: [None / ... mm to the left/right]
+Bone windows: [Calvarium intact / Fracture at ...]
+Sinuses / Mastoids: [Clear / Opacified]
+
+IMPRESSION:
+[No intracranial haemorrhage / Ischaemic stroke / Intracerebral haemorrhage / Mass lesion / Normal CT head]`,
+
+  'CT Abdomen/Pelvis':`CT ABDOMEN & PELVIS REPORT
+Technique: [Non-contrast / Portal venous / Arterial phase]
+Clinical Indication: [state indication]
+
+FINDINGS:
+Liver: [Homogeneous / Lesion — segment ..., size ...]
+Gallbladder & biliary: [Normal / Calculus / Dilated CBD — ... mm]
+Spleen: [Normal / Splenomegaly / Lesion]
+Pancreas: [Normal / Oedematous / Mass / Calcification]
+Kidneys: [Bilateral normal / Hydronephrosis / Calculus / Cyst / Mass]
+Adrenal glands: [Normal / Mass ...]
+Bowel: [Normal / Distension / Wall thickening / Transition point at ...]
+Appendix: [Normal / Dilated — ... mm / Appendicolith]
+Lymph nodes: [No significant lymphadenopathy / Enlarged nodes at ...]
+Vessels: [Aorta normal / Aneurysm — ... cm]
+Bones: [No lytic or sclerotic lesions]
+Free fluid/air: [None / Present ...]
+
+IMPRESSION:
+[describe main findings]`,
+
+  'MRI Brain':`MRI BRAIN REPORT
+Sequences: T1, T2, FLAIR, DWI, [+/- Gadolinium contrast]
+Clinical Indication: [state indication]
+
+FINDINGS:
+T2/FLAIR signal: [No abnormal signal / Hyperintense focus at ...]
+DWI restriction: [None / Restricted diffusion at ... — acute ischaemia]
+White matter: [Normal / Small vessel ischaemic changes / Demyelinating plaques ...]
+Grey matter: [Preserved / Cortical thinning / Focal lesion ...]
+Corpus callosum: [Intact / Lesion ...]
+Ventricles: [Normal / Dilated / Compressed]
+Posterior fossa: [Unremarkable / Lesion ...]
+Pituitary: [Normal / Microadenoma / Macroadenoma]
+Midline shift: [None / ... mm]
+Enhancement post-contrast: [No abnormal enhancement / Ring-enhancing lesion ...]
+
+IMPRESSION:
+[Normal MRI brain / Ischaemic stroke / MS plaques / Intracranial mass / Other]`,
+
+  'X-Ray Spine':`X-RAY SPINE REPORT
+Region: [Cervical / Thoracic / Lumbar / Full spine]
+Views: [AP & Lateral / + Oblique]
+Clinical Indication: [state indication]
+
+FINDINGS:
+Alignment: [Normal lordosis maintained / Loss of lordosis / Scoliosis — Cobb angle: ...]
+Vertebral bodies: [Normal / Anterior wedging at ... / Compression fracture / Osteophytes ...]
+Intervertebral disc spaces: [Maintained / Reduced at ... / Disc collapse at ...]
+Pedicles: [Intact / Erosion at ...]
+Posterior elements: [Intact / Spondylolysis / Spondylolisthesis grade ... at ...]
+Paravertebral soft tissues: [Unremarkable / Soft tissue mass ...]
+Sacroiliac joints: [Normal / Sclerosis / Erosion]
+
+IMPRESSION:
+[Normal spine X-ray / Degenerative disc disease at ... / Spondylosis / Fracture / Scoliosis]`,
+
+  'ECG Report':`ECG REPORT
+Clinical Indication: [state indication]
+Rate: [... bpm] | Rhythm: [Sinus rhythm / Atrial fibrillation / Other]
+
+FINDINGS:
+Rate: [... bpm]
+Axis: [Normal / Left axis deviation / Right axis deviation]
+P wave: [Normal / Absent / Broad / Peaked]
+PR interval: [Normal / Prolonged — ... ms / Short]
+QRS complex: [Narrow / Broad — ... ms / LBBB / RBBB]
+ST segment: [Isoelectric / ST elevation in leads: ... / ST depression in leads: ...]
+T wave: [Normal / Inverted in leads: ... / Tall peaked]
+QT interval: [Normal / Prolonged — QTc: ... ms]
+Other: [Delta waves / Q waves in ... / LVH criteria]
+
+IMPRESSION:
+[Normal sinus rhythm / AF / STEMI — territory / NSTEMI changes / LVH / Other]`,
+
+  'Free Text':''
+};
+
 function openRadEntry(id){
-  activeVid=id;const v=visits.find(x=>x.id===id);
+  activeVid=id;
+  const v=visits.find(x=>x.id===id);
   const pending=(v.radiology||[]).filter(r=>r.name&&!r.done);
   document.getElementById('rad-hdr').innerText=`Radiology Results — ${v.name}`;
-  document.getElementById('rad-tests-entry').innerHTML=pending.map((r,i)=>`<div style="margin-bottom:10px;"><label>${r.name} ${payBadge(v)}</label><textarea id="rad-result-${i}" data-rid="${r.id}" rows="3" placeholder="Enter report for ${r.name}..."></textarea></div>`).join('');
+  document.getElementById('rad-tests-entry').innerHTML=pending.map((r,i)=>{
+    const tplOptions=Object.keys(RAD_TEMPLATES).map(k=>{
+      const nm=r.name.toLowerCase();
+      const match=
+        (k==='Chest X-Ray'&&(nm.includes('chest')||nm.includes('cxr')))||
+        (k==='Abdominal Ultrasound'&&(nm.includes('abdo')||nm.includes('abdominal us')||nm.includes('ruo')))||
+        (k==='Pelvic Ultrasound'&&(nm.includes('pelv')||nm.includes('obstetric')))||
+        (k==='CT Head'&&(nm.includes('ct head')||nm.includes('brain ct')))||
+        (k==='CT Abdomen/Pelvis'&&(nm.includes('ct abdo')||nm.includes('ct pelv')))||
+        (k==='MRI Brain'&&nm.includes('mri'))||
+        (k==='X-Ray Spine'&&(nm.includes('spine')||nm.includes('lumbar')||nm.includes('cervical')||nm.includes('thoracic')))||
+        (k==='ECG Report'&&(nm.includes('ecg')||nm.includes('ekg')));
+      return`<option value="${k}" ${match?'selected':''}>${k}</option>`;
+    }).join('');
+    return`<div style="margin-bottom:14px;background:var(--lt);border:1.5px solid var(--bd);border-radius:7px;padding:10px 12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+        <label style="margin:0;font-size:13px;font-weight:700;color:var(--p);">📡 ${r.name} ${payBadge(v)}</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="font-size:11px;color:var(--mu);">Template:</span>
+          <select id="rad-tpl-${i}" onchange="applyRadTemplate(${i})" style="width:auto;margin:0;font-size:12px;">${tplOptions}</select>
+          <button onclick="applyRadTemplate(${i})" class="bsm bo" style="font-size:11px;">Load</button>
+        </div>
+      </div>
+      <textarea id="rad-result-${i}" data-rid="${r.id}" rows="14" placeholder="Type report or select template above…" style="font-family:monospace;font-size:12px;line-height:1.7;"></textarea>
+    </div>`;
+  }).join('');
+  // Auto-apply matched templates
+  pending.forEach((_,i)=>{
+    const tplSel=document.getElementById(`rad-tpl-${i}`);
+    if(tplSel&&tplSel.value&&tplSel.value!=='Free Text')applyRadTemplate(i);
+  });
   document.getElementById('rad-entry').style.display='block';
   document.getElementById('rad-entry').scrollIntoView({behavior:'smooth'});
+}
+
+function applyRadTemplate(i){
+  const sel=document.getElementById(`rad-tpl-${i}`);
+  const ta=document.getElementById(`rad-result-${i}`);
+  if(!sel||!ta)return;
+  const tpl=RAD_TEMPLATES[sel.value];
+  if(tpl===undefined)return;
+  if(ta.value.trim()&&!confirm('Replace current report text with the selected template?'))return;
+  ta.value=tpl;
+  ta.focus();
 }
 function updateRad(){
   const v=visits.find(x=>x.id===activeVid);
@@ -3140,12 +3333,17 @@ function restockInv(id){
 }
 function saveInvItem(){
   const name=document.getElementById('invName').value.trim();if(!name)return alert('Enter item name.');
-  const editId2=document.getElementById('invEditId').value;
-  if(!editId2&&(!currentUser||!currentUser.isAdmin))return alert('Only administrators can add new inventory items. You can restock existing items.');
+  const editId=document.getElementById('invEditId').value;
+  const isAdmin=currentUser&&currentUser.isAdmin;
+  const isPharmacist=currentUser&&(currentUser.staffRoleKey==='Pharmacist'||currentUser.role==='Pharmacist');
+  const isInvMgr=currentUser&&(currentUser.staffRoleKey==='Inventory Manager'||currentUser.canEditInv);
+  const canAdd=isAdmin||isPharmacist||isInvMgr;
+  const canEditDetails=isAdmin||isInvMgr; // Pharmacist can add but not edit existing item details
+  if(!canAdd)return alert('You do not have permission to add inventory items.');
+  if(editId&&!canEditDetails)return alert('Pharmacists can add new items but cannot edit existing item details. Use "+ Stock" to restock.');
   const price=parseFloat(document.getElementById('invPrice').value)||0;
   const qty=parseInt(document.getElementById('invQty').value)||0;
   const reorder=parseInt(document.getElementById('invReorder').value)||10;
-  const editId=document.getElementById('invEditId').value;
   const histEntry=qty>0?{type:'IN',qty,batch:document.getElementById('invBatch').value,expiry:document.getElementById('invExpiry').value,supplier:document.getElementById('invSupplier').value,date:new Date().toLocaleDateString(),by:currentUser.name}:null;
   if(editId){
     const i=inventory.find(x=>x.id===editId);if(!i)return;
