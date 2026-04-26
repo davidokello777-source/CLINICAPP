@@ -594,7 +594,21 @@ document.addEventListener("DOMContentLoaded", function(){
           </div>
           <!-- Clinical History -->
           <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:7px;">Clinical History</p>
-          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(PC)</span><span class="abbr-full">Presenting Complaint</span></span><span class="cr">▼</span></div><div class="cbody"><textarea id="hPC" rows="2" placeholder="Chief complaint..."></textarea></div></div>
+          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(PC)</span><span class="abbr-full">Presenting Complaint</span></span><span class="cr">▼</span></div><div class="cbody">
+            <div style="margin-bottom:6px;">
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">
+                <input id="pc-complaint-input" list="pc-datalist" placeholder="Symptom (e.g. Headache)" style="flex:2;min-width:140px;margin:0;font-size:13px;">
+                <datalist id="pc-datalist"></datalist>
+                <input type="number" id="pc-duration-val" placeholder="Duration" min="1" style="width:75px;margin:0;font-size:13px;">
+                <select id="pc-duration-unit" style="width:90px;margin:0;font-size:13px;">
+                  <option>Hours</option><option>Days</option><option selected>Days</option><option>Weeks</option><option>Months</option><option>Years</option>
+                </select>
+                <button onclick="addPCItem()" class="bsm ba" style="white-space:nowrap;">+ Add</button>
+              </div>
+              <div id="pc-list" style="min-height:28px;"></div>
+              <input type="hidden" id="hPC">
+            </div>
+          </div></div>
           <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(HPC)</span><span class="abbr-full">History of Presenting Complaint</span></span><span class="cr">▼</span></div><div class="cbody"><textarea id="hHPC" rows="3" placeholder="Duration, onset, character..."></textarea></div></div>
           <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(PM/PSH)</span><span class="abbr-full">Past Medical &amp; Surgical History</span></span><span class="cr">▼</span></div><div class="cbody"><textarea id="hPMH" rows="3" placeholder="Previous illnesses, operations..."></textarea></div></div>
           <div class="cb" id="ogBlock" style="display:none;"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(O/G)</span><span class="abbr-full">Obstetric &amp; Gynaecological History — Female</span></span><span class="cr">▼</span></div><div class="cbody"><div class="g2"><div><label>LMP</label><input id="hLMP"></div><div><label>Gravida/Para</label><input id="hGP"></div></div><textarea id="hOG" rows="2" placeholder="Obs/Gyn notes..." style="margin-top:6px;"></textarea></div></div>
@@ -1986,9 +2000,10 @@ function renderAllPats(){
             return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">
               <span style="font-size:11px;min-width:75px;color:var(--mu);">${v.date}</span>
               <span class="badge ${isDone?'bgn':'bgr'}" style="font-size:10px;">${v.status.replace(/_/g,' ')}</span>
-              <span style="font-size:11px;color:var(--mu);flex:1;">${v.consultType||'GEN'} — ${dx}</span>
+              <span style="font-size:11px;color:var(--mu);flex:1;">${ctBadge(v.consultType)} — ${dx}</span>
               <button class="bsm ${isDone?'':'bp'}" style="${isDone?'background:#6366f1;color:#fff;':''}" onclick="${isDone?`viewVisitRecord('${v.id}')`:`openCons('${v.id}')`}">${isDone?'🗂 View':'▶ Open'}</button>
-              <button class="bsm bo" onclick="printVisitReport('${v.id}')">📄 Print</button>
+              <button class="bsm bo" onclick="printVisitReport('${v.id}')">📄 Report</button>
+              ${isDone?`<button class="bsm" style="background:#10b981;color:#fff;" onclick="printDischargeSummary('${v.id}')">📋 Discharge</button>`:''}
             </div>`;
           }).join('')}
         </div>
@@ -2025,6 +2040,7 @@ function viewVisitRecord(vid){
   document.getElementById('ogBlock').style.display=(p&&p.gender==='Female')?'block':'none';
   const cl=v.clinical||{};
   [{id:'hPC',k:'pc'},{id:'hHPC',k:'hpc'},{id:'hPMH',k:'pmh'},{id:'hOG',k:'obsGyn'},{id:'hFSH',k:'fsh'},{id:'hDrug',k:'drugHx'},{id:'cDiffDx',k:'diffDx'},{id:'cFinalDx',k:'finalDx'},{id:'cNotes',k:'notes'}].forEach(({id,k})=>{const el=document.getElementById(id);if(el){el.value=cl[k]||'';el.disabled=true;}});
+  _loadPCIntoUI(cl.pc||'');
   document.getElementById('hLMP').value=cl.lmp||''; document.getElementById('hLMP').disabled=true;
   document.getElementById('hGP').value=cl.gravPara||''; document.getElementById('hGP').disabled=true;
   document.getElementById('hAllergy').value=cl.allergies||''; document.getElementById('hAllergy').disabled=true;
@@ -2115,6 +2131,9 @@ function openCons(id){
   // Restore clinical fields
   const cl=v.clinical||{};
   [{id:'hPC',k:'pc'},{id:'hHPC',k:'hpc'},{id:'hPMH',k:'pmh'},{id:'hOG',k:'obsGyn'},{id:'hFSH',k:'fsh'},{id:'hDrug',k:'drugHx'},{id:'cDiffDx',k:'diffDx'},{id:'cFinalDx',k:'finalDx'},{id:'cNotes',k:'notes'}].forEach(({id,k})=>{const el=document.getElementById(id);if(el)el.value=cl[k]||'';});
+  // Load PC numbered list from stored text
+  _loadPCDatalist();
+  _loadPCIntoUI(cl.pc||'');
   document.getElementById('hLMP').value=cl.lmp||'';document.getElementById('hGP').value=cl.gravPara||'';document.getElementById('hAllergy').value=cl.allergies||'';
   document.getElementById('hPEGeneral').value=cl.peGeneral||'';document.getElementById('hPEHead').value=cl.peHead||'';
   document.getElementById('hPEChest').value=cl.peChest||'';document.getElementById('hPECVS').value=cl.peCVS||'';
@@ -2366,8 +2385,91 @@ function updateOrderSummary(v){
   body.innerHTML=html;
 }
 
+// ══════════════════════════════════════════════
+//  PRESENTING COMPLAINT — NUMBERED + LIBRARY
+// ══════════════════════════════════════════════
+let _pcItems = []; // [{complaint, val, unit}] for current consultation
+
+function _getPCLibrary(){
+  try{ return JSON.parse(localStorage.getItem('tali_pc_library')||'[]'); }catch(e){ return []; }
+}
+function _savePCLibrary(lib){
+  try{ localStorage.setItem('tali_pc_library', JSON.stringify(lib)); }catch(e){}
+}
+function _addToPCLibrary(complaint){
+  const lib=_getPCLibrary();
+  const c=complaint.trim().toLowerCase();
+  if(c&&!lib.map(x=>x.toLowerCase()).includes(c)){
+    lib.push(complaint.trim());
+    _savePCLibrary(lib);
+  }
+}
+function _loadPCDatalist(){
+  const dl=document.getElementById('pc-datalist');
+  if(!dl)return;
+  const lib=_getPCLibrary();
+  dl.innerHTML=lib.map(c=>`<option value="${c}">`).join('');
+}
+function _durationToHours(val, unit){
+  const v=parseFloat(val)||0;
+  const map={Hours:1, Days:24, Weeks:168, Months:720, Years:8760};
+  return v*(map[unit]||24);
+}
+function renderPCList(){
+  // Sort by duration descending (longest onset first = oldest symptom)
+  const sorted=[..._pcItems].sort((a,b)=>_durationToHours(b.val,b.unit)-_durationToHours(a.val,a.unit));
+  const el=document.getElementById('pc-list');
+  if(!el)return;
+  if(!sorted.length){el.innerHTML='<span style="font-size:12px;color:var(--mu);">No complaints added yet.</span>';
+    document.getElementById('hPC').value='';return;}
+  el.innerHTML=sorted.map((item,i)=>`
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px;background:var(--lt);border:1px solid var(--bd);border-radius:5px;padding:4px 8px;">
+      <span style="font-weight:800;color:var(--p);min-width:18px;">${i+1}.</span>
+      <span style="flex:1;font-size:13px;"><b>${item.complaint}</b> — ${item.val} ${item.unit}</span>
+      <button onclick="removePCItem(${_pcItems.indexOf(item)})" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:1px 7px;cursor:pointer;font-size:12px;font-weight:700;">✕</button>
+    </div>`).join('');
+  // Sync hidden input with formatted text for saveClinical()
+  document.getElementById('hPC').value=sorted.map((item,i)=>`${i+1}. ${item.complaint} — ${item.val} ${item.unit}`).join('\n');
+}
+function addPCItem(){
+  const complaint=(document.getElementById('pc-complaint-input')?.value||'').trim();
+  const val=document.getElementById('pc-duration-val')?.value;
+  const unit=document.getElementById('pc-duration-unit')?.value||'Days';
+  if(!complaint)return alert('Enter a symptom/complaint.');
+  if(!val||parseFloat(val)<=0)return alert('Enter a valid duration.');
+  _pcItems.push({complaint, val, unit});
+  _addToPCLibrary(complaint);
+  document.getElementById('pc-complaint-input').value='';
+  document.getElementById('pc-duration-val').value='';
+  renderPCList();
+}
+function removePCItem(idx){
+  _pcItems.splice(idx,1);
+  renderPCList();
+}
+function _loadPCIntoUI(pcText){
+  // Parse stored PC text back into _pcItems array
+  _pcItems=[];
+  if(!pcText){renderPCList();return;}
+  const lines=pcText.split('\n').filter(l=>l.trim());
+  lines.forEach(line=>{
+    // Format: "1. Headache — 3 Days" or legacy plain text
+    const m=line.match(/^\d+\.\s*(.+?)\s*[—–-]+\s*(\d+\.?\d*)\s*(Hours?|Days?|Weeks?|Months?|Years?)/i);
+    if(m){
+      _pcItems.push({complaint:m[1].trim(), val:m[2], unit:m[3].replace(/s$/i,'')+'s'});
+    } else if(line.replace(/^\d+\.\s*/,'').trim()){
+      // Legacy: plain text complaint, no duration
+      _pcItems.push({complaint:line.replace(/^\d+\.\s*/,'').trim(), val:'1', unit:'Days'});
+    }
+  });
+  renderPCList();
+}
+
 function saveClinical(){
   const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  // Sync PC hidden input before saving
+  const sorted=[..._pcItems].sort((a,b)=>_durationToHours(b.val,b.unit)-_durationToHours(a.val,a.unit));
+  document.getElementById('hPC').value=sorted.map((item,i)=>`${i+1}. ${item.complaint} — ${item.val} ${item.unit}`).join('\n');
   v.clinical=v.clinical||{};
   v.clinical.pc=document.getElementById('hPC').value;v.clinical.hpc=document.getElementById('hHPC').value;
   v.clinical.pmh=document.getElementById('hPMH').value;v.clinical.lmp=document.getElementById('hLMP').value;
@@ -2397,7 +2499,7 @@ function _showQueueList(){
 
 function endVisit(){
   const v=visits.find(x=>x.id===activeVid);if(!v)return;
-  saveClinical();v.status='DISCHARGED';
+  saveClinical();v.status='DISCHARGED';v.dischargeDate=new Date().toLocaleDateString();
   lg(v,'Discharged');speak(`Patient ${v.name} has been discharged. Thank you for visiting Tali Medicals International.`);
   save();_showQueueList();renderCons();
   alert(`${v.name} discharged.`);
@@ -2440,7 +2542,15 @@ function printPatientReport(){
     ${cl.drugHx||cl.allergies?`<div style="margin-bottom:8px;"><b>DRUG HISTORY:</b><div style="margin-top:3px;padding-left:10px;">${cl.drugHx||'—'}</div><b>ALLERGIES:</b> ${cl.allergies||'None known'}</div>`:''}
     ${cl.diffDx?`<div style="margin-bottom:8px;"><b>DIFFERENTIAL DIAGNOSIS:</b><div style="margin-top:3px;padding-left:10px;">${cl.diffDx}</div></div>`:''}
     ${(v.labs||[]).filter(l=>l.name).length?`<div style="margin-bottom:8px;"><b>(Ix)</b><table class="pit"><tr><th>Test</th><th>Result</th><th>Status</th></tr>${(v.labs||[]).filter(l=>l.name).map(l=>`<tr><td>${l.name}</td><td>${l.result||'Pending'}</td><td>${l.done?'Done':'Pending'}</td></tr>`).join('')}</table></div>`:''}
-    ${(v.radiology||[]).filter(r=>r.name).length?`<div style="margin-bottom:8px;"><b>(Rad)</b><table class="pit"><tr><th>Procedure</th><th>Result</th><th>Status</th></tr>${(v.radiology||[]).filter(r=>r.name).map(r=>`<tr><td>${r.name}</td><td>${r.result||'Pending'}</td><td>${r.done?'Done':'Pending'}</td></tr>`).join('')}</table></div>`:''}
+    ${(v.radiology||[]).filter(r=>r.name).length?`<div style="margin-bottom:8px;"><b>(Rad)</b><table class="pit"><tr><th>Procedure</th><th>Impression</th><th>Status</th></tr>${(v.radiology||[]).filter(r=>r.name).map(r=>{
+      // Extract only the IMPRESSION section from the full report text
+      let impression = 'Pending';
+      if(r.result){
+        const match = r.result.match(/IMPRESSION[:\s]*\n?([\s\S]+?)(?:\n\n|$)/i);
+        impression = match ? match[1].trim() : r.result.split('\n').filter(l=>l.trim()).pop()||r.result.substring(0,120);
+      }
+      return`<tr><td>${r.name}</td><td>${impression}</td><td>${r.done?'Reported':'Pending'}</td></tr>`;
+    }).join('')}</table></div>`:''}
     ${cl.finalDx?`<div style="margin-bottom:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:5px;padding:9px;"><b>(Dx)</b> <span style="font-size:15px;">${cl.finalDx}</span></div>`:''}
     ${cl.notes?`<div style="margin-bottom:8px;"><b>(Mx)</b> <div style="margin-top:3px;padding-left:10px;">${cl.notes}</div></div>`:''}
     ${(cl.peGeneral||cl.peChest||cl.peAbdomen||cl.peCVS)?`<div style="margin-bottom:8px;"><b>(PE)</b> <table class="pit"><tr><th>System</th><th>Finding</th></tr>${[['General',cl.peGeneral],['Head/Neck',cl.peHead],['Respiratory',cl.peChest],['Cardiovascular',cl.peCVS],['Abdomen',cl.peAbdomen],['CNS',cl.peCNS],['Extremities',cl.peExtremities],['Skin',cl.peSkin],['Other',cl.peOther]].filter(x=>x[1]).map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td></tr>`).join('')}</table></div>`:''}
@@ -4032,7 +4142,7 @@ function printDischargeSummary(vid){
         <div><b>Age:</b> ${p?p.ageVal+' '+p.ageUnit:'—'}</div>
         <div><b>Gender:</b> ${p?p.gender:'—'}</div>
         <div><b>Phone:</b> ${p?p.phone||'—':'—'}</div>
-        <div><b>Discharge Date:</b> ${isDraft?'(Pending)':new Date().toLocaleDateString()}</div>
+        <div><b>Discharge Date:</b> ${isDraft?'(Pending)':v.dischargeDate||v.date}</div>
       </div>
     </div>
     ${cl.finalDx?`
@@ -4537,10 +4647,13 @@ function openClinicalPeek(vid, caller){
 
   // ── Shared: Presenting complaint + HPC ──
   if(cl.pc||cl.hpc){
+    const pcHtml = cl.pc
+      ? cl.pc.split('\n').filter(l=>l.trim()).map(l=>`<div style="padding:2px 0;">${l.trim()}</div>`).join('')
+      : '';
     html+=`<div style="background:#eff6ff;border-left:4px solid var(--s);border-radius:5px;padding:9px 12px;margin-bottom:8px;">
       <div style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:4px;">Presenting Complaint &amp; History</div>
-      ${cl.pc?`<div><b>(PC)</b> ${cl.pc}</div>`:''}
-      ${cl.hpc?`<div style="margin-top:4px;"><b>(HPC)</b> ${cl.hpc}</div>`:''}
+      ${cl.pc?`<div style="font-size:13px;line-height:1.7;">${pcHtml}</div>`:''}
+      ${cl.hpc?`<div style="margin-top:6px;font-size:13px;"><b>History:</b> ${cl.hpc}</div>`:''}
     </div>`;
   }
 
