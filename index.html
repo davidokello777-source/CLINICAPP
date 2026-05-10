@@ -911,9 +911,24 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- ADMIN -->
     <section id="sec-admin">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
-        <h3>Staff & Access Management</h3>
-        <button onclick="oStaffModal(null)" class="bp">+ Add Staff</button>
+      <!-- ── FACILITY SETTINGS ── -->
+      <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-bottom:18px;">
+        <h4 style="margin:0 0 10px;color:var(--p);">🏥 Facility Settings</h4>
+        <div class="g2">
+          <div><label>Facility / Clinic Name</label><input id="set-clinic-name" placeholder="e.g. Tali Medicals International"></div>
+          <div><label>Facility Type</label><select id="set-clinic-type"><option>Hospital</option><option>Clinic</option><option>Health Centre</option><option>Pharmacy</option><option>Dental Clinic</option><option>Diagnostic Centre</option></select></div>
+        </div>
+        <div class="g2">
+          <div><label>Phone</label><input id="set-clinic-phone" placeholder="+256..."></div>
+          <div><label>Email</label><input id="set-clinic-email" placeholder="clinic@email.com"></div>
+        </div>
+        <label>Address</label><input id="set-clinic-address" placeholder="Physical address / location">
+        <label>Tagline / Motto</label><input id="set-clinic-tagline" placeholder="e.g. Care with Purpose. Healing with Love.">
+        <label>QR Feedback URL <span style="font-size:11px;color:var(--mu);">(URL printed on receipts for patient feedback)</span></label>
+        <input id="set-qr-url" placeholder="https://yoursite.com/feedback or leave blank">
+        <div class="ab">
+          <button onclick="saveFacilitySettings()" class="ba">💾 Save Facility Settings</button>
+        </div>
       </div>
       <div class="card" style="padding:9px;"><table id="table-staff"></table></div>
 
@@ -1547,7 +1562,7 @@ function showSection(id){
     doctor:renderCons,billing:()=>renderBilling(),
     lab:()=>renderLab(),pharmacy:()=>renderPharm(),
     radiology:()=>renderRad(),inventory:()=>{renderInventory();checkNearExpiry();},
-    expenses:()=>renderExpenses(),admin:renderAdmin,feedbacks:renderFeedbacks,chat:renderChat
+    expenses:()=>renderExpenses(),admin:()=>{renderAdmin();loadFacilitySettingsUI();},feedbacks:renderFeedbacks,chat:renderChat
   })[id]?.();},'showSection:'+id);
 }
 
@@ -1639,19 +1654,21 @@ function buildLowStockTable(){
 // ══════════════════════════════════════════════
 function newVisit(vId,patId,name,consultType='GENERAL'){
   const statusMap={
+    // All clinical types → triage first
     GENERAL:'WAITING_TRIAGE',
+    DENTAL:'WAITING_TRIAGE',
+    ENT:'WAITING_TRIAGE',
+    OTHER_SPECIAL:'WAITING_TRIAGE',
+    EMERGENCY:'WAITING_TRIAGE',
+    REVIEW_GENERAL:'WAITING_TRIAGE',
+    REVIEW_DENTAL:'WAITING_TRIAGE',
+    REVIEW_ENT:'WAITING_TRIAGE',
+    ANC:'WAITING_TRIAGE',
+    FAMILY_PLANNING:'WAITING_TRIAGE',
+    // Bypass triage — direct to department
     LAB_ONLY:'WAITING_LAB',
     RADIOLOGY:'WAITING_RADIOLOGY',
-    DENTAL:'WAITING_SPECIAL',
-    ENT:'WAITING_SPECIAL',
-    OTHER_SPECIAL:'WAITING_SPECIAL',
-    EMERGENCY:'WAITING_CONSULTATION',
-    REVIEW_GENERAL:'WAITING_CONSULTATION',
-    REVIEW_DENTAL:'WAITING_SPECIAL',
-    REVIEW_ENT:'WAITING_SPECIAL',
     REVIEW_RADIOLOGY:'WAITING_RADIOLOGY',
-    ANC:'WAITING_SPECIAL',
-    FAMILY_PLANNING:'WAITING_SPECIAL',
     IMMUNISATION:'WAITING_NURSE',
     PROCEDURE_ONLY:'WAITING_NURSE',
     PHARMACY_ONLY:'WAITING_PHARMACY',
@@ -1878,10 +1895,17 @@ function submitTriage(){
   if(!parts.length)return alert('Enter at least one vital sign.');
   v.vitals={bp:document.getElementById('vBP').value,temp:document.getElementById('vTemp').value,weight:document.getElementById('vWeight').value,height:document.getElementById('vHeight').value,pulse:document.getElementById('vPulse').value,spo2:document.getElementById('vSpO2').value,rr:document.getElementById('vRR').value,time:new Date().toLocaleTimeString(),by:currentUser.name};
   lg(v,'Vitals',parts.join(' | '));
-  v.status='WAITING_CONSULTATION';
+  // Route to correct queue based on consultation type
+  const specialTypes=['DENTAL','ENT','OTHER_SPECIAL','ANC','FAMILY_PLANNING','REVIEW_DENTAL','REVIEW_ENT'];
+  if(specialTypes.includes(v.consultType)){
+    v.status='WAITING_SPECIAL';
+    speak(`Patient ${v.name} vitals recorded. Directed to special clinic.`);
+  } else {
+    v.status='WAITING_CONSULTATION';
+    speak(`Patient ${v.name} vitals recorded. Ready for doctor consultation.`);
+  }
   if(!v.cleared.includes('Triage'))v.cleared.push('Triage');
   save();
-  speak(`Patient ${v.name} vitals recorded. Ready for doctor consultation.`);
   buildNurseVitalsTrend(v.patId);
   document.getElementById('triage-form').style.display='none';renderTriage();
 }
@@ -2113,12 +2137,16 @@ function openCons(id){
     viewVisitRecord(id);
     return;
   }
+  // Ensure the Queue tab is active so cons-form is reachable
+  const queueTab=document.querySelector('#sec-doctor .st');
+  if(queueTab){document.querySelectorAll('#sec-doctor .st').forEach(b=>b.classList.remove('active'));queueTab.classList.add('active');}
+  const docQ=document.getElementById('doc-queue');const docA=document.getElementById('doc-allpats');const docR=document.getElementById('doc-reg');
+  if(docQ)docQ.style.display='block';if(docA)docA.style.display='none';if(docR)docR.style.display='none';
   const p=patients.find(x=>x.id===v.patId);
   document.getElementById('c-name').innerText=v.name;
   document.getElementById('c-date').innerText=v.date;
   document.getElementById('c-pay').innerHTML=payBadge(v);
-  const ctClass={GENERAL:'ct-gen',LAB_ONLY:'ct-lab',RADIOLOGY:'ct-rad',DENTAL:'ct-spc',ENT:'ct-spc',OTHER_SPECIAL:'ct-spc'}[v.consultType]||'ct-gen';
-  document.getElementById('c-type-badge').innerHTML=`<span class="consult-type-badge ${ctClass}">${v.consultType||'GENERAL'}</span>`;
+  document.getElementById('c-type-badge').innerHTML=ctBadge(v.consultType);
   document.getElementById('c-hist').innerHTML='<b style="font-size:10px;color:var(--mu);text-transform:uppercase;">Timeline</b><br>'+(v.timeline||[]).map(t=>`<span style="color:var(--mu);font-size:11px;">${t.time}</span> <b>${t.act}</b>${t.val?' — '+t.val:''} <span style="color:var(--s);font-size:11px;">(${t.by})</span>`).join('<br>');
   // Vitals
   if(v.vitals){
@@ -3610,14 +3638,54 @@ function deleteInvItem(id){
   alert('Item deleted.');
 }
 
+// ══════════════════════════════════════════════
+//  FACILITY SETTINGS
+// ══════════════════════════════════════════════
+function _getFacilitySettings(){
+  try{ return JSON.parse(localStorage.getItem('tali_facility')||'{}'); }catch(e){ return {}; }
+}
+function saveFacilitySettings(){
+  const s={
+    name:document.getElementById('set-clinic-name').value.trim()||'TALI MEDICALS INTERNATIONAL',
+    type:document.getElementById('set-clinic-type').value,
+    phone:document.getElementById('set-clinic-phone').value.trim(),
+    email:document.getElementById('set-clinic-email').value.trim(),
+    address:document.getElementById('set-clinic-address').value.trim(),
+    tagline:document.getElementById('set-clinic-tagline').value.trim()||'Care with Purpose. Healing with Love.',
+    qrUrl:document.getElementById('set-qr-url').value.trim(),
+  };
+  localStorage.setItem('tali_facility', JSON.stringify(s));
+  // Update sidebar title live
+  const sbTitle=document.querySelector('.sb-title');
+  if(sbTitle)sbTitle.innerHTML=`${s.name.split(' ')[0]||'TALI'}<br><span style="font-weight:400;font-size:10px;opacity:.75;letter-spacing:.08em;">${s.type||'MEDICALS'} HIMS</span>`;
+  alert('Facility settings saved. Prints will now show the correct name.');
+}
+function loadFacilitySettingsUI(){
+  const s=_getFacilitySettings();
+  const f=id=>document.getElementById(id);
+  if(f('set-clinic-name'))f('set-clinic-name').value=s.name||'';
+  if(f('set-clinic-type'))f('set-clinic-type').value=s.type||'Clinic';
+  if(f('set-clinic-phone'))f('set-clinic-phone').value=s.phone||'';
+  if(f('set-clinic-email'))f('set-clinic-email').value=s.email||'';
+  if(f('set-clinic-address'))f('set-clinic-address').value=s.address||'';
+  if(f('set-clinic-tagline'))f('set-clinic-tagline').value=s.tagline||'';
+  if(f('set-qr-url'))f('set-qr-url').value=s.qrUrl||'';
+}
+
 function printHeader(subtitle){
   const _lg=typeof _LOGO_B64!=='undefined'?_LOGO_B64:'';
+  const fac=_getFacilitySettings();
+  const facName=(fac.name||'TALI MEDICALS INTERNATIONAL').toUpperCase();
+  const tagline=fac.tagline||'Care with Purpose. Healing with Love.';
+  const facAddr=fac.address?`<div style="font-size:9px;color:#555;">${fac.address}</div>`:'';
+  const facPhone=fac.phone?`<div style="font-size:9px;color:#555;">📞 ${fac.phone}${fac.email?' | ✉ '+fac.email:''}</div>`:'';
   return `<img class="wm-logo" src="${_lg}" alt="">
   <div class="print-2col">
     <div class="print-left">
-      <img src="${_lg}" style="height:52px;width:auto;" alt="Tali Medicals International">
-      <div style="font-size:11px;color:#1e3a8a;font-weight:700;margin-top:2px;">TALI MEDICALS INTERNATIONAL</div>
-      <div style="font-size:10px;color:#555;font-style:italic;">Care with Purpose. Healing with Love.</div>
+      <img src="${_lg}" style="height:52px;width:auto;" alt="${facName}">
+      <div style="font-size:11px;color:#1e3a8a;font-weight:700;margin-top:2px;">${facName}</div>
+      <div style="font-size:10px;color:#555;font-style:italic;">${tagline}</div>
+      ${facAddr}${facPhone}
       <div style="font-size:11px;color:#475569;font-weight:700;margin-top:4px;">${subtitle}</div>
     </div>
     <div class="print-right">
@@ -3629,9 +3697,12 @@ function printHeader(subtitle){
 }
 function printFooter(){
   const _lg=typeof _LOGO_B64!=='undefined'?_LOGO_B64:'';
+  const fac=_getFacilitySettings();
+  const facName=(fac.name||'TALI MEDICALS INTERNATIONAL').toUpperCase();
+  const tagline=fac.tagline||'Care with Purpose. Healing with Love.';
   return `<div style="display:flex;align-items:center;gap:10px;margin-top:16px;border-top:2px solid #1e3a8a;padding-top:9px;">
     <img src="${_lg}" style="height:34px;width:auto;">
-    <div style="font-size:10px;color:#555;"><i>Care with Purpose. Healing with Love.</i> | TALI MEDICALS INTERNATIONAL | HIMS v3.3 | Printed: ${new Date().toLocaleString()}</div>
+    <div style="font-size:10px;color:#555;"><i>${tagline}</i> | ${facName} | HIMS v3.3 | Printed: ${new Date().toLocaleString()}</div>
   </div>`;
 }
 function doPrint(){
@@ -3878,8 +3949,11 @@ function generateQR(containerId, url){
 }
 
 function getQRUrl(){
-  const base = window.location.href.split('#')[0].split('?')[0];
-  return base + '#feedback';
+  const fac=_getFacilitySettings();
+  if(fac.qrUrl)return fac.qrUrl;
+  const href=window.location.href;
+  if(href.startsWith('file://')){return 'https://talimedicals.com/feedback';}
+  return href.split('#')[0].split('?')[0]+'#feedback';
 }
 
 // ══════════════════════════════════════════════
@@ -5556,6 +5630,7 @@ function renderDirRecords(){
       <div class="card" style="padding:9px;">
         <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
           <input id="sup-search" placeholder="🔍 Search suppliers…" oninput="renderSuppliers()" style="width:220px;margin:0;font-size:12px;">
+          <button onclick="oSupModal()" class="ba" style="padding:5px 14px;font-size:13px;">+ Add Supplier</button>
         </div>
         <table id="table-suppliers" style="font-size:13px;"></table>
       </div>
