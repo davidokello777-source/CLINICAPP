@@ -3755,9 +3755,27 @@ function _recordLogin(staff, success, reason=''){
   const pol=_getSystemPolicies();
   if(success&&pol.logLocation&&navigator.geolocation){
     navigator.geolocation.getCurrentPosition(pos=>{
-      entry.location=`${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+      const lat=pos.coords.latitude.toFixed(4);
+      const lng=pos.coords.longitude.toFixed(4);
+      // Reverse geocode using OpenStreetMap Nominatim (free, no key needed)
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+        .then(r=>r.json())
+        .then(d=>{
+          const addr=d.address||{};
+          entry.location=[addr.suburb||addr.village||addr.town||addr.city||'',addr.city||addr.county||'',addr.country||''].filter(Boolean).join(', ')||`${lat}, ${lng}`;
+          _appendLoginLog(entry);
+        })
+        .catch(()=>{
+          entry.location=`${lat}, ${lng}`;
+          _appendLoginLog(entry);
+        });
+    },()=>{
+      entry.location='Location denied';
       _appendLoginLog(entry);
-    },()=>{_appendLoginLog(entry);},{timeout:5000});
+    },{timeout:8000});
+  } else if(success){
+    entry.location=pol.logLocation?'Geolocation unavailable':'';
+    _appendLoginLog(entry);
   } else {
     _appendLoginLog(entry);
   }
@@ -3858,6 +3876,75 @@ function renderStaffMonthSummary(){
 // ══════════════════════════════════════════════
 //  SYSTEM POLICIES
 // ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+//  DATA BACKUP — EXPORT / IMPORT
+// ══════════════════════════════════════════════
+function exportAllData(){
+  const fac=_getFacilitySettings();
+  const backup={
+    _version:3,
+    _exported:new Date().toISOString(),
+    _facility:fac.name||'TALI MEDICALS INTERNATIONAL',
+    patients,
+    visits,
+    staffList,
+    inventory,
+    suppliers,
+    expenses:window._expenses||JSON.parse(localStorage.getItem('tali_expenses')||'[]'),
+    settings:{
+      facility:fac,
+      policies:_getSystemPolicies(),
+      labTests:window._labTests||null,
+      radProcs:window._radProcs||null,
+      nursingProcs:window._nursingProcs||null,
+    }
+  };
+  const json=JSON.stringify(backup,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const fname=`tali_backup_${(fac.name||'clinic').replace(/\s+/g,'_')}_${new Date().toISOString().split('T')[0]}.json`;
+  a.href=url;a.download=fname;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+  alert(`Backup exported: ${fname}\nKeep this file safe — it contains all clinic data.`);
+}
+function triggerImportData(){
+  if(!confirm('Restoring a backup will REPLACE all current data.\nMake sure you have exported the current data first.\n\nContinue?'))return;
+  document.getElementById('restore-file').click();
+}
+function restoreData(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const backup=JSON.parse(e.target.result);
+      if(!backup._version||!backup.patients)throw new Error('Invalid backup file format.');
+      // Restore all collections
+      if(backup.patients)patients=backup.patients;
+      if(backup.visits)visits=backup.visits;
+      if(backup.staffList)staffList=backup.staffList;
+      if(backup.inventory)inventory=backup.inventory;
+      if(backup.suppliers)suppliers=backup.suppliers;
+      if(backup.expenses&&Array.isArray(backup.expenses))
+        localStorage.setItem('tali_expenses',JSON.stringify(backup.expenses));
+      if(backup.settings){
+        if(backup.settings.facility)localStorage.setItem('tali_facility',JSON.stringify(backup.settings.facility));
+        if(backup.settings.policies)localStorage.setItem('tali_policies',JSON.stringify(backup.settings.policies));
+        if(backup.settings.labTests)localStorage.setItem('tali_lab_tests',JSON.stringify(backup.settings.labTests));
+        if(backup.settings.radProcs)localStorage.setItem('tali_rad_procs',JSON.stringify(backup.settings.radProcs));
+        if(backup.settings.nursingProcs)localStorage.setItem('tali_nursing_procs',JSON.stringify(backup.settings.nursingProcs));
+      }
+      save();
+      alert(`Backup restored successfully!\nFacility: ${backup._facility||'Unknown'}\nExported: ${backup._exported||'Unknown'}\n\nThe page will now reload.`);
+      setTimeout(()=>location.reload(),800);
+    }catch(err){
+      alert('Failed to restore backup: '+err.message+'\n\nMake sure you selected a valid Tali HIMS backup file.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value='';
+}
+
 function _getSystemPolicies(){
   try{return JSON.parse(localStorage.getItem('tali_policies')||'{}');}catch(e){return{};}
 }
@@ -4049,8 +4136,14 @@ function oStaffModal(id){
   document.getElementById('staffNatId').value=s?s.natId||'':'';
   document.getElementById('staffShift').value=s?s.shift||'':'';
   document.getElementById('staffAccountStatus').value=s?s.accountStatus||'Active':'Active';
-  document.getElementById('staffForcePwd').checked=s?!!s.forcePasswordChange:false;  const assigned=s?s.sections||[]:[];
+  document.getElementById('staffForcePwd').checked=s?!!s.forcePasswordChange:false;
+  const assigned=s?s.sections||[]:[];
   document.getElementById('sec-checks').innerHTML=ALL_SECS.map(sec=>`<label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;background:var(--lt);padding:4px 9px;border-radius:5px;font-size:12px;text-transform:none;"><input type="checkbox" name="sc_${sec}" value="${sec}" style="width:auto;margin:0;" ${assigned.includes(sec)?'checked':''}> ${SEC_LABELS[sec]}</label>`).join('');
+  // Populate role dropdown
+  const presetMatch=s?Object.keys(STAFF_ROLES).find(k=>k===s.staffRoleKey||k===s.role)||'':'';
+  _populateRoleDropdown(presetMatch);
+  const rd=document.getElementById('role-desc');
+  if(rd&&presetMatch)rd.textContent=STAFF_ROLES[presetMatch]?.desc||'';
   oModal('staff-modal');
 }
 function saveStaff(){
@@ -4058,12 +4151,40 @@ function saveStaff(){
   const username=document.getElementById('staffUser').value.trim();
   const password=document.getElementById('staffPass').value;
   const isAdmin=document.getElementById('staffAdmin').checked;
-  if(!name||!username||!password)return alert('Fill all required fields.');
+  if(!name||!username||!password)return alert('Fill all required fields (Name, Username, Password).');
+  const staffRoleKey=document.getElementById('staffRolePreset')?.value||'';
+  if(!staffRoleKey)return alert('Please select a Staff Role.');
+  const rolePerms=STAFF_ROLES[staffRoleKey]||{};
   const sections=ALL_SECS.filter(sec=>document.querySelector(`input[name="sc_${sec}"]`)?.checked);
   const eid=document.getElementById('staffEid').value;
-  const demo={role:document.getElementById('staffRole').value.trim()||staffRoleKey,staffRoleKey,canEditInv:!!rolePerms.canEditInv,canAddInv:!!rolePerms.canAddInv,landing:rolePerms.landing||sections[0]||'reception',shift:document.getElementById('staffShift')?.value||'',accountStatus:document.getElementById('staffAccountStatus')?.value||'Active',forcePasswordChange:!!document.getElementById('staffForcePwd')?.checked,empId:document.getElementById('staffEmpId').value.trim(),gender:document.getElementById('staffGender').value,dob:document.getElementById('staffDOB').value,phone:document.getElementById('staffPhone').value.trim(),email:document.getElementById('staffEmail').value.trim(),address:document.getElementById('staffAddress').value.trim(),ecName:document.getElementById('staffECName').value.trim(),ecPhone:document.getElementById('staffECPhone').value.trim(),joined:document.getElementById('staffJoined').value,natId:document.getElementById('staffNatId').value.trim()};
-  if(eid){const s=staffList.find(x=>x.id===eid);if(!s)return;s.name=name;s.username=username;s.password=password;s.isAdmin=isAdmin;s.sections=sections;Object.assign(s,demo);}
-  else{if(staffList.some(s=>s.username===username))return alert('Username already exists.');staffList.push({id:'S-'+Date.now().toString().slice(-6),name,username,password,isAdmin,sections,...demo});}
+  const demo={
+    role:document.getElementById('staffRole').value.trim()||staffRoleKey,
+    staffRoleKey,
+    canEditInv:!!rolePerms.canEditInv,
+    canAddInv:!!rolePerms.canAddInv,
+    landing:rolePerms.landing||sections[0]||'reception',
+    shift:document.getElementById('staffShift')?.value||'',
+    accountStatus:document.getElementById('staffAccountStatus')?.value||'Active',
+    forcePasswordChange:!!document.getElementById('staffForcePwd')?.checked,
+    empId:document.getElementById('staffEmpId').value.trim(),
+    gender:document.getElementById('staffGender').value,
+    dob:document.getElementById('staffDOB').value,
+    phone:document.getElementById('staffPhone').value.trim(),
+    email:document.getElementById('staffEmail').value.trim(),
+    address:document.getElementById('staffAddress').value.trim(),
+    ecName:document.getElementById('staffECName').value.trim(),
+    ecPhone:document.getElementById('staffECPhone').value.trim(),
+    joined:document.getElementById('staffJoined').value,
+    natId:document.getElementById('staffNatId').value.trim()
+  };
+  if(eid){
+    const s=staffList.find(x=>x.id===eid);if(!s)return;
+    s.name=name;s.username=username;s.password=password;s.isAdmin=isAdmin;s.sections=sections;
+    Object.assign(s,demo);
+  } else {
+    if(staffList.some(s=>s.username===username))return alert('Username already exists.');
+    staffList.push({id:'S-'+Date.now().toString().slice(-6),name,username,password,isAdmin,sections,...demo});
+  }
   save();cModal('staff-modal');renderAdmin();
 }
 function delStaff(id){if(!confirm('Delete this staff member?'))return;staffList=staffList.filter(s=>s.id!==id);save();renderAdmin();}
@@ -4802,6 +4923,19 @@ function openSupDetail(id){
   document.getElementById('sup-detail-wrap').scrollIntoView({behavior:'smooth'});
 }
 
+function oSupModal(id){
+  const s=id?suppliers.find(x=>x.id===id):null;
+  document.getElementById('supEditId').value=s?s.id:'';
+  document.getElementById('supName').value=s?s.name:'';
+  document.getElementById('supPhone').value=s?s.phone||'':'';
+  document.getElementById('supEmail').value=s?s.email||'':'';
+  document.getElementById('supAddress').value=s?s.address||'':'';
+  document.getElementById('supNotes').value=s?s.notes||'':'';
+  const title=document.getElementById('sup-modal-title');
+  if(title)title.textContent=s?'Edit Supplier':'Add Supplier';
+  oModal('sup-add-modal');
+}
+
 function saveSupplier(){
   const name=document.getElementById('supName').value.trim();
   if(!name)return alert('Supplier name is required.');
@@ -4809,7 +4943,7 @@ function saveSupplier(){
   const existing=suppliers.find(s=>s.id===id);
   const obj={id,name,phone:document.getElementById('supPhone').value.trim(),email:document.getElementById('supEmail').value.trim(),address:document.getElementById('supAddress').value.trim(),notes:document.getElementById('supNotes').value.trim(),pos:existing?existing.pos:[]};
   if(existing)Object.assign(existing,obj);else suppliers.push(obj);
-  save();cModal('sup-add-modal');renderSuppliers();
+  save();cModal('sup-add-modal');renderSuppliers();renderAdminSuppliers();
 }
 
 function editSupplier(id){
