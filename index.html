@@ -333,7 +333,7 @@ document.addEventListener("DOMContentLoaded", function(){
         <span class="voice-badge" onclick="toggleVoice()" id="voice-badge" title="Toggle voice alerts">🔊</span>
       </div>
       <button id="pwa-install-btn" onclick="installPWA()" style="display:none;background:#0ea5e9;color:#fff;border:none;font-size:11px;padding:5px 8px;border-radius:5px;cursor:pointer;width:100%;margin-bottom:5px;" title="Install app">📲 Install App</button>
-      <button onclick="location.reload()" class="sb-logout">🔓 Logout</button>
+      <button onclick="doLogout()" class="sb-logout">🔓 Logout</button>
     </div>
   </aside>
 
@@ -911,48 +911,99 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- ADMIN -->
     <section id="sec-admin">
-      <!-- ── FACILITY SETTINGS ── -->
-      <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-bottom:18px;">
-        <h4 style="margin:0 0 10px;color:var(--p);">🏥 Facility Settings</h4>
-        <div class="g2">
-          <div><label>Facility / Clinic Name</label><input id="set-clinic-name" placeholder="e.g. Tali Medicals International"></div>
-          <div><label>Facility Type</label><select id="set-clinic-type"><option>Hospital</option><option>Clinic</option><option>Health Centre</option><option>Pharmacy</option><option>Dental Clinic</option><option>Diagnostic Centre</option></select></div>
+      <!-- Admin Tabs -->
+      <div class="stabs" style="margin-bottom:14px;">
+        <button class="st active" onclick="swAdmin('staff',this)">👥 Staff</button>
+        <button class="st" onclick="swAdmin('activity',this)">🕐 Activity Log</button>
+        <button class="st" onclick="swAdmin('suppliers',this)">🏪 Suppliers</button>
+        <button class="st" onclick="swAdmin('patients',this)">🧾 Patients</button>
+        <button class="st" onclick="swAdmin('import',this)">📥 Import</button>
+        <button class="st" onclick="swAdmin('services',this)">🔬 Services</button>
+        <button class="st" onclick="swAdmin('settings',this)">⚙️ Settings</button>
+      </div>
+
+      <!-- ══ TAB: STAFF ══ -->
+      <div id="admin-tab-staff">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+          <h3 style="margin:0;">Staff & Access Management</h3>
+          <button onclick="oStaffModal(null)" class="bp">+ Add Staff</button>
         </div>
-        <div class="g2">
-          <div><label>Phone</label><input id="set-clinic-phone" placeholder="+256..."></div>
-          <div><label>Email</label><input id="set-clinic-email" placeholder="clinic@email.com"></div>
+        <div class="card" style="padding:9px;overflow-x:auto;"><table id="table-staff"></table></div>
+      </div>
+
+      <!-- ══ TAB: ACTIVITY LOG ══ -->
+      <div id="admin-tab-activity" style="display:none;">
+        <div class="g2" style="margin-bottom:14px;">
+          <div class="card" style="padding:10px 14px;">
+            <h4 style="margin:0 0 4px;color:var(--p);">🟢 Currently Online</h4>
+            <p style="font-size:11px;color:var(--mu);margin:0 0 8px;">Staff with active sessions this browser</p>
+            <div id="online-staff-list"></div>
+          </div>
+          <div class="card" style="padding:10px 14px;">
+            <h4 style="margin:0 0 4px;color:var(--p);">📊 This Month Summary</h4>
+            <div id="staff-month-summary"></div>
+          </div>
         </div>
-        <label>Address</label><input id="set-clinic-address" placeholder="Physical address / location">
-        <label>Tagline / Motto</label><input id="set-clinic-tagline" placeholder="e.g. Care with Purpose. Healing with Love.">
-        <label>QR Feedback URL <span style="font-size:11px;color:var(--mu);">(URL printed on receipts for patient feedback)</span></label>
-        <input id="set-qr-url" placeholder="https://yoursite.com/feedback or leave blank">
-        <div class="ab">
-          <button onclick="saveFacilitySettings()" class="ba">💾 Save Facility Settings</button>
+        <div class="card" style="padding:9px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+            <h4 style="margin:0;color:var(--p);">🕐 Staff Login History</h4>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <select id="log-filter-staff" onchange="renderLoginLog()" style="margin:0;font-size:12px;">
+                <option value="">All Staff</option>
+              </select>
+              <select id="log-filter-type" onchange="renderLoginLog()" style="margin:0;font-size:12px;">
+                <option value="">All Events</option>
+                <option value="LOGIN">Logins</option>
+                <option value="LOGOUT">Logouts</option>
+                <option value="FAILED">Failed Attempts</option>
+              </select>
+              <button onclick="clearLoginLog()" class="bsm bd2">🗑 Clear Log</button>
+            </div>
+          </div>
+          <div style="max-height:420px;overflow-y:auto;">
+            <table id="table-login-log" style="font-size:12px;"></table>
+          </div>
         </div>
       </div>
-      <div class="card" style="padding:9px;"><table id="table-staff"></table></div>
 
-      <!-- Admin: Patient Management -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin:18px 0 10px;flex-wrap:wrap;gap:7px;">
-        <h3>Patient Management</h3>
-        <input id="admin-pat-search" placeholder="🔍 Search patients…" oninput="renderAdminPatients()" style="width:220px;margin:0;font-size:13px;">
-      </div>
-      <div class="card" style="padding:9px;"><table id="table-admin-pats"></table></div>
-
-      <!-- Admin: Medication Import -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin:18px 0 10px;flex-wrap:wrap;gap:7px;">
-        <div>
-          <h3 style="margin-bottom:3px;">Medications / Inventory Import</h3>
-          <p style="font-size:12px;color:var(--mu);margin:0;">Download the template, fill it in, then import to bulk-load or update inventory.</p>
+      <!-- ══ TAB: SUPPLIERS (Admin Mirror) ══ -->
+      <div id="admin-tab-suppliers" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+          <h3 style="margin:0;">🏪 Supplier Management</h3>
+          <button onclick="oSupModal()" class="ba">+ Add Supplier</button>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button onclick="downloadInvTemplate()" class="bo" style="font-size:13px;">⬇ Download Template CSV</button>
-          <label class="bp" style="padding:7px 14px;font-size:13px;cursor:pointer;border-radius:6px;font-weight:600;display:inline-block;">📥 Import CSV<input type="file" accept=".csv" onchange="importInvCSV(event)" style="display:none;"></label>
+        <div class="card" style="padding:9px;overflow-x:auto;">
+          <input id="admin-sup-search" placeholder="🔍 Search suppliers…" oninput="renderAdminSuppliers()" style="width:220px;margin:0 0 10px;font-size:12px;">
+          <table id="table-admin-suppliers" style="font-size:13px;"></table>
         </div>
       </div>
-      <div id="admin-import-result" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:13px;color:#166534;margin-bottom:10px;"></div>
 
-      <!-- Admin: Lab Tests Editor -->
+      <!-- ══ TAB: PATIENTS ══ -->
+      <div id="admin-tab-patients" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 10px;flex-wrap:wrap;gap:7px;">
+          <h3 style="margin:0;">Patient Management</h3>
+          <input id="admin-pat-search" placeholder="🔍 Search patients…" oninput="renderAdminPatients()" style="width:220px;margin:0;font-size:13px;">
+        </div>
+        <div class="card" style="padding:9px;"><table id="table-admin-pats"></table></div>
+      </div>
+
+      <!-- ══ TAB: IMPORT ══ -->
+      <div id="admin-tab-import" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+          <div>
+            <h3 style="margin-bottom:3px;">Medications / Inventory Import</h3>
+            <p style="font-size:12px;color:var(--mu);margin:0;">Download the template, fill it in, then import to bulk-load or update inventory.</p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="downloadInvTemplate()" class="bo" style="font-size:13px;">⬇ Download Template CSV</button>
+            <label class="bp" style="padding:7px 14px;font-size:13px;cursor:pointer;border-radius:6px;font-weight:600;display:inline-block;">📥 Import CSV<input type="file" accept=".csv" onchange="importInvCSV(event)" style="display:none;"></label>
+          </div>
+        </div>
+        <div id="admin-import-result" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:13px;color:#166534;margin-bottom:10px;"></div>
+      </div>
+
+      <!-- ══ TAB: SERVICES (Lab, Rad, Nursing, SOPs) ══ -->
+      <div id="admin-tab-services" style="display:none;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin:18px 0 10px;flex-wrap:wrap;gap:7px;">
         <div>
           <h3 style="margin-bottom:3px;">🔬 Lab Tests &amp; Prices</h3>
@@ -998,6 +1049,26 @@ document.addEventListener("DOMContentLoaded", function(){
           <label>Address</label><input id="staffAddress" placeholder="Home address">
           <div class="g2"><div><label>Emergency Contact Name</label><input id="staffECName" placeholder="Next of kin name"></div><div><label>Emergency Contact Phone</label><input id="staffECPhone" placeholder="Emergency phone"></div></div>
           <div class="g2"><div><label>Date Joined</label><input type="date" id="staffJoined"></div><div><label>National ID / Passport</label><input id="staffNatId" placeholder="ID number"></div></div>
+          <div class="g2">
+            <div><label>Shift</label>
+              <select id="staffShift" style="margin:0;">
+                <option value="">Not Assigned</option>
+                <option value="Morning (7am–3pm)">Morning (7am–3pm)</option>
+                <option value="Afternoon (3pm–10pm)">Afternoon (3pm–10pm)</option>
+                <option value="Night (10pm–7am)">Night (10pm–7am)</option>
+                <option value="Day (8am–5pm)">Day (8am–5pm)</option>
+                <option value="On Call">On Call</option>
+              </select>
+            </div>
+            <div><label>Account Status</label>
+              <select id="staffAccountStatus" style="margin:0;">
+                <option value="Active">Active</option>
+                <option value="Suspended">Suspended</option>
+                <option value="On Leave">On Leave</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:4px;"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;text-transform:none;font-size:13px;"><input type="checkbox" id="staffForcePwd" style="width:auto;margin:0;"> Force password change on next login</label></div>
           <hr class="dv">
           <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:7px;">Section Access</p>
           <div id="sec-checks" style="display:flex;flex-wrap:wrap;gap:7px;"></div>
@@ -1030,6 +1101,51 @@ document.addEventListener("DOMContentLoaded", function(){
         <button onclick="printSOPs()" class="bo bsm" style="border-color:#1e3a8a;color:#1e3a8a;">🖨 Print All SOPs</button>
       </div>
       <div class="card" style="padding:12px;" id="sop-list"></div>
+      </div><!-- /admin-tab-services -->
+
+      <!-- ══ TAB: SETTINGS ══ -->
+      <div id="admin-tab-settings" style="display:none;">
+        <!-- Facility Settings -->
+        <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-bottom:16px;">
+          <h4 style="margin:0 0 10px;color:var(--p);">🏥 Facility Settings</h4>
+          <div class="g2">
+            <div><label>Facility / Clinic Name</label><input id="set-clinic-name" placeholder="e.g. Tali Medicals International"></div>
+            <div><label>Facility Type</label><select id="set-clinic-type"><option>Hospital</option><option>Clinic</option><option>Health Centre</option><option>Pharmacy</option><option>Dental Clinic</option><option>Diagnostic Centre</option></select></div>
+          </div>
+          <div class="g2">
+            <div><label>Phone</label><input id="set-clinic-phone" placeholder="+256..."></div>
+            <div><label>Email</label><input id="set-clinic-email" placeholder="clinic@email.com"></div>
+          </div>
+          <label>Address</label><input id="set-clinic-address" placeholder="Physical address / location">
+          <label>Tagline / Motto</label><input id="set-clinic-tagline" placeholder="e.g. Care with Purpose. Healing with Love.">
+          <label>QR Feedback URL <span style="font-size:11px;color:var(--mu);">(URL printed on receipts for patient feedback)</span></label>
+          <input id="set-qr-url" placeholder="https://yoursite.com/feedback or leave blank">
+          <div class="ab"><button onclick="saveFacilitySettings()" class="ba">💾 Save Facility Settings</button></div>
+        </div>
+        <!-- System Policies -->
+        <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:14px 18px;margin-bottom:16px;">
+          <h4 style="margin:0 0 10px;color:#166534;">🔒 System Policies</h4>
+          <div class="g2">
+            <div><label>Session Timeout (minutes, 0=never)</label><input type="number" id="set-session-timeout" placeholder="e.g. 30" min="0"></div>
+            <div><label>Failed Login Lock (attempts)</label><input type="number" id="set-lockout-attempts" placeholder="e.g. 5" min="1" max="10"></div>
+          </div>
+          <div class="g2">
+            <div><label style="display:inline-flex;align-items:center;gap:6px;text-transform:none;"><input type="checkbox" id="set-force-pwd" style="width:auto;margin:0;"> Force staff to change default passwords</label></div>
+            <div><label style="display:inline-flex;align-items:center;gap:6px;text-transform:none;"><input type="checkbox" id="set-log-location" style="width:auto;margin:0;"> Capture login location (requires permission)</label></div>
+          </div>
+          <div class="ab"><button onclick="saveSystemPolicies()" class="ba" style="background:#166534;">💾 Save Policies</button></div>
+        </div>
+        <!-- Data Management -->
+        <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:14px 18px;">
+          <h4 style="margin:0 0 10px;color:#c2410c;">🗄 Data Management</h4>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="exportAllData()" class="bo" style="border-color:#c2410c;color:#c2410c;">⬇ Export All Data (JSON)</button>
+            <button onclick="triggerImportData()" class="bo">📥 Import / Restore Backup</button>
+            <input type="file" id="restore-file" accept=".json" onchange="restoreData(event)" style="display:none;">
+          </div>
+          <p style="font-size:11px;color:var(--mu);margin-top:8px;">Export saves patients, visits, staff, inventory, suppliers and settings. Store backups securely offline.</p>
+        </div>
+      </div><!-- /admin-tab-settings -->
 
     </section>
 
@@ -1529,19 +1645,41 @@ window.addEventListener('DOMContentLoaded',async()=>{
 function login(){
   const u=document.getElementById('lu').value.trim();
   const p=document.getElementById('lp2').value;
-  const s=staffList.find(x=>x.username===u&&x.password===p);
-  if(!s){document.getElementById('le').innerText='Invalid credentials.';return;}
+  const s=staffList.find(x=>x.username===u);
+  // Failed login
+  if(!s||s.password!==p){
+    document.getElementById('le').innerText='Invalid credentials.';
+    _recordLogin({username:u,name:'Unknown',role:''},'',s?'Wrong password':'Unknown user');
+    return;
+  }
+  // Suspended account
+  if(s.accountStatus==='Suspended'){
+    document.getElementById('le').innerText='This account has been suspended. Contact the administrator.';
+    _recordLogin(s,false,'Account suspended');
+    return;
+  }
+  // Force password change
+  const pol=_getSystemPolicies();
   currentUser=s;
+  _recordLogin(s,true);
   document.getElementById('lp').style.display='none';
   document.getElementById('app').style.display='block';
-  document.getElementById('du').innerText=`${s.name}`;
-  // Multi-device: show active badge + device info
+  document.getElementById('du').innerText=s.name;
   const devBadge=document.getElementById('device-badge');
-  if(devBadge){devBadge.style.display='inline';devBadge.title='Multiple staff can be logged in simultaneously from different devices';}
-  // Track session start time
+  if(devBadge){devBadge.style.display='inline';devBadge.title='Multiple staff can be logged in simultaneously';}
   window._sessionStart=new Date();
-  renderNav();showSection(s.isAdmin?'director':(s.sections[0]||'reception'));
-  _startAlertPolling(); // Begin cross-device alert polling
+  renderNav();
+  const landing=s.isAdmin?'director':(s.landing||s.sections?.[0]||'reception');
+  showSection(landing);
+  _startAlertPolling();
+  if(pol.forcePwdChange&&s.forcePasswordChange){
+    setTimeout(()=>alert(`Welcome ${s.name}. Please change your password immediately by going to your profile.`),800);
+  }
+}
+
+function doLogout(){
+  _recordLogout();
+  location.reload();
 }
 
 function renderNav(){
@@ -1562,7 +1700,7 @@ function showSection(id){
     doctor:renderCons,billing:()=>renderBilling(),
     lab:()=>renderLab(),pharmacy:()=>renderPharm(),
     radiology:()=>renderRad(),inventory:()=>{renderInventory();checkNearExpiry();},
-    expenses:()=>renderExpenses(),admin:()=>{renderAdmin();loadFacilitySettingsUI();},feedbacks:renderFeedbacks,chat:renderChat
+    expenses:()=>renderExpenses(),admin:()=>{swAdmin('staff',document.querySelector('#sec-admin .stabs .st'));loadFacilitySettingsUI();},feedbacks:renderFeedbacks,chat:renderChat
   })[id]?.();},'showSection:'+id);
 }
 
@@ -3536,22 +3674,326 @@ function saveExpense(){
 // ══════════════════════════════════════════════
 //  ADMIN
 // ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+//  ADMIN TAB SWITCHER
+// ══════════════════════════════════════════════
+function swAdmin(tab, btn){
+  document.querySelectorAll('#sec-admin .stabs .st').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  const tabs=['staff','activity','suppliers','patients','import','services','settings'];
+  tabs.forEach(t=>{
+    const el=document.getElementById('admin-tab-'+t);
+    if(el)el.style.display=(t===tab)?'block':'none';
+  });
+  if(tab==='staff')renderAdmin();
+  if(tab==='activity'){renderLoginLog();renderOnlineStaff();renderStaffMonthSummary();}
+  if(tab==='suppliers')renderAdminSuppliers();
+  if(tab==='patients')renderAdminPatients();
+  if(tab==='services'){renderLabTestsEditor();renderRadProcsEditor();renderNursingProcsEditor();renderSOPs();}
+  if(tab==='settings'){loadFacilitySettingsUI();loadSystemPoliciesUI();}
+}
+
 function renderAdmin(){
-  let h=`<tr><th>Name</th><th>Role</th><th>Username</th><th>Phone</th><th>Sections</th><th>Admin</th><th>Actions</th></tr>`;
+  const rk_color=(rk)=>{const rc=STAFF_ROLES[rk];return rc?`<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:${rc.bg};color:${rc.color};">${rk}</span>`:`<span style="font-size:12px;color:var(--mu);">${rk||'—'}</span>`;};
+  const status_badge=(s)=>{
+    const st=s.accountStatus||'Active';
+    const map={Active:'#16a34a',Suspended:'#dc2626','On Leave':'#d97706'};
+    return`<span style="background:${map[st]||'#6b7280'}22;color:${map[st]||'#6b7280'};padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;">${st}</span>`;
+  };
+  let h=`<tr><th>Name</th><th>Role</th><th>Username</th><th>Status</th><th>Shift</th><th>Last Login</th><th>Sections</th><th>Actions</th></tr>`;
   staffList.forEach(s=>{
-    const sects=s.isAdmin?'<span class="sp2">All Sections</span>':(s.sections||[]).map(x=>`<span class="sp2">${SEC_LABELS[x]||x}</span>`).join('');
-    h+=`<tr><td><b>${s.name}</b>${s.empId?`<br><span style="font-size:11px;color:var(--mu);">${s.empId}</span>`:''}</td><td style="font-size:12px;">${s.role||'—'}</td><td>${s.username}</td><td style="font-size:12px;">${s.phone||'—'}</td><td>${sects}</td><td>${s.isAdmin?'✅':''}</td>
-      <td><div style="display:flex;gap:3px;">
+    const sects=s.isAdmin?'<span class="sp2">All</span>':(s.sections||[]).map(x=>`<span class="sp2">${SEC_LABELS[x]||x}</span>`).join('');
+    const logs=_getLoginLog().filter(l=>l.username===s.username&&l.type==='LOGIN');
+    const last=logs.length?logs[logs.length-1]:'';
+    const lastLogin=last?`<div style="font-size:11px;">${last.date}</div><div style="font-size:10px;color:var(--mu);">${last.time}</div>`:'<span style="font-size:11px;color:var(--mu);">Never</span>';
+    const pwWarn=s.forcePasswordChange?`<span title="Must change password" style="color:#dc2626;font-size:12px;"> 🔑</span>`:'';
+    h+=`<tr>
+      <td><b>${s.name}</b>${pwWarn}${s.empId?`<br><span style="font-size:10px;color:var(--mu);">${s.empId}</span>`:''}</td>
+      <td>${rk_color(s.staffRoleKey||s.role)}</td>
+      <td style="font-size:12px;">${s.username}</td>
+      <td>${status_badge(s)}</td>
+      <td style="font-size:11px;color:var(--mu);">${s.shift||'—'}</td>
+      <td>${lastLogin}</td>
+      <td style="max-width:180px;">${sects}</td>
+      <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
         <button class="bsm bo" onclick="oStaffModal('${s.id}')">Edit</button>
-        <button class="bsm bd2" onclick="delStaff('${s.id}')">Delete</button>
+        <button class="bsm" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;" onclick="viewStaffProfile('${s.id}')">👤</button>
+        <button class="bsm bd2" onclick="delStaff('${s.id}')">🗑</button>
       </div></td></tr>`;
   });
   document.getElementById('table-staff').innerHTML=h;
-  renderAdminPatients();
-  renderLabTestsEditor();
-  renderRadProcsEditor();
-  renderNursingProcsEditor();
-  renderSOPs();
+}
+
+// ══════════════════════════════════════════════
+//  LOGIN HISTORY & SESSION TRACKING
+// ══════════════════════════════════════════════
+function _getLoginLog(){
+  try{return JSON.parse(localStorage.getItem('tali_login_log')||'[]');}catch(e){return[];}
+}
+function _appendLoginLog(entry){
+  const log=_getLoginLog();
+  log.push(entry);
+  // Keep last 500 entries
+  if(log.length>500)log.splice(0,log.length-500);
+  localStorage.setItem('tali_login_log',JSON.stringify(log));
+}
+function _recordLogin(staff, success, reason=''){
+  const entry={
+    id:'LL'+Date.now(),
+    type:success?'LOGIN':'FAILED',
+    username:staff.username||staff,
+    name:success?staff.name:'Unknown',
+    role:success?(staff.staffRoleKey||staff.role||''):'',
+    date:new Date().toLocaleDateString(),
+    time:new Date().toLocaleTimeString(),
+    ts:Date.now(),
+    reason,
+    location:'',
+    sessionId:'SID'+Date.now()
+  };
+  // Try geolocation if policy allows
+  const pol=_getSystemPolicies();
+  if(success&&pol.logLocation&&navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(pos=>{
+      entry.location=`${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+      _appendLoginLog(entry);
+    },()=>{_appendLoginLog(entry);},{timeout:5000});
+  } else {
+    _appendLoginLog(entry);
+  }
+  if(success)window._currentSessionId=entry.sessionId;
+  return entry;
+}
+function _recordLogout(){
+  if(!currentUser||!window._currentSessionId)return;
+  const log=_getLoginLog();
+  const loginEntry=log.slice().reverse().find(l=>l.sessionId===window._currentSessionId&&l.type==='LOGIN');
+  const dur=loginEntry?Math.round((Date.now()-loginEntry.ts)/60000):0;
+  const entry={
+    type:'LOGOUT',username:currentUser.username,name:currentUser.name,
+    role:currentUser.staffRoleKey||currentUser.role||'',
+    date:new Date().toLocaleDateString(),time:new Date().toLocaleTimeString(),
+    ts:Date.now(),sessionId:window._currentSessionId,
+    duration:dur, // minutes
+    location:loginEntry?.location||''
+  };
+  _appendLoginLog(entry);
+}
+function renderLoginLog(){
+  const log=_getLoginLog().slice().reverse();
+  const filterStaff=(document.getElementById('log-filter-staff')?.value||'');
+  const filterType=(document.getElementById('log-filter-type')?.value||'');
+  // Populate staff filter
+  const sel=document.getElementById('log-filter-staff');
+  if(sel){
+    const names=[...new Set(log.map(l=>l.username))];
+    const cur=sel.value;
+    sel.innerHTML='<option value="">All Staff</option>'+names.map(n=>`<option value="${n}" ${n===cur?'selected':''}>${n}</option>`).join('');
+  }
+  const filtered=log.filter(l=>{
+    if(filterStaff&&l.username!==filterStaff)return false;
+    if(filterType&&l.type!==filterType)return false;
+    return true;
+  }).slice(0,200);
+  const typeStyle={LOGIN:'#16a34a',LOGOUT:'#0891b2',FAILED:'#dc2626'};
+  const typeIcon={LOGIN:'🟢',LOGOUT:'🔵',FAILED:'🔴'};
+  let h=`<tr><th>Type</th><th>Staff</th><th>Role</th><th>Date</th><th>Time</th><th>Duration</th><th>Location</th></tr>`;
+  if(!filtered.length)h+=`<tr><td colspan="7" class="emp">No login records found</td></tr>`;
+  filtered.forEach(l=>{
+    const dur=l.type==='LOGOUT'&&l.duration?`${l.duration} min`:(l.type==='LOGIN'?'Active':'—');
+    const shiftWarn=l.outOfShift?'⚠️ ':'';
+    h+=`<tr>
+      <td><span style="color:${typeStyle[l.type]||'#6b7280'};font-weight:700;font-size:12px;">${typeIcon[l.type]||'•'} ${l.type}</span></td>
+      <td><b>${l.name||l.username}</b>${l.type==='FAILED'?`<br><span style="font-size:10px;color:#dc2626;">${l.reason||'Wrong password'}</span>`:''}</td>
+      <td style="font-size:11px;color:var(--mu);">${l.role||'—'}</td>
+      <td style="font-size:12px;">${l.date}</td>
+      <td style="font-size:12px;">${shiftWarn}${l.time}</td>
+      <td style="font-size:11px;">${dur}</td>
+      <td style="font-size:11px;color:var(--mu);">${l.location||'—'}</td>
+    </tr>`;
+  });
+  const el=document.getElementById('table-login-log');
+  if(el)el.innerHTML=h;
+}
+function clearLoginLog(){
+  if(!confirm('Clear all login history? This cannot be undone.'))return;
+  localStorage.removeItem('tali_login_log');
+  renderLoginLog();
+}
+function renderOnlineStaff(){
+  const el=document.getElementById('online-staff-list');
+  if(!el)return;
+  // In single-device context, show current user
+  if(currentUser){
+    const dur=window._sessionStart?Math.round((Date.now()-window._sessionStart)/60000):0;
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);">
+      <span style="width:10px;height:10px;background:#16a34a;border-radius:50%;display:inline-block;"></span>
+      <div><b>${currentUser.name}</b> <span style="font-size:11px;color:var(--mu);">(${currentUser.staffRoleKey||currentUser.role||'—'})</span>
+      <br><span style="font-size:11px;color:var(--mu);">Session: ${dur} min | Logged in: ${window._sessionStart?window._sessionStart.toLocaleTimeString():'—'}</span></div>
+    </div>`;
+  } else {
+    el.innerHTML='<span style="color:var(--mu);font-size:12px;">No active session data available.</span>';
+  }
+}
+function renderStaffMonthSummary(){
+  const el=document.getElementById('staff-month-summary');
+  if(!el)return;
+  const log=_getLoginLog();
+  const now=new Date();const m=now.getMonth();const y=now.getFullYear();
+  const thisMonth=log.filter(l=>{const d=new Date(l.ts);return d.getMonth()===m&&d.getFullYear()===y;});
+  const byStaff={};
+  thisMonth.filter(l=>l.type==='LOGIN').forEach(l=>{
+    if(!byStaff[l.username])byStaff[l.username]={name:l.name,logins:0,totalDur:0};
+    byStaff[l.username].logins++;
+  });
+  thisMonth.filter(l=>l.type==='LOGOUT'&&l.duration).forEach(l=>{
+    if(byStaff[l.username])byStaff[l.username].totalDur+=l.duration;
+  });
+  const rows=Object.values(byStaff).sort((a,b)=>b.logins-a.logins);
+  if(!rows.length){el.innerHTML='<span style="font-size:12px;color:var(--mu);">No data for this month.</span>';return;}
+  el.innerHTML=`<table style="font-size:12px;width:100%;"><tr><th>Staff</th><th>Logins</th><th>Total Hrs</th></tr>`+
+    rows.map(r=>`<tr><td>${r.name}</td><td>${r.logins}</td><td>${(r.totalDur/60).toFixed(1)}h</td></tr>`).join('')+'</table>';
+}
+
+// ══════════════════════════════════════════════
+//  SYSTEM POLICIES
+// ══════════════════════════════════════════════
+function _getSystemPolicies(){
+  try{return JSON.parse(localStorage.getItem('tali_policies')||'{}');}catch(e){return{};}
+}
+function saveSystemPolicies(){
+  const p={
+    sessionTimeout:parseInt(document.getElementById('set-session-timeout')?.value)||0,
+    lockoutAttempts:parseInt(document.getElementById('set-lockout-attempts')?.value)||5,
+    forcePwdChange:!!document.getElementById('set-force-pwd')?.checked,
+    logLocation:!!document.getElementById('set-log-location')?.checked,
+  };
+  localStorage.setItem('tali_policies',JSON.stringify(p));
+  alert('System policies saved.');
+}
+function loadSystemPoliciesUI(){
+  const p=_getSystemPolicies();
+  const f=id=>document.getElementById(id);
+  if(f('set-session-timeout'))f('set-session-timeout').value=p.sessionTimeout||0;
+  if(f('set-lockout-attempts'))f('set-lockout-attempts').value=p.lockoutAttempts||5;
+  if(f('set-force-pwd'))f('set-force-pwd').checked=!!p.forcePwdChange;
+  if(f('set-log-location'))f('set-log-location').checked=!!p.logLocation;
+}
+
+// ══════════════════════════════════════════════
+//  ADMIN SUPPLIERS (mirror)
+// ══════════════════════════════════════════════
+function renderAdminSuppliers(){
+  const term=(document.getElementById('admin-sup-search')?.value||'').toLowerCase();
+  const filtered=suppliers.filter(s=>s.name.toLowerCase().includes(term));
+  let h=`<tr><th>Supplier</th><th>Phone</th><th>Email</th><th>Address</th><th>Items Linked</th><th>Balance Owed</th><th>Actions</th></tr>`;
+  if(!filtered.length)h+=`<tr><td colspan="7" class="emp">No suppliers found</td></tr>`;
+  filtered.forEach(s=>{
+    const linked=inventory.filter(i=>i.supplierId===s.id).length;
+    const owed=(s.pos||[]).reduce((t,po)=>t+(po.total||0)-(po.paid||0),0);
+    h+=`<tr>
+      <td><b>${s.name}</b></td>
+      <td style="font-size:12px;">${s.phone||'—'}</td>
+      <td style="font-size:12px;">${s.email||'—'}</td>
+      <td style="font-size:11px;color:var(--mu);">${s.address||'—'}</td>
+      <td style="text-align:center;">${linked}</td>
+      <td style="font-weight:700;color:${owed>0?'#dc2626':'#16a34a'};">$${owed.toFixed(2)}</td>
+      <td><div style="display:flex;gap:3px;">
+        <button class="bsm bo" onclick="oSupModal('${s.id}')">Edit</button>
+        <button class="bsm bd2" onclick="delSupplier('${s.id}')">🗑</button>
+      </div></td>
+    </tr>`;
+  });
+  const el=document.getElementById('table-admin-suppliers');
+  if(el)el.innerHTML=h;
+}
+function delSupplier(id){
+  if(!confirm('Delete this supplier? This cannot be undone.'))return;
+  suppliers=suppliers.filter(s=>s.id!==id);
+  save();renderSuppliers();renderAdminSuppliers();
+}
+
+// ══════════════════════════════════════════════
+//  STAFF PROFILE MODAL
+// ══════════════════════════════════════════════
+function viewStaffProfile(sid){
+  const s=staffList.find(x=>x.id===sid);if(!s)return;
+  const log=_getLoginLog().filter(l=>l.username===s.username);
+  const logins=log.filter(l=>l.type==='LOGIN');
+  const logouts=log.filter(l=>l.type==='LOGOUT');
+  const totalDur=logouts.reduce((t,l)=>t+(l.duration||0),0);
+  const failed=log.filter(l=>l.type==='FAILED');
+  const lastLogin=logins.length?logins[logins.length-1]:{};
+  const rc=STAFF_ROLES[s.staffRoleKey];
+  const roleBadge=rc?`<span style="padding:2px 10px;border-radius:10px;font-size:12px;font-weight:700;background:${rc.bg};color:${rc.color};">${s.staffRoleKey}</span>`:'';
+
+  const html=`
+  <div style="text-align:center;margin-bottom:14px;">
+    <div style="width:60px;height:60px;background:${rc?rc.bg:'#e2e8f0'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 8px;">👤</div>
+    <h3 style="margin:0;color:var(--p);">${s.name}</h3>
+    <div style="margin-top:4px;">${roleBadge}</div>
+    <div style="font-size:12px;color:var(--mu);margin-top:3px;">${s.empId||''} ${s.gender?'| '+s.gender:''}</div>
+  </div>
+  <div class="g2" style="margin-bottom:10px;">
+    <div style="background:var(--lt);border-radius:7px;padding:8px 12px;">
+      <div style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;">Contact</div>
+      <div style="font-size:13px;margin-top:4px;">📞 ${s.phone||'—'}</div>
+      <div style="font-size:13px;">✉ ${s.email||'—'}</div>
+      <div style="font-size:12px;color:var(--mu);">🏠 ${s.address||'—'}</div>
+    </div>
+    <div style="background:var(--lt);border-radius:7px;padding:8px 12px;">
+      <div style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;">Employment</div>
+      <div style="font-size:13px;margin-top:4px;">📅 Joined: ${s.joined||'—'}</div>
+      <div style="font-size:13px;">🆔 NatID: ${s.natId||'—'}</div>
+      <div style="font-size:13px;">⏰ Shift: ${s.shift||'Not set'}</div>
+      <div style="font-size:13px;">Status: ${s.accountStatus||'Active'}</div>
+    </div>
+  </div>
+  <div style="background:#eff6ff;border-radius:7px;padding:10px 14px;margin-bottom:10px;">
+    <div style="font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;margin-bottom:6px;">Session Statistics</div>
+    <div class="g2" style="gap:6px;">
+      <div style="text-align:center;background:#fff;border-radius:5px;padding:8px;">
+        <div style="font-size:22px;font-weight:800;color:var(--p);">${logins.length}</div>
+        <div style="font-size:11px;color:var(--mu);">Total Logins</div>
+      </div>
+      <div style="text-align:center;background:#fff;border-radius:5px;padding:8px;">
+        <div style="font-size:22px;font-weight:800;color:#0891b2;">${(totalDur/60).toFixed(1)}h</div>
+        <div style="font-size:11px;color:var(--mu);">Total Hours</div>
+      </div>
+      <div style="text-align:center;background:#fff;border-radius:5px;padding:8px;">
+        <div style="font-size:22px;font-weight:800;color:#dc2626;">${failed.length}</div>
+        <div style="font-size:11px;color:var(--mu);">Failed Logins</div>
+      </div>
+      <div style="text-align:center;background:#fff;border-radius:5px;padding:8px;">
+        <div style="font-size:16px;font-weight:800;color:#16a34a;">${lastLogin.date||'—'}</div>
+        <div style="font-size:11px;color:var(--mu);">Last Login</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+    <button onclick="toggleAccountStatus('${s.id}')" class="bo" style="font-size:13px;">${(s.accountStatus||'Active')==='Active'?'🔒 Suspend':'🔓 Activate'} Account</button>
+    <button onclick="oStaffModal('${s.id}');cModal('staff-profile-modal')" class="ba" style="font-size:13px;">✏️ Edit Details</button>
+    <button onclick="cModal('staff-profile-modal')" style="background:#e2e8f0;color:#475569;font-size:13px;border-radius:5px;border:none;cursor:pointer;padding:6px 14px;">Close</button>
+  </div>`;
+
+  let modal=document.getElementById('staff-profile-modal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='staff-profile-modal';
+    modal.className='mo';
+    modal.innerHTML='<div class="mb" style="max-width:580px;"><button class="mc" onclick="cModal(\'staff-profile-modal\')">✕</button><div id="staff-profile-body"></div></div>';
+    document.body.appendChild(modal);
+  }
+  document.getElementById('staff-profile-body').innerHTML=html;
+  oModal('staff-profile-modal');
+}
+function toggleAccountStatus(sid){
+  const s=staffList.find(x=>x.id===sid);if(!s)return;
+  const cur=s.accountStatus||'Active';
+  const next=cur==='Active'?'Suspended':'Active';
+  if(!confirm(`${next==='Suspended'?'Suspend':'Reactivate'} account for ${s.name}?`))return;
+  s.accountStatus=next;
+  save();renderAdmin();viewStaffProfile(sid);
 }
 
 function renderAdminPatients(){
@@ -3605,7 +4047,9 @@ function oStaffModal(id){
   document.getElementById('staffECPhone').value=s?s.ecPhone||'':'';
   document.getElementById('staffJoined').value=s?s.joined||'':'';
   document.getElementById('staffNatId').value=s?s.natId||'':'';
-  const assigned=s?s.sections||[]:[];
+  document.getElementById('staffShift').value=s?s.shift||'':'';
+  document.getElementById('staffAccountStatus').value=s?s.accountStatus||'Active':'Active';
+  document.getElementById('staffForcePwd').checked=s?!!s.forcePasswordChange:false;  const assigned=s?s.sections||[]:[];
   document.getElementById('sec-checks').innerHTML=ALL_SECS.map(sec=>`<label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;background:var(--lt);padding:4px 9px;border-radius:5px;font-size:12px;text-transform:none;"><input type="checkbox" name="sc_${sec}" value="${sec}" style="width:auto;margin:0;" ${assigned.includes(sec)?'checked':''}> ${SEC_LABELS[sec]}</label>`).join('');
   oModal('staff-modal');
 }
@@ -3617,7 +4061,7 @@ function saveStaff(){
   if(!name||!username||!password)return alert('Fill all required fields.');
   const sections=ALL_SECS.filter(sec=>document.querySelector(`input[name="sc_${sec}"]`)?.checked);
   const eid=document.getElementById('staffEid').value;
-  const demo={role:document.getElementById('staffRole').value.trim(),empId:document.getElementById('staffEmpId').value.trim(),gender:document.getElementById('staffGender').value,dob:document.getElementById('staffDOB').value,phone:document.getElementById('staffPhone').value.trim(),email:document.getElementById('staffEmail').value.trim(),address:document.getElementById('staffAddress').value.trim(),ecName:document.getElementById('staffECName').value.trim(),ecPhone:document.getElementById('staffECPhone').value.trim(),joined:document.getElementById('staffJoined').value,natId:document.getElementById('staffNatId').value.trim()};
+  const demo={role:document.getElementById('staffRole').value.trim()||staffRoleKey,staffRoleKey,canEditInv:!!rolePerms.canEditInv,canAddInv:!!rolePerms.canAddInv,landing:rolePerms.landing||sections[0]||'reception',shift:document.getElementById('staffShift')?.value||'',accountStatus:document.getElementById('staffAccountStatus')?.value||'Active',forcePasswordChange:!!document.getElementById('staffForcePwd')?.checked,empId:document.getElementById('staffEmpId').value.trim(),gender:document.getElementById('staffGender').value,dob:document.getElementById('staffDOB').value,phone:document.getElementById('staffPhone').value.trim(),email:document.getElementById('staffEmail').value.trim(),address:document.getElementById('staffAddress').value.trim(),ecName:document.getElementById('staffECName').value.trim(),ecPhone:document.getElementById('staffECPhone').value.trim(),joined:document.getElementById('staffJoined').value,natId:document.getElementById('staffNatId').value.trim()};
   if(eid){const s=staffList.find(x=>x.id===eid);if(!s)return;s.name=name;s.username=username;s.password=password;s.isAdmin=isAdmin;s.sections=sections;Object.assign(s,demo);}
   else{if(staffList.some(s=>s.username===username))return alert('Username already exists.');staffList.push({id:'S-'+Date.now().toString().slice(-6),name,username,password,isAdmin,sections,...demo});}
   save();cModal('staff-modal');renderAdmin();
