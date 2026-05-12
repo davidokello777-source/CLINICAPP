@@ -560,6 +560,7 @@ document.addEventListener("DOMContentLoaded", function(){
         <button class="st active" onclick="swDoc('queue',this)">📋 Queue</button>
         <button class="st" onclick="swDoc('allpats',this)">📁 All Patients</button>
         <button class="st" onclick="swDoc('reg',this)">➕ Register</button>
+        <button class="st" onclick="swDoc('dxguide',this)">📖 Dx Guide</button>
       </div>
       <div id="doc-queue">
         <div id="queue-list-card" class="card"><table id="table-cons"></table></div>
@@ -705,6 +706,25 @@ document.addEventListener("DOMContentLoaded", function(){
         </div>
       </div>
       <div id="doc-reg" style="display:none;"></div>
+
+      <!-- ══ DX GUIDE PANEL ══ -->
+      <div id="doc-dxguide" style="display:none;">
+        <div class="card" style="padding:12px 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+            <div>
+              <h3 style="margin:0;color:var(--p);">📖 Clinical Diagnostic Guide</h3>
+              <p style="font-size:12px;color:var(--mu);margin:2px 0 0;">Click any condition to view full diagnostic criteria, treatment and red flags. Use <b>Apply to Consult</b> to auto-fill the active patient's diagnosis fields.</p>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <input id="dx-search" placeholder="🔍 Search conditions…" oninput="renderDxGuide()" style="width:220px;margin:0;font-size:13px;">
+              <select id="dx-system-filter" onchange="renderDxGuide()" style="margin:0;font-size:13px;width:auto;">
+                <option value="">All Systems</option>
+              </select>
+            </div>
+          </div>
+          <div id="dx-guide-list"></div>
+        </div>
+      </div>
     </section>
 
     <!-- BILLING -->
@@ -2114,8 +2134,10 @@ function swDoc(tab,btn){
   document.getElementById('doc-queue').style.display=tab==='queue'?'block':'none';
   document.getElementById('doc-allpats').style.display=tab==='allpats'?'block':'none';
   document.getElementById('doc-reg').style.display=tab==='reg'?'block':'none';
+  document.getElementById('doc-dxguide').style.display=tab==='dxguide'?'block':'none';
   if(tab==='reg')injectReg('doc-reg');
   if(tab==='allpats')renderAllPats();
+  if(tab==='dxguide')renderDxGuide();
 }
 
 function renderCons(){
@@ -3084,6 +3106,413 @@ function renderRad(){
 // ══════════════════════════════════════════════
 //  RADIOLOGY REPORTING TEMPLATES
 // ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+//  CLINICAL DIAGNOSTIC GUIDE
+// ══════════════════════════════════════════════
+const DX_GUIDE=[
+  // ── CARDIOVASCULAR ──────────────────────────
+  {system:'Cardiovascular',name:'Acute MI (STEMI)',icd:'I21.9',
+   criteria:'ST elevation ≥1mm in ≥2 contiguous leads; new LBBB; troponin rise',
+   symptoms:'Crushing central chest pain, radiation to jaw/left arm, diaphoresis, nausea, dyspnoea; can be silent in diabetics/elderly',
+   exam:'Diaphoresis, pallor, hypotension, S3/S4, pulmonary crackles if LVF',
+   differentials:'NSTEMI, aortic dissection, PE, pericarditis, oesophageal spasm',
+   investigations:'12-lead ECG (stat), Troponin I/T (0h & 3h), FBC, U&E, LFT, coagulation, CXR, echo',
+   treatment:'Aspirin 300mg stat + Clopidogrel 300-600mg; O2 if SpO2<94%; GTN SL (if SBP>90); Morphine 2-5mg IV; Beta-blocker; Urgent PCI/thrombolysis (Streptokinase 1.5M IU over 60min)',
+   redflags:'Cardiogenic shock, complete heart block, VT/VF, acute MR, free wall rupture'},
+
+  {system:'Cardiovascular',name:'Heart Failure (Acute Decompensated)',icd:'I50.9',
+   criteria:'Framingham criteria: ≥2 major OR 1 major +2 minor',
+   symptoms:'Progressive dyspnoea (orthopnoea, PND), ankle oedema, fatigue, reduced exercise tolerance, cough (pink frothy)',
+   exam:'Raised JVP, S3 gallop, bilateral basal crackles, pitting oedema, displaced apex',
+   differentials:'COPD exacerbation, pneumonia, PE, nephrotic syndrome, hypoalbuminaemia',
+   investigations:'CXR (cardiomegaly, pulmonary oedema), BNP/NT-proBNP, Echo, ECG, FBC, U&E, LFT, TFT',
+   treatment:'Sit upright; O2; Furosemide 40-80mg IV; GTN infusion if SBP>110; ACEi/ARB long-term; Beta-blocker when stable; spironolactone',
+   redflags:'SBP<90, SpO2<90 despite O2, altered consciousness, worsening despite treatment'},
+
+  {system:'Cardiovascular',name:'Hypertensive Emergency',icd:'I16.1',
+   criteria:'SBP>180 AND/OR DBP>120 WITH end-organ damage (brain, heart, kidneys, eyes)',
+   symptoms:'Severe headache, visual disturbance, chest pain, dyspnoea, seizures, confusion',
+   exam:'BP very elevated both arms, papilloedema, focal neuro deficits, S3/crackles',
+   differentials:'Hypertensive urgency (no end-organ damage), SAH, ischaemic stroke, eclampsia',
+   investigations:'ECG, CXR, Urinalysis, U&E, Creatinine, LFT, FBC, CT head, Fundoscopy',
+   treatment:'Reduce MAP by ≤25% in first hour; Labetalol 20mg IV bolus then infusion; Hydralazine 5-10mg IV (pregnancy); Nifedipine SL (avoid if stroke)',
+   redflags:'Hypertensive encephalopathy, aortic dissection, eclampsia, acute pulmonary oedema'},
+
+  {system:'Cardiovascular',name:'Atrial Fibrillation',icd:'I48.9',
+   criteria:'Irregularly irregular pulse; ECG: absent P waves, irregular narrow QRS (unless aberrant)',
+   symptoms:'Palpitations, dyspnoea, fatigue, dizziness, chest discomfort, syncope',
+   exam:'Irregularly irregular pulse, pulse deficit, varying S1 intensity',
+   differentials:'Atrial flutter (regular 2:1 block), SVT, multiple ectopics',
+   investigations:'ECG (12-lead), Echo, TFT, FBC, U&E, LFT, Magnesium, coagulation',
+   treatment:'Rate control: Bisoprolol 2.5-10mg OD or Digoxin 0.125-0.25mg; Anticoagulation: Warfarin (INR 2-3) or DOAC if CHADS2≥1; Rhythm control if <48h: DC cardioversion or Amiodarone 300mg IV',
+   redflags:'Rapid AF with haemodynamic compromise → urgent DC cardioversion'},
+
+  // ── RESPIRATORY ─────────────────────────────
+  {system:'Respiratory',name:'Community Acquired Pneumonia',icd:'J18.9',
+   criteria:'New infiltrate on CXR + ≥2: fever, cough, purulent sputum, pleuritic pain, crackles',
+   symptoms:'Fever, productive cough (rusty/purulent), pleuritic chest pain, dyspnoea, rigors',
+   exam:'Fever, tachycardia, tachypnoea, bronchial breathing, dullness, crackles, reduced air entry',
+   differentials:'TB, PE, lung abscess, empyema, malignancy, atypical pneumonia',
+   investigations:'CXR, FBC (leukocytosis), CRP, blood cultures (×2), sputum C&S, HIV test, CURB-65 score, SpO2',
+   treatment:'CURB-65 0-1: Amoxicillin 500mg TDS 5d; score 2: Amoxicillin + Azithromycin; score 3-5: hospitalise, IV Co-amoxiclav + Clarithromycin; O2 target SpO2 94-98%',
+   redflags:'CURB-65 ≥3, SpO2<92%, septic shock, multilobar, empyema, failure to improve 48h'},
+
+  {system:'Respiratory',name:'Pulmonary Tuberculosis',icd:'A15.0',
+   criteria:'WHO: persistent cough >2w + ≥1: night sweats, weight loss, haemoptysis; confirmed by sputum AFB/GeneXpert',
+   symptoms:'Chronic cough >2 weeks, haemoptysis, drenching night sweats, weight loss, low-grade evening fever, anorexia',
+   exam:'Wasting, apical dullness/crackles, lymphadenopathy, pleural effusion signs',
+   differentials:'Lung cancer, pneumonia, bronchiectasis, lymphoma, fungal infection',
+   investigations:'Sputum AFB × 3 (or GeneXpert), CXR (apical shadows, cavitation), HIV test, Mantoux/IGRA, FBC, LFT, U&E',
+   treatment:'2HRZE/4HR: Isoniazid+Rifampicin+Pyrazinamide+Ethambutol × 2 months, then INH+RIF × 4 months; Pyridoxine 25mg daily with INH; DOT recommended; notifiable disease',
+   redflags:'Haemoptysis, MDR-TB, meningitis, miliary TB, HIV co-infection'},
+
+  {system:'Respiratory',name:'Asthma Acute Exacerbation',icd:'J45.901',
+   criteria:'Acute onset wheeze, dyspnoea, chest tightness with known asthma or reversible airflow obstruction',
+   symptoms:'Wheezing, chest tightness, dyspnoea, cough (worse at night/exercise), difficulty speaking',
+   exam:'Tachycardia, tachypnoea, wheeze (may be absent in severe), accessory muscle use, pulsus paradoxus, silent chest (critical)',
+   differentials:'COPD, cardiac asthma, PE, anaphylaxis, vocal cord dysfunction, foreign body',
+   investigations:'PEFR (% predicted), SpO2, ABG (severe), CXR (if severe/atypical), FBC, U&E',
+   treatment:'Salbutamol 2.5-5mg nebulised q20min × 3; O2 target 94-98%; Prednisolone 40-50mg PO or Hydrocortisone 100mg IV; Ipratropium 0.5mg neb (moderate-severe); Magnesium sulphate 2g IV (severe)',
+   redflags:'Silent chest, SpO2<92%, PEFR<33%, exhaustion, cyanosis, altered consciousness → ITU'},
+
+  {system:'Respiratory',name:'COPD Exacerbation',icd:'J44.1',
+   criteria:'Acute worsening of ≥1: dyspnoea, sputum volume, sputum purulence beyond normal daily variation',
+   symptoms:'Increased dyspnoea, increased sputum volume/purulence, wheeze, cough, ankle oedema',
+   exam:'Tachypnoea, barrel chest, hyperinflation, prolonged expiration, wheeze, cyanosis, cor pulmonale',
+   differentials:'Pneumonia, pneumothorax, PE, CCF, asthma, lung cancer',
+   investigations:'CXR, ABG (pH, pO2, pCO2), FBC, U&E, CRP, ECG, sputum C&S, SpO2',
+   treatment:'Controlled O2 24-28% (target SpO2 88-92%); Salbutamol+Ipratropium neb; Prednisolone 30-40mg × 5 days; antibiotics if purulent (Amoxicillin/Doxycycline); NIV if pH<7.35',
+   redflags:'pH<7.26, rising PaCO2, GCS drop, haemodynamic compromise → ITU/NIV'},
+
+  // ── INFECTIOUS DISEASES ─────────────────────
+  {system:'Infectious Diseases',name:'Malaria (Severe — P. falciparum)',icd:'B50.0',
+   criteria:'Positive RDT/thick film + ≥1: impaired consciousness, seizures, severe anaemia (Hb<7), respiratory distress, hypoglycaemia, jaundice, AKI, shock',
+   symptoms:'High fever (39-41°C), rigors, sweating, headache, vomiting, confusion, jaundice, dark urine',
+   exam:'High fever, pallor, jaundice, hepatosplenomegaly, altered consciousness, signs of shock',
+   differentials:'Typhoid, meningitis, viral haemorrhagic fever, septicaemia, pneumonia',
+   investigations:'Thick & thin blood film, Malaria RDT, FBC (anaemia, thrombocytopenia), Blood glucose, U&E, Creatinine, LFT, Bilirubin, Blood cultures',
+   treatment:'Artesunate IV 2.4mg/kg at 0, 12, 24h then daily × 7d (preferred); if unavailable: Quinine IV 20mg/kg loading over 4h then 10mg/kg q8h + Doxycycline; Glucose IV if hypoglycaemic; blood transfusion if Hb<7',
+   redflags:'Cerebral malaria (GCS<11), respiratory failure, Hb<5, blood glucose<2.2, fluid overload, blackwater fever'},
+
+  {system:'Infectious Diseases',name:'Typhoid Fever',icd:'A01.0',
+   criteria:'Prolonged fever (>5d) + relative bradycardia + rose spots + splenomegaly; confirmed by blood culture (Widal unreliable)',
+   symptoms:'Stepwise fever (may reach 40°C by week 2), headache, abdominal pain, constipation (week 1) then diarrhoea, cough, malaise',
+   exam:'Relative bradycardia, hepatosplenomegaly, rose spots (2-4mm blanching on trunk), coated tongue, mild abdominal distension',
+   differentials:'Malaria, brucellosis, TB, viral hepatitis, lymphoma, septicaemia',
+   investigations:'Blood culture (gold standard, weeks 1-2), Stool/Urine culture, FBC (leucopenia), LFT, Widal (titre >1:160 suggestive), U&E',
+   treatment:'Ceftriaxone 2g IV daily × 10-14d (preferred for severe); Azithromycin 500mg OD × 7d (uncomplicated); Ciprofloxacin 500mg BD (check sensitivity — resistance common)',
+   redflags:'GI perforation (acute abdomen), haemorrhage, myocarditis, encephalopathy'},
+
+  {system:'Infectious Diseases',name:'HIV/AIDS',icd:'B24',
+   criteria:'Positive HIV ELISA confirmed by Western blot or 2 rapid tests; AIDS: CD4<200 or AIDS-defining illness',
+   symptoms:'Acute: fever, lymphadenopathy, pharyngitis, rash, myalgia 2-4w after exposure; Chronic: weight loss, fatigue, recurrent infections, oral thrush, diarrhoea',
+   exam:'Lymphadenopathy (generalised), oral candidiasis, hairy leukoplakia, Kaposi sarcoma, wasting, opportunistic infections',
+   differentials:'Other immunodeficiency, lymphoma, TB, EBV/CMV, syphilis',
+   investigations:'HIV ELISA + confirmatory test, CD4 count, Viral load, FBC, LFT, U&E, Creatinine, Hepatitis B&C, Syphilis, CXR, TB screen',
+   treatment:'ART immediately regardless of CD4: TDF+3TC+DTG (preferred); Cotrimoxazole prophylaxis if CD4<350; treat OIs first if active (TB, cryptococcal meningitis); counselling, disclosure support',
+   redflags:'CD4<50 (high OI risk), cryptococcal meningitis, PCP pneumonia, CMV retinitis, IRIS'},
+
+  {system:'Infectious Diseases',name:'Sepsis / Septic Shock',icd:'A41.9',
+   criteria:'qSOFA ≥2 (RR>22, GCS<15, SBP≤100) + suspected infection; Shock: MAP<65 despite fluids + lactate>2',
+   symptoms:'Fever or hypothermia, rigors, tachycardia, confusion, reduced UO, cold peripheries',
+   exam:'Fever/hypothermia, tachycardia, tachypnoea, hypotension, confusion, mottled skin, prolonged CRT',
+   differentials:'Anaphylaxis, adrenal crisis, pulmonary embolism, cardiogenic shock, haemorrhage',
+   investigations:'Blood cultures × 2 (before antibiotics), FBC, U&E, Creatinine, LFT, Lactate, CRP, Procalcitonin, CXR, Urinalysis, SOFA score',
+   treatment:'Sepsis 6 bundle within 1h: Blood cultures → IV antibiotics (Pip-Tazo 4.5g q8h ± Gentamicin) → IV fluids 30ml/kg → measure lactate → urine output → high-flow O2; vasopressors (Noradrenaline) if MAP<65 post-fluids',
+   redflags:'Lactate>4, MAP<65 despite fluids, oliguria/AKI, GCS drop, DIC, multi-organ failure'},
+
+  {system:'Infectious Diseases',name:'Meningitis (Bacterial)',icd:'G00.9',
+   criteria:'Kernig/Brudzinski sign + CSF: cloudy, elevated protein, low glucose, neutrophilia, +ve gram stain/culture',
+   symptoms:'Sudden severe headache ("thunderclap"), photophobia, phonophobia, neck stiffness, fever, vomiting, altered consciousness, seizures',
+   exam:'Neck stiffness, Kernig positive, Brudzinski positive, petechial/purpuric rash (meningococcal), papilloedema',
+   differentials:'Viral meningitis, SAH, encephalitis, brain abscess, TB meningitis',
+   investigations:'LP (if no papilloedema/focal deficit): CSF cell count, glucose, protein, culture, gram stain; Blood cultures; FBC, CRP; CT head before LP if focal signs',
+   treatment:'DO NOT DELAY antibiotics for CT/LP; Ceftriaxone 2g IV q12h; Dexamethasone 0.15mg/kg q6h × 4d (before/with first dose); Aciclovir 10mg/kg IV if HSV suspected',
+   redflags:'Purpuric rash → meningococcaemia (immediate Benzylpenicillin); GCS drop; papilloedema; focal neurological signs'},
+
+  // ── GASTROINTESTINAL ────────────────────────
+  {system:'Gastrointestinal',name:'Peptic Ulcer Disease',icd:'K27.9',
+   criteria:'Epigastric pain relieved by food (duodenal) or worsened (gastric), confirmed by endoscopy/H.pylori test',
+   symptoms:'Epigastric burning/gnawing pain (DU: relieved by food, wakes at night; GU: worsened by food), nausea, bloating, waterbrash',
+   exam:'Epigastric tenderness; peritonism if perforation; rectal examination if bleeding',
+   differentials:'GERD, gastritis, cholecystitis, pancreatitis, cardiac pain, malignancy',
+   investigations:'H. pylori (rapid urease test/stool antigen/serology), OGD (gold standard), FBC (anaemia), U&E, Amylase, CXR (erect — free air if perforation)',
+   treatment:'H. pylori eradication: Triple therapy — Omeprazole 20mg + Amoxicillin 1g + Clarithromycin 500mg all BD × 7-14d; PPI 4-8 weeks; avoid NSAIDs/ASA; test of cure 4w after',
+   redflags:'Haematemesis/malaena, rapid weight loss (malignancy), iron deficiency, age>55 new onset, dysphagia, vomiting, perforation (acute abdomen)'},
+
+  {system:'Gastrointestinal',name:'Acute Appendicitis',icd:'K37',
+   criteria:'Rovsing/Psoas/obturator sign + RIF tenderness + migration of pain from periumbilical → RIF + raised WBC/CRP; Alvarado score ≥7',
+   symptoms:'Periumbilical pain migrating to RIF, anorexia (key feature — if not present question diagnosis), nausea, vomiting, low-grade fever',
+   exam:'Guarding/rebound at McBurney point, Rovsing sign, Psoas sign; rectal tenderness if retrocaecal',
+   differentials:'Mesenteric lymphadenitis, ovarian cyst/torsion, ectopic pregnancy, UTI, PID, Crohn disease, right-sided pneumonia',
+   investigations:'FBC (WBC 11-15×10⁹), CRP, Urinalysis, bhCG (women), USS abdomen (child/pregnant women), CT abdomen (adults if uncertain), Alvarado score',
+   treatment:'Surgical: urgent appendicectomy; Pre-op: IV fluids, NBM, analgesia (do NOT withhold), antibiotics (Co-amoxiclav/Metronidazole); Conservative with antibiotics (mild/uncomplicated) in some settings',
+   redflags:'Perforated appendix (sudden pain relief then diffuse peritonitis), generalised peritonitis, septic shock'},
+
+  {system:'Gastrointestinal',name:'Acute Gastroenteritis',icd:'A09',
+   criteria:'Acute onset diarrhoea (≥3 loose stools/d) ± vomiting, nausea with or without fever; usually <2 weeks',
+   symptoms:'Diarrhoea, vomiting, nausea, abdominal cramps, fever, dehydration symptoms (thirst, reduced UO)',
+   exam:'Dehydration signs (sunken eyes, dry mucosa, skin turgor, prolonged CRT), tachycardia, abdominal tenderness (diffuse)',
+   differentials:'IBD, appendicitis, food poisoning, cholera, amoebic dysentery, typhoid, diverticulitis',
+   investigations:'Stool M/C/S (if bloody/prolonged/immunocompromised), FBC, U&E (if severe dehydration), stool for ova/parasites, Blood culture (if fever+bloody)',
+   treatment:'Oral rehydration therapy (ORS) primary; IV fluids (Ringers Lactate) if severe dehydration; Zinc 20mg daily × 10-14d (children); antibiotics only if: cholera (Doxycycline 300mg single dose), Shigella/Campylobacter (Azithromycin 500mg); anti-motility (Loperamide) — avoid if bloody',
+   redflags:'>10% dehydration, bloody diarrhoea, fever>38.5, age<1yr or elderly, immunocompromised, cholera'},
+
+  // ── NEUROLOGY ───────────────────────────────
+  {system:'Neurology',name:'Stroke (Ischaemic)',icd:'I63.9',
+   criteria:'FAST: Face drooping, Arm weakness, Speech difficulty, Time to call; sudden focal neurological deficit; CT to exclude haemorrhage',
+   symptoms:'Sudden onset: unilateral weakness/numbness, facial droop, dysphasia/dysarthria, visual loss/diplopia, ataxia, severe headache',
+   exam:'BP (often elevated), facial asymmetry, hemiplegia, sensory loss, dysphasia, visual field defect, neglect',
+   differentials:'Haemorrhagic stroke, TIA, hypoglycaemia (exclude first!), Todd paresis, migraine aura, SOL, MS',
+   investigations:'Urgent CT head (exclude haemorrhage), Blood glucose (stat), FBC, U&E, LFT, coagulation, ECG, Echo, Carotid Doppler',
+   treatment:'Thrombolysis: Alteplase 0.9mg/kg IV within 4.5h if eligible (no haemorrhage, BP<185/110, glucose 2.7-22, no contraindications); Aspirin 300mg after 24h (not with thrombolysis); Anticoagulation for AF-related; statin; BP control (permissive hypertension in first 24h); stroke unit admission',
+   redflags:'Haemorrhagic transformation, cerebral oedema with herniation, malignant MCA syndrome, aspiration'},
+
+  {system:'Neurology',name:'Epilepsy / Seizure',icd:'G40.909',
+   criteria:'Two or more unprovoked seizures >24h apart; OR one seizure with high risk of recurrence (structural lesion, EEG changes)',
+   symptoms:'Sudden loss of consciousness, tonic-clonic movements, tongue biting, incontinence, post-ictal confusion; focal seizures may preserve consciousness',
+   exam:'Post-ictal: confusion, drowsiness, Todd paresis; tongue laceration, incontinence, injury; look for fever (febrile convulsion in children)',
+   differentials:'Syncope, pseudoseizure, hypoglycaemia, TIA, cardiac arrhythmia, encephalitis, metabolic (hyponatraemia)',
+   investigations:'Blood glucose (stat), FBC, U&E, Ca, Mg, LFT, blood cultures (if fever), EEG, CT/MRI brain, LP (if meningitis suspected)',
+   treatment:'Active seizure (status): Lorazepam 4mg IV (or Diazepam 10mg PR); if ongoing → Phenytoin 20mg/kg IV; RSI if refractory; Maintenance: Sodium Valproate 400-600mg BD OR Carbamazepine 200mg BD; driving restrictions counselling',
+   redflags:'Status epilepticus (>5 minutes), first seizure in adult (exclude SOL), post-traumatic, fever+seizure in adult'},
+
+  {system:'Neurology',name:'Migraine',icd:'G43.909',
+   criteria:'ICHD-3: ≥5 attacks of 4-72h; ≥2 of: unilateral, pulsating, moderate-severe, aggravated by activity; + ≥1: nausea/vomiting OR photophobia+phonophobia',
+   symptoms:'Unilateral throbbing headache, nausea, vomiting, photophobia, phonophobia; aura: visual (zig-zag/scotoma), sensory, speech disturbance preceding headache',
+   exam:'Usually normal; exclude meningism, papilloedema, focal deficits; BP check',
+   differentials:'SAH ("thunderclap"), meningitis, cerebral venous thrombosis, TIA, tension headache, cluster headache',
+   investigations:'Usually clinical; CT/LP only if red flags; FBC, glucose if atypical',
+   treatment:'Acute: Sumatriptan 50-100mg PO or 6mg SC (first line) + Metoclopramide 10mg IV; NSAIDs (Ibuprofen 400-600mg); Paracetamol 1g; Prophylaxis: Propranolol 40-80mg BD or Amitriptyline 10-50mg nocte or Topiramate 25-100mg BD',
+   redflags:'Thunderclap headache, fever+stiff neck, first/worst headache, progressive, postural, focal neurology, age>50 new onset, papilloedema'},
+
+  // ── ENDOCRINE ───────────────────────────────
+  {system:'Endocrine',name:'Diabetic Ketoacidosis (DKA)',icd:'E11.10',
+   criteria:'Blood glucose >11mmol/L + Ketonuria (≥2+) or blood ketones >3mmol/L + pH<7.3 or Bicarb<15',
+   symptoms:'Polyuria, polydipsia, nausea, vomiting, abdominal pain, confusion, Kussmaul breathing, fruity breath',
+   exam:'Dehydration, tachycardia, Kussmaul respiration, reduced consciousness, abdominal tenderness',
+   differentials:'HHS, lactic acidosis, alcoholic ketoacidosis, starvation ketosis, salicylate poisoning',
+   investigations:'Blood glucose, Blood ketones, ABG (pH, bicarb, pO2), U&E (Na, K, Cl), FBC, blood cultures, CXR, ECG, Urinalysis, HbA1c',
+   treatment:'0.9% NaCl 1L over 1h → then calculated deficit; Insulin infusion 0.1 units/kg/hr; K⁺ replacement critical (target 4-5.5); glucose 10% when BG<15; monitor q1h; treat precipitant (infection, omitted insulin); IV Bicarb only if pH<6.9',
+   redflags:'GCS<12, K⁺<3.5 before insulin, pH<7.0, severe acidosis, cerebral oedema (children)'},
+
+  {system:'Endocrine',name:'Hypoglycaemia',icd:'E11.649',
+   criteria:'Whipple triad: symptoms + blood glucose <3.9mmol/L + resolution with glucose',
+   symptoms:'Adrenergic: tremor, sweating, palpitations, hunger, anxiety; Neuroglycopenic: confusion, slurred speech, diplopia, focal deficit, seizure, coma',
+   exam:'Diaphoresis, pallor, tachycardia, confusion, focal neurology; check for insulinoma signs',
+   differentials:'Stroke, seizure, alcohol intoxication, drug overdose, sepsis',
+   investigations:'Capillary blood glucose (stat), U&E, LFT, cortisol, insulin level, C-peptide',
+   treatment:'Conscious: 15-20g fast glucose (glucose tablets, 150ml OJ, 3-4 jelly babies); Unconscious: Dextrose 50% 25-50ml IV OR Glucagon 1mg IM/SC; Repeat glucose check 15min; treat cause; education',
+   redflags:'Prolonged or recurrent hypoglycaemia, sulphonylurea-induced (may need 10% glucose infusion 10-20h), adrenal insufficiency'},
+
+  {system:'Endocrine',name:'Hypothyroidism',icd:'E03.9',
+   criteria:'TSH elevated + free T4 reduced; symptoms may be insidious',
+   symptoms:'Fatigue, cold intolerance, weight gain, constipation, depression, dry skin, hair loss, menstrual irregularity, bradycardia',
+   exam:'Bradycardia, dry skin, non-pitting oedema (myxoedema), delayed relaxation of reflexes, goitre, periorbital oedema',
+   differentials:'Depression, anaemia, CCF, chronic fatigue syndrome, hypercalcaemia',
+   investigations:'TSH, Free T4, Free T3, FBC, U&E, cholesterol, thyroid antibodies (anti-TPO), CXR (pericardial effusion), ECG',
+   treatment:'Levothyroxine 25-50mcg OD (start low in elderly/IHD, increase by 25mcg every 4-6w); target TSH 0.5-2.5mU/L; review annually',
+   redflags:'Myxoedema coma (hypothermia, bradycardia, hypotension, GCS drop) → IV T3, hydrocortisone, warm slowly'},
+
+  // ── PAEDIATRICS ─────────────────────────────
+  {system:'Paediatrics',name:'Severe Acute Malnutrition (SAM)',icd:'E43',
+   criteria:'MUAC<11.5cm OR WHZ<-3 SD OR bilateral pitting oedema (kwashiorkor); complicated if: medical complication, anorexia, failure appetite test',
+   symptoms:'Wasting (marasmus), oedema (kwashiorkor), anorexia, lethargy, recurrent infections, skin changes, hair changes',
+   exam:'MUAC, weight/height, bilateral pitting oedema, skin changes (flaky paint — kwashiorkor), hepatomegaly, infection signs',
+   differentials:'Secondary malnutrition (TB, HIV, chronic disease), malabsorption, metabolic disorder',
+   investigations:'Blood glucose (stat — hypoglycaemia common), FBC, U&E, HIV test, Malaria RDT, Blood culture, CXR, Urinalysis',
+   treatment:'WHO F-75 (stabilisation) → F-100 or RUTF (rehabilitation); 10 steps: hypoglycaemia, hypothermia, dehydration, electrolytes, infection, micronutrients (no iron initially), initiate feeding, catch-up growth, sensory stimulation, follow-up; Amoxicillin empirically',
+   redflags:'Hypoglycaemia (<3mmol/L), hypothermia, severe dehydration, septic shock, respiratory distress, severe oedema'},
+
+  {system:'Paediatrics',name:'Febrile Convulsions',icd:'R56.0',
+   criteria:'Seizure in child 6months-6years with fever; simple: <15min, generalised, single in 24h; complex: prolonged/focal/repeated',
+   symptoms:'Sudden onset tonic-clonic movements during or shortly after fever onset; post-ictal drowsiness; underlying infection (URTI, otitis, UTI)',
+   exam:'Temperature (usually >38.5°C), signs of infection, meningism (exclude), fontanelle (infants), post-ictal assessment',
+   differentials:'Bacterial meningitis, encephalitis, epilepsy, metabolic seizure, intentional injury',
+   investigations:'Blood glucose (stat), FBC, CRP, U&E, Malaria RDT; LP if <12months, meningism, complex, prolonged, failure to recover; EEG not routinely for simple FC',
+   treatment:'Acute: Diazepam 0.5mg/kg PR or Midazolam 0.2mg/kg buccal; paracetamol/ibuprofen for fever; treat underlying infection; reassure parents (90% benign, 30-40% recurrence risk)',
+   redflags:'Complex features, meningism, failure to recover within 30min, age<6months or >6years, very high fever'},
+
+  // ── OBSTETRICS & GYNAECOLOGY ────────────────
+  {system:'Obstetrics/Gynaecology',name:'Pre-eclampsia / Eclampsia',icd:'O14.9',
+   criteria:'Pre-eclampsia: BP≥140/90 after 20w gestation + proteinuria ≥300mg/24h; Eclampsia: seizures in above context',
+   symptoms:'Severe headache, visual disturbance, epigastric/RUQ pain, oedema; eclampsia adds seizure',
+   exam:'BP elevated both arms, brisk reflexes, proteinuria, oedema (facial and dependent), papilloedema, epigastric tenderness',
+   differentials:'Essential hypertension, epilepsy, TTP, HELLP syndrome, liver disease',
+   investigations:'BP monitoring, Urinalysis (dipstick ≥2+ protein), 24h urinary protein or PCR, FBC (platelets), LFT, U&E, Creatinine, Uric acid, LDH, CTG, USS (growth, liquor)',
+   treatment:'Magnesium sulphate 4g IV loading over 20min then 1g/hr infusion (seizure prevention/treatment); Antihypertensives if BP>160/110: Labetalol 20mg IV or Hydralazine 5mg IV or Nifedipine 10-20mg; definitive treatment = delivery; Dexamethasone 12mg × 2 doses if <34w',
+   redflags:'HELLP syndrome (haemolysis, elevated liver enzymes, low platelets), eclampsia, placental abruption, pulmonary oedema, acute renal failure'},
+
+  {system:'Obstetrics/Gynaecology',name:'Ectopic Pregnancy',icd:'O00.9',
+   criteria:'Positive βhCG + adnexal mass/pain on USS; no intrauterine pregnancy on transvaginal USS at βhCG>1500',
+   symptoms:'Lower abdominal pain (unilateral), amenorrhoea (6-8w), vaginal bleeding (dark, scanty); if ruptured: sudden severe pain, syncope, shoulder tip pain',
+   exam:'Adnexal tenderness/mass, cervical excitation (pathognomonic), signs of shock if ruptured',
+   differentials:'Threatened/incomplete abortion, ovarian cyst/torsion, appendicitis, PID, corpus luteum cyst',
+   investigations:'Urine/Serum βhCG, Transvaginal USS (gold standard), FBC, Group & Save, U&E; serial βhCG if inconclusive (fails to double every 48h = abnormal)',
+   treatment:'Ruptured/haemodynamically unstable: emergency laparoscopy; Unruptured + stable: Methotrexate 50mg/m² IM (if criteria met) with βhCG monitoring; or expectant management if declining βhCG',
+   redflags:'Haemodynamic instability = surgical emergency; shoulder tip pain = diaphragmatic irritation from haemoperitoneum'},
+
+  // ── SURGICAL EMERGENCIES ────────────────────
+  {system:'Surgical Emergencies',name:'Bowel Obstruction',icd:'K56.60',
+   criteria:'Colicky abdominal pain + vomiting + absolute constipation (no flatus) + abdominal distension; confirmed by AXR/CT',
+   symptoms:'Colicky abdominal pain, vomiting (early in SBO, late in LBO), absolute constipation, abdominal distension, high-pitched bowel sounds',
+   exam:'Distension, high-pitched/tinkling bowel sounds, visible peristalsis; absent sounds = ileus or strangulation; tenderness if strangulated',
+   differentials:'Pseudo-obstruction (Ogilvie), paralytic ileus, volvulus, intussusception, constipation',
+   investigations:'AXR erect+supine (dilated loops, air-fluid levels, no gas in rectum), CT abdomen (gold standard), FBC, U&E, CRP, LFT, Lactate (strangulation)',
+   treatment:'NBM, NG tube (free drainage), IV fluids, urinary catheter, analgesia; monitor urine output; IV antibiotics if strangulation suspected (Co-amoxiclav + Metronidazole); adhesional SBO: trial of conservative ≤48h; LBO/volvulus/strangulation: urgent surgical review',
+   redflags:'Peritonism (perforation/strangulation), septic shock, ischaemic bowel, closed loop obstruction → emergency surgery'},
+
+  {system:'Surgical Emergencies',name:'Acute Pancreatitis',icd:'K85.9',
+   criteria:'≥2 of: acute onset severe epigastric pain; serum amylase/lipase >3× upper limit normal; characteristic CT findings (pancreatic oedema/necrosis)',
+   symptoms:'Sudden severe epigastric pain radiating to back (band-like), nausea, vomiting (persistent), fever; relief leaning forward',
+   exam:'Epigastric tenderness/guarding; Cullen sign (periumbilical bruising); Grey Turner sign (flank bruising) — late and rare; tachycardia',
+   differentials:'Perforated peptic ulcer, AAA, MI, mesenteric ischaemia, biliary colic',
+   investigations:'Serum amylase + lipase, FBC, CRP (48h severity), LFT, Ca, U&E, glucose, triglycerides, USS (gallstones), CT abdomen (if uncertain/severe at 48-72h), APACHE II/Ranson/Glasgow score',
+   treatment:'Aggressive IV fluid resuscitation (Ringers Lactate preferred); NBM initially; analgesia (Morphine IV); NG tube if ileus/vomiting; early enteral nutrition (nasojejunal) if severe; treat cause (ERCP if gallstone +cholangitis); antibiotics only if infected necrosis',
+   redflags:'Severe (Ranson ≥3 or CRP>150): ICU; infected necrosis; multiorgan failure; ARDS; haemorrhagic pancreatitis'},
+
+  // ── ENT ──────────────────────────────────────
+  {system:'ENT',name:'Acute Otitis Media',icd:'H66.9',
+   criteria:'Acute onset + middle ear effusion (bulging TM, air-fluid level) + signs of middle ear inflammation (erythema, otalgia)',
+   symptoms:'Ear pain (otalgia), fever, hearing loss, ear pulling (infants), irritability, recent URTI',
+   exam:'Bulging/erythematous/perforated TM; purulent discharge if perforated; decreased TM mobility',
+   differentials:'Otitis externa, mastoiditis, referred pain (dental), foreign body',
+   investigations:'Clinical diagnosis; Tympanometry if uncertain; FBC/CRP rarely needed',
+   treatment:'Analgesia (Paracetamol + Ibuprofen) first line; antibiotics if: <2y bilateral, any perforation/discharge, severe pain, failure to improve 48-72h: Amoxicillin 80-90mg/kg/day × 5-7d (child) or 500mg TDS (adult); Augmentin if no improvement',
+   redflags:'Mastoiditis (post-auricular swelling/tenderness, protruding ear), facial nerve palsy, meningism, intracranial extension'},
+
+  // ── MENTAL HEALTH ────────────────────────────
+  {system:'Mental Health',name:'Major Depressive Disorder',icd:'F32.9',
+   criteria:'≥5 symptoms for ≥2w including depressed mood OR anhedonia: sleep change, appetite/weight change, psychomotor change, fatigue, guilt/worthlessness, poor concentration, suicidal ideation',
+   symptoms:'Persistent low mood, anhedonia (loss of pleasure), hopelessness, sleep disturbance (insomnia/hypersomnia), fatigue, poor concentration, appetite change, suicidal thoughts',
+   exam:'Flat affect, poor eye contact, psychomotor retardation or agitation, self-neglect; assess suicide risk (PHQ-9)',
+   differentials:'Bipolar disorder, dysthymia, grief, hypothyroidism, anaemia, chronic pain, substance misuse',
+   investigations:'TSH, FBC, U&E, LFT, Glucose, B12, Folate; PHQ-9 score; exclude organic cause; suicide risk assessment',
+   treatment:'Mild: psychoeducation, exercise, watchful waiting, brief CBT; Moderate-severe: SSRI (Sertraline 50mg OD — first line; or Fluoxetine 20mg); allow 4-6w for effect; refer psychiatry if severe/psychotic/risk; combined drug+therapy most effective',
+   redflags:'Active suicidal ideation with plan/intent → urgent psychiatric review/admission; psychotic features; self-neglect; refusal of care'},
+];
+
+const DX_SYSTEMS=[...new Set(DX_GUIDE.map(d=>d.system))].sort();
+
+function renderDxGuide(){
+  const search=(document.getElementById('dx-search')?.value||'').toLowerCase();
+  const sys=document.getElementById('dx-system-filter')?.value||'';
+  // Populate filter
+  const sf=document.getElementById('dx-system-filter');
+  if(sf&&sf.options.length<=1){
+    DX_SYSTEMS.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sf.appendChild(o);});
+    if(sys)sf.value=sys;
+  }
+  const filtered=DX_GUIDE.filter(d=>{
+    if(sys&&d.system!==sys)return false;
+    if(search&&!d.name.toLowerCase().includes(search)&&!d.symptoms.toLowerCase().includes(search)&&!d.system.toLowerCase().includes(search))return false;
+    return true;
+  });
+  // Group by system
+  const grouped={};
+  filtered.forEach(d=>{if(!grouped[d.system])grouped[d.system]=[];grouped[d.system].push(d);});
+  const sysColors={
+    'Cardiovascular':'#dc2626','Respiratory':'#0891b2','Infectious Diseases':'#16a34a',
+    'Gastrointestinal':'#d97706','Neurology':'#7c3aed','Endocrine':'#0d9488',
+    'Paediatrics':'#db2777','Obstetrics/Gynaecology':'#c026d3','Surgical Emergencies':'#ea580c',
+    'ENT':'#2563eb','Mental Health':'#64748b'
+  };
+  let html='';
+  if(!filtered.length){
+    html='<div class="emp" style="padding:30px;">No conditions found matching your search.</div>';
+  } else {
+    Object.entries(grouped).forEach(([system,conds])=>{
+      const col=sysColors[system]||'#374151';
+      html+=`<div style="margin-bottom:6px;">
+        <div style="background:${col}15;border-left:4px solid ${col};border-radius:5px;padding:6px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px;">
+          <span style="font-weight:800;font-size:13px;color:${col};">${system}</span>
+          <span style="font-size:11px;color:var(--mu);">${conds.length} condition${conds.length>1?'s':''}</span>
+        </div>`;
+      conds.forEach(d=>{
+        const eid='dx-'+d.icd.replace(/[^a-z0-9]/gi,'_');
+        html+=`<div style="border:1.5px solid var(--bd);border-radius:8px;margin-bottom:6px;overflow:hidden;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 13px;cursor:pointer;background:#fff;"
+            onclick="toggleDxCard('${eid}')">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-weight:700;font-size:14px;color:var(--p);">${d.name}</span>
+              <span style="font-size:11px;background:#e2e8f0;color:#475569;padding:1px 7px;border-radius:8px;font-weight:600;">${d.icd}</span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button onclick="event.stopPropagation();applyDxToConsult('${d.name.replace(/'/g,"\\'")}','${d.icd}')"
+                class="bsm ba" style="font-size:11px;white-space:nowrap;" title="Auto-fill diagnosis in active consultation">
+                ✚ Apply to Consult
+              </button>
+              <span id="dx-chevron-${eid}" style="color:var(--mu);font-size:16px;transition:.2s;">▼</span>
+            </div>
+          </div>
+          <div id="${eid}" style="display:none;padding:12px 14px;border-top:1px solid var(--bd);background:#fafbff;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              ${dxBlock('🎯 Diagnostic Criteria',d.criteria,'#eff6ff','#1e40af')}
+              ${dxBlock('🩺 Symptoms & Signs',d.symptoms+' | Exam: '+d.exam,'#f0fdf4','#166534')}
+              ${dxBlock('🔄 Differentials',d.differentials,'#fff7ed','#c2410c')}
+              ${dxBlock('🔬 Investigations',d.investigations,'#fdf4ff','#7e22ce')}
+            </div>
+            <div style="margin-top:10px;">
+              ${dxBlock('💊 First-line Treatment',d.treatment,'#f0fdf4','#166534',true)}
+            </div>
+            <div style="margin-top:8px;background:#fff1f2;border:1.5px solid #fecdd3;border-radius:6px;padding:8px 12px;">
+              <span style="font-weight:700;color:#dc2626;font-size:12px;">🚨 RED FLAGS: </span>
+              <span style="font-size:13px;color:#9f1239;">${d.redflags}</span>
+            </div>
+          </div>
+        </div>`;
+      });
+      html+='</div>';
+    });
+  }
+  const el=document.getElementById('dx-guide-list');
+  if(el)el.innerHTML=html;
+}
+
+function dxBlock(title,content,bg,col,full=false){
+  return`<div style="background:${bg};border-left:3px solid ${col};border-radius:5px;padding:8px 11px;${full?'grid-column:1/-1':''}">
+    <div style="font-size:11px;font-weight:700;color:${col};text-transform:uppercase;margin-bottom:4px;">${title}</div>
+    <div style="font-size:13px;color:#1e293b;line-height:1.6;">${content}</div>
+  </div>`;
+}
+
+function toggleDxCard(eid){
+  const el=document.getElementById(eid);
+  const ch=document.getElementById('dx-chevron-'+eid);
+  if(!el)return;
+  const isOpen=el.style.display!=='none';
+  el.style.display=isOpen?'none':'block';
+  if(ch)ch.style.transform=isOpen?'':'rotate(180deg)';
+}
+
+function applyDxToConsult(name,icd){
+  // Check if a consultation is currently open
+  const v=visits.find(x=>x.id===activeVid);
+  if(!v||['DISCHARGED','ADMITTED'].includes(v.status)){
+    alert('No active patient consultation is open.\n\nOpen a patient from the Queue tab first, then use "Apply to Consult".');
+    return;
+  }
+  const diffEl=document.getElementById('cDiffDx');
+  const finalEl=document.getElementById('cFinalDx');
+  if(diffEl&&!diffEl.value.trim()){
+    diffEl.value=`${name} (${icd})`;
+  } else if(diffEl&&diffEl.value.trim()){
+    // Append to existing differentials
+    if(!diffEl.value.includes(name))diffEl.value+=`\n${name} (${icd})`;
+  }
+  if(finalEl&&!finalEl.value.trim()){
+    finalEl.value=`${name} (${icd})`;
+  }
+  // Switch to queue tab so the form is visible
+  const queueBtn=document.querySelector('#sec-doctor .st');
+  if(queueBtn)swDoc('queue',queueBtn);
+  // Scroll to diagnosis section
+  setTimeout(()=>{
+    const diagEl=document.getElementById('cDiffDx');
+    if(diagEl){diagEl.focus();diagEl.scrollIntoView({behavior:'smooth',block:'center'});}
+    alert(`Applied: "${name} (${icd})" to the Differential Diagnosis and Final Diagnosis fields for patient: ${v.name}`);
+  },300);
+}
 const RAD_TEMPLATES={
   'Chest X-Ray':`CHEST X-RAY REPORT
 Technique: PA view / AP view
