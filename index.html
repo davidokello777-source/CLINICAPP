@@ -1462,6 +1462,19 @@ const DOSAGE_OPTS=[
   'Stat (single dose)','Every other day','Once weekly','Before meals','After meals','With meals','Stat then OD',
 ];
 
+const STAFF_ROLES={
+  'Receptionist':{color:'#0891b2',bg:'#e0f2fe',sections:['reception','chat'],landing:'reception',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Patient registration & routing only'},
+  'Nurse':{color:'#0d9488',bg:'#ccfbf1',sections:['nurse','chat'],landing:'nurse',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Triage, vitals, treatment chart & procedures'},
+  'Doctor':{color:'#1e3a8a',bg:'#dbeafe',sections:['doctor','chat'],landing:'doctor',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Full clinical consultation & prescribing'},
+  'Lab Technician':{color:'#7c3aed',bg:'#ede9fe',sections:['lab','chat'],landing:'lab',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Lab orders, sample processing & results entry'},
+  'Radiographer':{color:'#6d28d9',bg:'#f5f3ff',sections:['radiology','chat'],landing:'radiology',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Imaging orders & radiology report entry'},
+  'Pharmacist':{color:'#16a34a',bg:'#dcfce7',sections:['pharmacy','inventory','chat'],landing:'pharmacy',canEditInv:false,canAddInv:true,isAdmin:false,desc:'Dispenses meds; can add stock but not edit item details'},
+  'Billing Officer':{color:'#b45309',bg:'#fef3c7',sections:['billing','chat'],landing:'billing',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Processes payments & invoices only'},
+  'Inventory Manager':{color:'#c2410c',bg:'#ffedd5',sections:['inventory','suppliers','chat'],landing:'inventory',canEditInv:true,canAddInv:true,isAdmin:false,desc:'Full inventory & supplier management'},
+  'Accountant':{color:'#92400e',bg:'#fef3c7',sections:['billing','expenses','suppliers','chat'],landing:'billing',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Revenue, expenses & supplier balances'},
+  'Medical Director':{color:'#1e3a8a',bg:'#eff6ff',sections:[],landing:'director',canEditInv:true,canAddInv:true,isAdmin:true,desc:'Full system access — clinical & administrative'},
+  'System Admin':{color:'#374151',bg:'#f3f4f6',sections:[],landing:'admin',canEditInv:true,canAddInv:true,isAdmin:true,desc:'Full access including staff & system management'},
+};
 const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','suppliers','expenses','chat'];
 const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',suppliers:'Suppliers',expenses:'Expenses',chat:'Staff Chat'};
 const CONSULT_FEE=10;
