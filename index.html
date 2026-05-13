@@ -4554,6 +4554,33 @@ function adminDeletePatient(pid){
   save();renderAdminPatients();
   alert(`${p.name} and ${pv.length} visit(s) deleted.`);
 }
+function _populateRoleDropdown(selectedRole){
+  const sel=document.getElementById('staffRolePreset');
+  if(!sel)return;
+  sel.innerHTML='<option value="">— Select a role —</option>'+
+    Object.keys(STAFF_ROLES).map(r=>`<option value="${r}"${r===selectedRole?' selected':''}>${r}</option>`).join('');
+  const rd=document.getElementById('role-desc');
+  if(rd&&selectedRole)rd.textContent=STAFF_ROLES[selectedRole]?.desc||'';
+}
+function applyRolePreset(){
+  const sel=document.getElementById('staffRolePreset');
+  if(!sel)return;
+  const key=sel.value;
+  const rd=document.getElementById('role-desc');
+  if(!key){if(rd)rd.textContent='';return;}
+  const role=STAFF_ROLES[key];if(!role)return;
+  if(rd)rd.textContent=role.desc||'';
+  const rt=document.getElementById('staffRole');
+  if(rt&&!rt.value)rt.value=key;
+  document.getElementById('staffAdmin').checked=!!role.isAdmin;
+  const secs=role.isAdmin?ALL_SECS:role.sections;
+  ALL_SECS.forEach(sec=>{const cb=document.querySelector(`input[name="sc_${sec}"]`);if(cb)cb.checked=secs.includes(sec);});
+}
+function syncAdminCheck(){
+  if(document.getElementById('staffAdmin')?.checked){
+    ALL_SECS.forEach(sec=>{const cb=document.querySelector(`input[name="sc_${sec}"]`);if(cb)cb.checked=true;});
+  }
+}
 function oStaffModal(id){
   const s=id?staffList.find(x=>x.id===id):null;
   document.getElementById('staff-modal-title').innerText=s?'Edit Staff':'Add Staff';
