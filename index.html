@@ -486,6 +486,7 @@ document.addEventListener("DOMContentLoaded", function(){
         <button class="st" onclick="swNurse('treatment',this)">📋 Treatment Chart</button>
         <button class="st" onclick="swNurse('procedures',this)">🔪 Procedures</button>
         <button class="st" onclick="swNurse('reg',this)">➕ Register Patient</button>
+        <button class="st" onclick="swNurse('nurseguide',this)">📗 Nursing Guide</button>
       </div>
       <div id="nurse-triage">
         <div class="card"><h4 style="margin-bottom:8px;">Patients Awaiting Triage</h4><table id="table-triage"></table></div>
@@ -537,6 +538,25 @@ document.addEventListener("DOMContentLoaded", function(){
         </div>
       </div>
       <div id="nurse-reg" style="display:none;"></div>
+
+      <!-- ══ NURSING GUIDE PANEL ══ -->
+      <div id="nurse-nurseguide" style="display:none;">
+        <div class="card" style="padding:12px 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+            <div>
+              <h3 style="margin:0;color:var(--p);">📗 Nursing & First Aid Clinical Guide</h3>
+              <p style="font-size:12px;color:var(--mu);margin:2px 0 0;">Step-by-step nursing procedures, first aid protocols, drug calculations and emergency responses.</p>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <input id="ng-search" placeholder="🔍 Search procedures…" oninput="renderNurseGuide()" style="width:210px;margin:0;font-size:13px;">
+              <select id="ng-cat-filter" onchange="renderNurseGuide()" style="margin:0;font-size:13px;width:auto;">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+          </div>
+          <div id="nurse-guide-list"></div>
+        </div>
+      </div>
 
       <!-- PROCEDURES PANEL -->
       <div id="nurse-procedures" style="display:none;">
@@ -2001,10 +2021,484 @@ function swNurse(tab,btn){
   document.getElementById('nurse-treatment').style.display=tab==='treatment'?'block':'none';
   document.getElementById('nurse-procedures').style.display=tab==='procedures'?'block':'none';
   document.getElementById('nurse-reg').style.display=tab==='reg'?'block':'none';
+  document.getElementById('nurse-nurseguide').style.display=tab==='nurseguide'?'block':'none';
   if(tab==='reg')injectReg('nurse-reg');
   if(tab==='treatment')renderTreatList();
   if(tab==='procedures')renderProcPatients();
   if(tab==='nursequeue')renderNurseQueue();
+  if(tab==='nurseguide')renderNurseGuide();
+}
+
+// ══════════════════════════════════════════════
+//  NURSING & FIRST AID GUIDE
+// ══════════════════════════════════════════════
+const NURSE_GUIDE=[
+
+  // ══ FIRST AID EMERGENCIES ══
+  {cat:'First Aid Emergencies',name:'Cardiopulmonary Resuscitation (CPR — Adult)',
+   objective:'Restore circulation and oxygenation after cardiac arrest',
+   steps:[
+     'Ensure scene safety. Tap shoulders firmly: "Are you alright?"',
+     'If unresponsive: call for help — shout "CODE BLUE" / call emergency number immediately',
+     'Open airway: head-tilt chin-lift (jaw thrust if C-spine injury suspected)',
+     'Look, listen, feel for breathing for NO MORE than 10 seconds',
+     'If no breathing: start chest compressions IMMEDIATELY',
+     'Chest compressions: heel of hand on centre of chest (lower half of sternum)',
+     'Compress 5–6 cm deep at 100–120/min. Allow full chest recoil. Minimise interruptions',
+     'Give 30 compressions then 2 rescue breaths (30:2 ratio)',
+     'Rescue breaths: pinch nose, seal lips, blow until chest rises (1 second each)',
+     'If unwilling/unable to give breaths: continuous compressions only (100–120/min)',
+     'Attach AED as soon as available. Follow voice prompts. Resume CPR immediately after shock',
+     'Continue until ROSC, help arrives, or patient declared dead by physician',
+   ],
+   notes:'Rotate compressors every 2 minutes to prevent fatigue. For children (1–8 yrs): 2-finger or 1-hand compressions, 4 cm depth. Infants: 2 thumbs encircling technique, 4 cm depth, 15:2 ratio.',
+   alerts:'Do NOT delay CPR to find AED. Do NOT stop for >10 seconds. Do NOT compress over xiphoid process.',
+   drugDose:'Adrenaline (Epinephrine) 1mg IV/IO every 3–5 min during resuscitation. Amiodarone 300mg IV bolus for shockable rhythms (VF/pVT).'},
+
+  {cat:'First Aid Emergencies',name:'Choking — Adult (Conscious)',
+   objective:'Clear foreign body airway obstruction (FBAO)',
+   steps:[
+     'Ask: "Are you choking?" — if they can cough, speak or breathe: encourage forceful coughing',
+     'If unable to speak/breathe/cough or cyanotic: act immediately',
+     'Stand to the side and slightly behind the patient',
+     'Give 5 firm back blows between the shoulder blades with heel of hand',
+     'Check mouth after each blow — remove any visible obstruction',
+     'If back blows fail: give 5 abdominal thrusts (Heimlich manoeuvre)',
+     'Stand behind patient, arms around waist. One fist (thumb side) above navel, below xiphoid',
+     'Grasp fist with other hand. Pull sharply inward and upward × 5',
+     'Alternate 5 back blows and 5 abdominal thrusts until object expelled or patient loses consciousness',
+     'If patient loses consciousness: lower carefully to floor, call for help, begin CPR',
+     'Each time airway is opened during CPR: look for and remove visible object',
+   ],
+   notes:'Pregnant women or obese patients: use chest thrusts (same position as CPR hands) instead of abdominal thrusts. Infants <1 year: 5 back blows + 5 chest thrusts (NOT abdominal thrusts).',
+   alerts:'Never perform blind finger sweep. Never do abdominal thrusts in infants.',
+   drugDose:'None. Surgical airway (cricothyroidotomy) by physician if all else fails.'},
+
+  {cat:'First Aid Emergencies',name:'Anaphylaxis Management',
+   objective:'Reverse life-threatening allergic reaction rapidly',
+   steps:[
+     'Recognise: sudden onset urticaria/angioedema + hypotension OR bronchospasm/stridor after allergen exposure',
+     'Call for emergency help IMMEDIATELY',
+     'Remove trigger if possible (stop IV infusion, remove bee sting)',
+     'Position: lay flat with legs elevated (if breathing difficulty: sit upright; if unconscious: recovery position)',
+     'ADRENALINE (Epinephrine) — GIVE FIRST, do not delay for antihistamines',
+     'Adrenaline 0.5mg (0.5ml of 1:1000) IM into outer mid-thigh (vastus lateralis)',
+     'Oxygen 10–15 L/min via non-rebreather mask',
+     'Large-bore IV access both arms — IV fluids 500ml–1L NS bolus for hypotension',
+     'If no improvement after 5 min: repeat Adrenaline 0.5mg IM',
+     'Chlorphenamine (Piriton) 10mg IV/IM — AFTER adrenaline',
+     'Hydrocortisone 200mg IV — AFTER adrenaline (prevents biphasic reaction)',
+     'Salbutamol nebuliser 2.5–5mg for persistent bronchospasm',
+     'Monitor vital signs every 5 minutes. Document all times and doses',
+     'Observe minimum 6–12 hours after recovery (biphasic reaction risk)',
+   ],
+   notes:'Adrenaline auto-injectors (EpiPen): 0.3mg adult, 0.15mg child. Inject into outer thigh through clothing if needed.',
+   alerts:'NEVER give adrenaline IV as bolus (risk of VF). Antihistamines and steroids are ADJUNCTS — not first-line. Discharge only after physician review.',
+   drugDose:'Adrenaline 1:1000 — 0.5mg IM. Chlorphenamine 10mg IV. Hydrocortisone 200mg IV. Salbutamol 2.5mg neb.'},
+
+  {cat:'First Aid Emergencies',name:'Seizure Management',
+   objective:'Protect patient, prevent injury, terminate prolonged seizure',
+   steps:[
+     'Stay calm. Note time seizure started — duration is critical for treatment decisions',
+     'Clear area of hard/sharp objects. Do NOT restrain movements',
+     'Place something soft under the head. Loosen tight clothing around neck',
+     'Do NOT put anything in the mouth. Do NOT hold tongue',
+     'If possible: turn patient onto their side (lateral/recovery position) to prevent aspiration',
+     'Oxygen 15 L/min via non-rebreather mask if available',
+     'If seizure lasts >5 minutes: treat as status epilepticus — call physician IMMEDIATELY',
+     'IV/IO access: Lorazepam 4mg IV (preferred) OR Diazepam 10mg PR if no IV access',
+     'If no IV: Midazolam 10mg buccal or intranasal',
+     'Check blood glucose STAT — treat hypoglycaemia if present (50% Dextrose 25ml IV)',
+     'If seizure continues 10 min after benzodiazepine: second-line agent (Phenytoin or Phenobarbitone — physician order required)',
+     'Post-ictal: stay with patient, monitor airway, reassure, document duration and description',
+   ],
+   notes:'Febrile convulsions in children: treat fever with Paracetamol/Ibuprofen. Most stop within 2–3 min. Todd paresis (focal weakness) may follow seizure — normal and resolves.',
+   alerts:'Never leave patient alone. Never put objects in mouth. Time the seizure — >5 minutes = medical emergency.',
+   drugDose:'Lorazepam 4mg IV (adult). Diazepam 0.5mg/kg PR (child). Midazolam 0.2mg/kg buccal. Glucose 50% 25–50ml IV if hypoglycaemic.'},
+
+  {cat:'First Aid Emergencies',name:'Severe Bleeding / Haemorrhage Control',
+   objective:'Control life-threatening external bleeding',
+   steps:[
+     'Put on gloves (universal precautions)',
+     'Apply DIRECT PRESSURE immediately — use clean cloth, gauze or dressing',
+     'Press firmly and continuously. Do NOT lift to check — this disrupts clot',
+     'Elevate the bleeding limb above the level of the heart (if no fracture)',
+     'If blood soaks through: add more dressing ON TOP — do not remove soaked dressing',
+     'If direct pressure fails for limb: apply tourniquet 5–7 cm above wound',
+     'Tourniquet: tighten until bleeding stops. Note time of application clearly',
+     'Wound packing: for deep/junctional wounds — pack gauze firmly into wound cavity',
+     'Large-bore IV access × 2. Send FBC, group & crossmatch, coagulation',
+     'IV fluid resuscitation: 500ml NS/RL bolus. Avoid over-resuscitation (permissive hypotension SBP 80–90 unless head injury)',
+     'Keep patient warm — prevent hypothermia (hypothermia worsens coagulopathy)',
+     'Urgent surgical review for internal bleeding',
+   ],
+   notes:'Tourniquets should not be removed in the field. Mark time on forehead/dressing. Internal bleeding signs: distended abdomen, tachycardia, pallor, hypotension without external wound.',
+   alerts:'Hypotension + tachycardia = compensated shock — treat aggressively. Scalp wounds bleed profusely but are rarely life-threatening alone.',
+   drugDose:'Tranexamic acid 1g IV over 10 min within 3 hours of injury (reduce blood loss). Blood products as ordered.'},
+
+  {cat:'First Aid Emergencies',name:'Burns Management',
+   objective:'Cool burn, prevent infection, manage pain and fluid loss',
+   steps:[
+     'Ensure scene safety. Stop the burning process — remove patient from source',
+     'Remove clothing and jewellery from burned area (unless stuck to skin)',
+     'Cool the burn: cool running water for EXACTLY 20 minutes within 3 hours of injury',
+     'Do NOT use: ice, butter, toothpaste, oil, or any home remedy',
+     'Cover with clean non-fluffy material (cling film lengthways, not circumferential) or sterile dressing',
+     'Keep patient warm — burns cause rapid heat loss, prevent hypothermia',
+     'Calculate burn area: Rule of Nines (Adult): Head 9%, each arm 9%, chest 18%, back 18%, each leg 18%, perineum 1%',
+     'IV access for burns >10% BSA (child) or >15% BSA (adult)',
+     'Parkland formula for fluid resuscitation: 4ml × weight(kg) × %BSA burned (Ringers Lactate)',
+     'Give 50% in first 8 hours from time of burn, 50% over next 16 hours',
+     'Catheterise: target urine output 0.5ml/kg/hr (adult) / 1ml/kg/hr (child)',
+     'Analgesia: Morphine 0.1mg/kg IV titrated',
+     'Update tetanus immunisation if needed',
+   ],
+   notes:'Superficial (1st degree): redness only, no blisters — cool water, moisturiser, analgesia. Partial thickness (2nd): blisters, very painful. Full thickness (3rd): leathery, painless, requires specialist referral. Refer all: face, hands, feet, genitalia, circumferential, chemical, electrical burns >1%, or any >15% BSA.',
+   alerts:'Do NOT burst blisters. Do NOT use cold/iced water (worsens tissue damage and hypothermia). Inhalation injury: hoarse voice, singed nasal hair, stridor — early intubation before airway swells.',
+   drugDose:'Morphine 2–5mg IV titrated. Parkland formula fluids. Paracetamol 1g QDS + Ibuprofen 400mg TDS for minor burns.'},
+
+  // ══ VITAL SIGNS & ASSESSMENT ══
+  {cat:'Vital Signs & Assessment',name:'Vital Signs — Normal Ranges & Interpretation',
+   objective:'Recognise normal vs abnormal vital signs for rapid clinical assessment',
+   steps:[
+     'TEMPERATURE: Normal 36.5–37.5°C | Hypothermia <35°C | Low-grade fever 37.6–38°C | Fever ≥38°C | High fever ≥39.5°C | Hyperpyrexia ≥41°C',
+     'PULSE RATE: Newborn 120–160 | Infant 80–140 | Child 80–100 | Adult 60–100 bpm | Tachycardia >100 | Bradycardia <60',
+     'RESPIRATORY RATE: Newborn 30–60 | Child 20–30 | Adult 12–20/min | Tachypnoea >20 adult | Bradypnoea <12',
+     'BLOOD PRESSURE (adult): Normal <120/80 | Pre-HTN 120–139/80–89 | Stage 1 HTN 140–159/90–99 | Stage 2 ≥160/≥100 | Hypotension SBP <90',
+     'SpO2: Normal ≥95% | Concerning 91–94% → supplement O2 | Critical ≤90% → immediate intervention | COPD target 88–92%',
+     'CONSCIOUS LEVEL — AVPU scale: A=Alert | V=responds to Voice | P=responds to Pain | U=Unresponsive',
+     'GCS: Eyes (1–4) + Verbal (1–5) + Motor (1–6) = max 15. Mild TBI: 13–15; Moderate: 9–12; Severe: ≤8 → consider intubation',
+     'PAIN SCORE: NRS 0–10 | 0=no pain | 1–3=mild | 4–6=moderate | 7–10=severe',
+     'CAPILLARY REFILL TIME (CRT): Normal <2 seconds. >2 sec = impaired perfusion. Test on fingertip/sternum.',
+     'Early warning: Tachycardia + tachypnoea + altered mentation = suspect sepsis/shock. Calculate NEWS/qSOFA.',
+   ],
+   notes:'Always trend vitals — a single reading is less meaningful than the direction of change over time. Document all vitals with time and patient position.',
+   alerts:'Single abnormal reading: recheck and document. Two or more abnormal vitals = escalate to physician immediately. Never assume normal vitals = normal patient.',
+   drugDose:'N/A — assessment only.'},
+
+  {cat:'Vital Signs & Assessment',name:'Pain Assessment & Analgesic Ladder',
+   objective:'Systematically assess pain and apply WHO analgesic ladder',
+   steps:[
+     'Use SOCRATES for full pain history: Site, Onset, Character, Radiation, Associations, Timing, Exacerbating/relieving, Severity (0–10)',
+     'Score pain: Numeric Rating Scale (NRS) 0–10 | Faces Pain Scale (children/non-verbal) | FLACC scale (infants)',
+     'Reassess pain 30 min after analgesic and document response',
+     'WHO STEP 1 (mild pain 1–3): Non-opioid: Paracetamol 1g QDS ± Ibuprofen 400mg TDS (with food, check contraindications)',
+     'WHO STEP 2 (moderate pain 4–6): Weak opioid: Codeine 30–60mg QDS OR Tramadol 50–100mg QDS + Step 1 agents',
+     'WHO STEP 3 (severe pain 7–10): Strong opioid: Morphine 5–10mg PO 4-hrly (or 2.5–5mg IV/SC titrated) + Step 1 agents',
+     'Adjuvants for neuropathic pain: Amitriptyline 10–25mg nocte OR Gabapentin 300mg OD increasing to TDS',
+     'Adjuvants for bone/inflammatory pain: Dexamethasone 8mg OD (short term)',
+     'Monitor for opioid side effects: respiratory depression (RR<12), sedation, nausea, constipation',
+     'Naloxone 0.4mg IV/IM for opioid overdose (repeat every 2–3 min if no response, max 10mg)',
+   ],
+   notes:'Always address pain promptly. Adequate pain control improves recovery, reduces anxiety and improves compliance. Paracetamol is safe in most patients including pregnancy and elderly. NSAIDs: caution in renal impairment, GI disease, elderly, cardiac disease.',
+   alerts:'Severe pain (7–10) without clear cause: do NOT mask with strong analgesia before physician assessment in acute abdomen. Respiratory rate <12 + drowsy on opioid: hold opioid, give Naloxone.',
+   drugDose:'Paracetamol 1g QDS. Ibuprofen 400mg TDS. Tramadol 50–100mg QDS. Morphine 5–10mg 4-hrly PO or 2–5mg IV titrated. Naloxone 0.4mg IV.'},
+
+  // ══ NURSING PROCEDURES ══
+  {cat:'Nursing Procedures',name:'IV Cannulation (Peripheral)',
+   objective:'Establish reliable peripheral venous access for drug/fluid administration',
+   steps:[
+     'Explain procedure to patient. Obtain consent. Gather equipment: cannula (appropriate gauge), tourniquet, alcohol swab, dressing, flush, gloves',
+     'Cannula size guide: 14G (red) — major trauma/surgery | 16G (grey) — blood transfusion | 18G (green) — fluids/drugs | 20G (pink) — routine | 22G (blue) — elderly/difficult veins | 24G (yellow) — children/neonates',
+     'Apply tourniquet 5–8 cm above proposed site. Ask patient to clench/open fist',
+     'Select vein: antecubital fossa (median cubital), forearm cephalic, dorsum of hand. Avoid: AV fistula arm, mastectomy side, lymphoedema, infected or bruised areas',
+     'Clean site with alcohol swab. Allow to dry 30 seconds. Do NOT touch again',
+     'Put on non-sterile gloves. Anchor vein by stretching skin distally with non-dominant thumb',
+     'Insert cannula at 10–30° angle, bevel UP, in direction of venous flow',
+     'Flashback of blood in chamber = vein entered. Advance 2–3 mm further',
+     'Lower angle to near horizontal. Advance plastic cannula while withdrawing needle slightly',
+     'Release tourniquet. Apply gentle pressure over vein above cannula tip. Remove needle completely',
+     'Attach pre-flushed extension set or Luer lock cap immediately',
+     'Flush with 5–10 ml 0.9% NaCl. Check for swelling/resistance (indicates tissuing)',
+     'Secure with transparent dressing. Label with date, time, and your initials. Document gauge and site',
+   ],
+   notes:'Change peripheral cannula every 72–96 hours or sooner if signs of phlebitis (redness, warmth, swelling, pain along vein). VIP score ≥2: remove cannula. If 2 attempts fail: call for senior help.',
+   alerts:'Never recap needle. Dispose in sharps bin immediately. Needlestick injury: bleed freely, wash, report, seek occupational health.',
+   drugDose:'Flush: 0.9% NaCl 5–10ml before and after each drug.'},
+
+  {cat:'Nursing Procedures',name:'Urinary Catheterisation (Female)',
+   objective:'Drain bladder, monitor urine output, or administer intravesical treatment',
+   steps:[
+     'Confirm order and indication. Explain procedure to patient. Privacy and dignity paramount',
+     'Equipment: catheterisation pack (sterile), appropriate catheter (12–16Fr female), sterile water for balloon, catheter bag, clean gloves → sterile gloves for procedure',
+     'Position: supine with legs bent (frog-leg). Good lighting essential',
+     'Wash hands, apply clean gloves. Clean perineum with antiseptic wipes front to back. Remove gloves',
+     'Open catheterisation pack using aseptic technique. Apply sterile gloves',
+     'Apply sterile drape with hole over urethral area',
+     'With non-dominant hand: separate labia minora and keep retracted throughout',
+     'With dominant hand: clean urethral meatus downward with provided swabs (3 separate swabs, single stroke each)',
+     'Coat catheter tip with sterile lubricating gel. Locate urethral meatus (anterior to vaginal opening)',
+     'Gently insert catheter 5–7 cm until urine flows. If resistance: do NOT force. Slightly angle superiorly',
+     'Once urine flows: advance another 2–3 cm before inflating balloon',
+     'Inflate balloon with specified volume sterile water (usually 10ml). Gently pull back to feel resistance',
+     'Connect to closed drainage system. Secure catheter to thigh (avoid tension)',
+     'Document: time, size, balloon volume, initial urine volume and colour, any difficulties',
+   ],
+   notes:'Catheter types: Foley (indwelling, 2-way) standard. 3-way for continuous bladder irrigation. Suprapubic for urethral obstruction. Size: 12–14Fr female, 14–18Fr male (larger for clots).',
+   alerts:'Traumatic insertion: stop, seek help. Blood in urine after insertion: inform physician. Urine output <30ml/hr for 2 consecutive hours: escalate.',
+   drugDose:'Instillstillagel (lidocaine gel) for lubrication/anaesthesia.'},
+
+  {cat:'Nursing Procedures',name:'Nasogastric Tube (NGT) Insertion',
+   objective:'Establish gastric access for feeding, drug administration, or decompression',
+   steps:[
+     'Explain procedure. Position: upright sitting (high Fowler 45–90°) if conscious',
+     'Equipment: NGT (appropriate size: 12–16Fr adult), lubricant, 50ml syringe, pH strips, tape, stethoscope',
+     'Measure required length: tip of nose → earlobe → xiphoid process. Mark with tape',
+     'Lubricate distal 10 cm of tube with water-soluble gel',
+     'Ask patient to tilt head slightly forward (chin towards chest) — opens posterior pharynx',
+     'Gently insert tube through more patent nostril (test with finger) along floor of nasal passage',
+     'When tube reaches back of throat (patient may gag): ask patient to swallow sips of water',
+     'Advance quickly through oesophagus during swallowing. Do NOT force against resistance',
+     'If patient coughs repeatedly or becomes cyanotic: WITHDRAW immediately — tube in airway',
+     'Advance to measured length. Secure tube temporarily with tape',
+     'VERIFY POSITION — mandatory before any use:',
+     '  (a) pH test: aspirate and check pH <5.5 = gastric (safe to use)',
+     '  (b) CXR if unable to aspirate or pH ≥5.5 (gold standard)',
+     '  (c) Air insufflation + auscultation: unreliable — NOT recommended as sole method',
+     'Secure tube to nose with purpose-specific tape. Document position, length at nostril, and verification method',
+   ],
+   notes:'NGT size: Fine bore (6–8Fr) for feeding. Standard bore (12–16Fr) for decompression. Replace every 4 weeks (fine bore) or daily (standard). Check position before each use and after any vomiting.',
+   alerts:'NEVER use NGT until position is confirmed. Aspiration of feeds = life-threatening. If tube coils in mouth during insertion: do not advance, withdraw and retry.',
+   drugDose:'Flush before and after feeds: 30–60ml water. Flush before and after each drug.'},
+
+  {cat:'Nursing Procedures',name:'Wound Dressing Technique',
+   objective:'Promote wound healing, prevent infection, and manage exudate',
+   steps:[
+     'Assess wound at every dressing: size (length×width×depth cm), bed (granulation/slough/necrosis/epithelialising), exudate (colour, amount, odour), surrounding skin, signs of infection',
+     'Infection signs: erythema >2cm, warmth, oedema, purulent exudate, pain, malodour, systemic fever',
+     'Equipment: sterile dressing pack, appropriate dressing, normal saline or wound cleanser, gloves',
+     'Wash hands (6-step WHO method). Apply clean gloves for removal of old dressing',
+     'Soak adherent dressings with NaCl before removal to reduce trauma',
+     'Note wound appearance. Measure with ruler if tracking wound size over time',
+     'Change to sterile gloves for wound cleaning',
+     'Irrigation: 0.9% NaCl using 20ml syringe at 5–10cm distance (gentle pulsatile lavage)',
+     'Do NOT clean healthy granulation tissue aggressively — damages new cells',
+     'Wound bed choice guide: Clean granulating: non-adhesive or foam | Sloughy: hydrogel or hydrocolloid | Infected: silver-containing dressing (Mepilex Ag/Aquacel Ag) | Heavily exuding: alginate or foam | Dry/necrotic: hydrogel to debride',
+     'Apply chosen dressing, secure with appropriate tape or bandage. Do NOT apply too tightly',
+     'Document: wound appearance, exudate, dressing used, next change date, any concerns',
+   ],
+   notes:'Wound dressing frequency: clean wounds q3–7 days. Infected or heavy exudate: daily or more. Pressure ulcer staging: Stage 1 (intact skin, non-blanchable redness) → Stage 4 (full thickness tissue loss, bone/tendon visible).',
+   alerts:'Spreading cellulitis, lymphangitis (red streaks), fever, pus: inform physician — may need systemic antibiotics. Deep wounds: do NOT pack tightly. Fistulas or exposed bone: specialist referral.',
+   drugDose:'NaCl 0.9% for irrigation. Povidone-iodine (Betadine) for initial contaminated wounds only — not for clean granulating wounds (cytotoxic to new cells).'},
+
+  {cat:'Nursing Procedures',name:'Blood Glucose Monitoring (BGM)',
+   objective:'Accurately measure capillary blood glucose for patient management',
+   steps:[
+     'Check glucometer is calibrated and strips are in date',
+     'Explain procedure. Wash patient\'s hands with soap and water — do NOT use alcohol (alters result)',
+     'Dry hands thoroughly. Warm hand if peripherally cold (poor perfusion affects result)',
+     'Put on non-sterile gloves',
+     'Use lancet device on side of fingertip (more nerve-rich at centre — more painful)',
+     'First drop of blood: WIPE AWAY (tissue fluid contamination)',
+     'Apply second drop to test strip. Do not smear or press strip into finger',
+     'Apply pressure to puncture site with dry gauze',
+     'Read result — note time, relation to meals (fasting/pre-meal/post-meal/random)',
+     'Normal ranges: Fasting 3.9–6.1 mmol/L | 2h post-meal <7.8 mmol/L | Random <11.1 mmol/L',
+     'Hypoglycaemia <3.9 mmol/L: treat immediately (see Hypoglycaemia protocol)',
+     'Hyperglycaemia >11.1 mmol/L: document and inform nurse-in-charge/physician if not expected',
+     'Document result, time, patient response, and any action taken',
+   ],
+   notes:'HbA1c (laboratory test — not bedside): reflects average BG over 3 months. Good control: <7% (53 mmol/mol). Point-of-care glucometers: ±15% accuracy — do not use for diagnosis, only monitoring.',
+   alerts:'Result <2.5 mmol/L or >27.8 mmol/L: recheck immediately on venous sample. Patient unconscious + low BG: do NOT give oral glucose — IV Dextrose only.',
+   drugDose:'Hypoglycaemia (conscious): 15–20g fast glucose orally. Unconscious: 50% Dextrose 25–50ml IV OR Glucagon 1mg IM.'},
+
+  // ══ DRUG CALCULATIONS ══
+  {cat:'Drug Calculations',name:'IV Drip Rate Calculation',
+   objective:'Calculate correct drops per minute or ml/hr for IV fluid administration',
+   steps:[
+     'Formula 1 — Drops per minute: (Volume to give in ml × Drop factor) ÷ Time in minutes',
+     'Standard drop factor: Macro-drip = 20 drops/ml | Micro-drip = 60 drops/ml | Blood giving set = 15 drops/ml',
+     'Example: 1000ml 0.9% NaCl over 8 hours via macro-drip: (1000 × 20) ÷ (8 × 60) = 20000 ÷ 480 = 41.7 ≈ 42 drops/min',
+     'Formula 2 — ml/hr for infusion pump: Volume (ml) ÷ Time (hours)',
+     'Example: 500ml over 4 hours: 500 ÷ 4 = 125 ml/hr',
+     'Formula 3 — Drug infusion rate: (Dose in mcg/kg/min × Weight in kg × 60) ÷ Concentration in mcg/ml',
+     'Example: Dopamine 5mcg/kg/min for 70kg patient, 250mg in 250ml (1000mcg/ml): (5 × 70 × 60) ÷ 1000 = 21 ml/hr',
+     'Paediatric weight-based dose: Dose (mg/kg) × Weight (kg) = Total dose in mg',
+     'Check: 5 Rights — Right Patient, Right Drug, Right Dose, Right Route, Right Time',
+     'Double-check ALL high-risk medications (insulin, heparin, potassium, opioids) with second nurse',
+   ],
+   notes:'Always use a pump for vasoactive drugs, insulin, and high-risk medications. NEVER estimate drops for critical drugs. Round ml/hr to 1 decimal place. Round drops/min to nearest whole number.',
+   alerts:'Never leave a patient on a drug infusion without monitoring. Know your antidotes: Naloxone (opioids), Flumazenil (benzodiazepines), Protamine (heparin), Vitamin K (warfarin).',
+   drugDose:'High-alert drugs requiring double-check: Insulin, Heparin, KCl, Concentrated NaCl, Morphine, Midazolam, Adrenaline, Digoxin, Methotrexate.'},
+
+  {cat:'Drug Calculations',name:'Paediatric Drug Dosing Guide',
+   objective:'Calculate safe and accurate weight-based drug doses for children',
+   steps:[
+     'ALWAYS weigh the child. If not possible, use weight estimation: Infant <1yr: (age in months + 9) ÷ 2 | Child 1–5yr: (age × 2) + 8 | Child 6–12yr: (age × 3) + 7',
+     'Paracetamol: 15mg/kg every 4–6 hours. Max 60mg/kg/day. Oral or rectal.',
+     'Ibuprofen: 5–10mg/kg every 6–8 hours. Max 40mg/kg/day. With food. Avoid if <3 months or dehydrated.',
+     'Amoxicillin: 25–50mg/kg/day in 3 divided doses for mild infection.',
+     'Ceftriaxone: 50–100mg/kg/day IV/IM once daily (meningitis: 100mg/kg/day in 2 doses).',
+     'Gentamicin: 7.5mg/kg OD IV (neonates: 4–5mg/kg OD, levels required).',
+     'Metronidazole: 7.5mg/kg TDS PO/IV. Max 30mg/kg/day.',
+     'Salbutamol (neb): 0.1–0.15mg/kg (min 2.5mg, max 5mg) every 20 min for acute asthma.',
+     'Diazepam (rectal): 0.5mg/kg for seizures. Max 10mg.',
+     'ORS (diarrhoea/dehydration): 50–100ml/kg over 3–4 hours for mild-moderate dehydration.',
+     'Zinc (diarrhoea): 10mg/day (<6 months) or 20mg/day (>6 months) for 10–14 days.',
+   ],
+   notes:'Yellow line (small child): PALS reference for drug calculation and equipment sizing. Broselow tape used in emergencies for weight estimation and dose lookup.',
+   alerts:'NEVER give adult doses to children even if the dose falls in range. Always verify with two nurses for IV medications. Check allergy status before every drug.',
+   drugDose:'See individual drug entries above for doses.'},
+
+  // ══ INFECTION CONTROL ══
+  {cat:'Infection Control',name:'Hand Hygiene — WHO 6-Step Technique',
+   objective:'Remove transient and resident microorganisms to prevent healthcare-associated infections (HAIs)',
+   steps:[
+     'WHEN to perform hand hygiene (WHO 5 Moments): 1. BEFORE patient contact | 2. BEFORE aseptic task | 3. AFTER body fluid exposure risk | 4. AFTER patient contact | 5. AFTER contact with patient surroundings',
+     'SOAP AND WATER (40–60 seconds): required when hands are visibly soiled, after toileting, after removing gloves with contamination, C. difficile suspected',
+     'ALCOHOL GEL (20–30 seconds): all other clinical situations if hands not visibly dirty',
+     'Step 1: Palm to palm',
+     'Step 2: Right palm over dorsum of left hand, interlaced fingers. Repeat other hand',
+     'Step 3: Palm to palm, fingers interlaced',
+     'Step 4: Backs of fingers to opposing palms with fingers interlocked',
+     'Step 5: Rotational rubbing of left thumb clasped in right palm. Repeat other thumb',
+     'Step 6: Rotational rubbing backwards and forwards with clasped fingers of right hand in left palm. Repeat',
+     'Allow to dry completely. Do not rinse alcohol gel.',
+     'Bare below the elbows policy in clinical areas. Remove rings, watches, nail extensions.',
+   ],
+   notes:'Gloves do NOT replace hand hygiene. Perform hand hygiene before applying gloves and immediately after removing. Alcohol-based handrub is MORE effective than soap for most pathogens (except C. diff, norovirus, Cryptosporidium).',
+   alerts:'Non-compliance with hand hygiene is the single biggest cause of preventable HAIs. Challenge anyone, regardless of seniority, who does not perform hand hygiene.',
+   drugDose:'N/A. Alcohol-based handrub: 3ml per application.'},
+
+  {cat:'Infection Control',name:'Personal Protective Equipment (PPE) — Donning & Doffing',
+   objective:'Protect healthcare workers and prevent cross-infection',
+   steps:[
+     'STANDARD PRECAUTIONS (all patients, all the time): Hand hygiene, gloves when contact with body fluids, apron for risk of contamination, surgical mask if splashing risk',
+     'CONTACT PRECAUTIONS (MRSA, C. diff, wounds): Add disposable gloves + plastic apron for all patient contact, single room preferred, dedicated equipment',
+     'DROPLET PRECAUTIONS (influenza, COVID-19, RSV, pertussis): Add surgical mask on ENTRY to patient area, eye protection if within 1m, single room',
+     'AIRBORNE PRECAUTIONS (TB, measles, varicella, bronchoscopy/intubation): FFP3/N95 mask (MUST be fit-tested), single room with negative pressure if available, limited staff entry',
+     'DONNING ORDER (put on): 1. Apron/gown | 2. Mask | 3. Eye protection/visor | 4. Gloves',
+     'DOFFING ORDER (take off — most contaminated first): 1. Gloves | 2. Apron/gown | 3. Eye protection | 4. Mask',
+     'Hand hygiene after EVERY item removed during doffing',
+     'Do NOT touch face during doffing. Doff slowly and deliberately',
+     'Dispose of PPE in clinical waste (yellow bag) immediately',
+     'Perform full hand hygiene after all PPE removed',
+   ],
+   notes:'Reusable visors: clean with detergent wipe after each use. FFP3 masks must be fit-tested annually. Expired PPE should not be used.',
+   alerts:'A mask worn incorrectly (under chin, on forehead, or not covering nose) provides NO protection. Gloves are single-use only. Double-gloving provides limited additional protection.',
+   drugDose:'N/A.'},
+
+  // ══ MATERNAL & CHILD HEALTH ══
+  {cat:'Maternal & Child Health',name:'Antenatal Assessment',
+   objective:'Systematic maternal and foetal assessment at antenatal visits',
+   steps:[
+     'History: LMP, EDD (Naegele rule: LMP + 9 months + 7 days), gravida/para, previous pregnancy complications, medical history, drug history, social history',
+     'Weight and BMI: weigh at every visit. Ideal weight gain: 11.5–16 kg total (normal BMI)',
+     'Blood pressure: measure after 5 min rest. Both arms first visit. Hypertension in pregnancy: ≥140/90 on 2 readings 4h apart after 20 weeks',
+     'Urinalysis: dip at every visit — test for protein (pre-eclampsia), glucose (GDM), nitrites/leucocytes (UTI)',
+     'Fundal height (cm): from 24 weeks ≈ gestational age in weeks (±2 cm). Measure symphysis pubis to top of fundus',
+     'Foetal lie: longitudinal (head/breech) or transverse. Presentation: cephalic/breech/shoulder. Engagement: fifths palpable above pelvic brim',
+     'Foetal heart: Doppler from 12–14 weeks. Pinard from 20+ weeks. Normal FHR 110–160 bpm. Irregular or >160 or <110: escalate',
+     'Oedema assessment: check ankles, sacrum, face. Physiological (ankle, at end of day): normal. Facial + headache + high BP: pre-eclampsia',
+     'Laboratory investigations (booking): FBC, Blood group + Rh, VDRL/Syphilis, HIV (offer testing), Hepatitis B, Urinalysis + MSU, Blood glucose/HbA1c if GDM risk',
+     'Vaccines in pregnancy: Tetanus Toxoid (2 doses in primigravida), Tdap (pertussis), Influenza (all trimesters)',
+     'Supplements: Folic acid 400mcg OD (5mg if high risk), Ferrous sulphate 200mg BD from 16w if anaemic, Calcium 1.5g OD if pre-eclampsia risk',
+   ],
+   notes:'EDD calculation: from LMP if regular 28-day cycle. Ultrasound most accurate before 12 weeks. Kick count (from 28w): ≥10 movements in 12 hours. Reduced movements: urgent review.',
+   alerts:'Danger signs requiring IMMEDIATE referral: severe headache, visual disturbance, epigastric pain, facial oedema, reduced FM, antepartum haemorrhage, membrane rupture, preterm labour signs.',
+   drugDose:'Folic acid 400mcg OD (5mg if high-risk). Iron: Ferrous sulphate 200mg BD. Calcium 1.5g OD. TT vaccine per national schedule.'},
+
+  {cat:'Maternal & Child Health',name:'Newborn Assessment (APGAR & Immediate Care)',
+   objective:'Assess newborn at delivery and initiate appropriate newborn care',
+   steps:[
+     'Dry the baby thoroughly immediately at birth. Stimulate by rubbing back/soles of feet',
+     'Clamp and cut cord after 1–3 minutes (delayed clamping improves iron stores unless baby needs resuscitation)',
+     'APGAR SCORE: assess at 1 minute and 5 minutes after birth',
+     '  Appearance (skin colour): 0=blue/pale all over | 1=blue extremities/pink body | 2=pink all over',
+     '  Pulse: 0=absent | 1=<100 bpm | 2=≥100 bpm',
+     '  Grimace (reflex): 0=no response | 1=grimace | 2=cry/cough/sneeze',
+     '  Activity (muscle tone): 0=limp | 1=some flexion | 2=active motion',
+     '  Respiration: 0=absent | 1=weak/irregular | 2=strong cry',
+     'APGAR 7–10: normal. APGAR 4–6: moderate depression — stimulate, O2. APGAR 0–3: severe — begin resuscitation',
+     'Newborn resuscitation (NRP): if not breathing after 30s of stimulation: PPV with bag-mask 21% O2 40–60 breaths/min',
+     'If HR <60 despite PPV: begin chest compressions 3:1 ratio with PPV',
+     'Vitamin K 1mg IM (intramuscular) for all newborns (prevents haemorrhagic disease of newborn)',
+     'Eye prophylaxis: Tetracycline eye ointment (prevents gonococcal ophthalmia)',
+     'Initiate breastfeeding within 1 hour of birth. Colostrum is vital for immunity',
+   ],
+   notes:'Normal newborn vital signs: HR 120–160, RR 30–60, Temp 36.5–37.5°C, Blood glucose >2.5mmol/L at 1h of life. Birth weight <2.5kg = low birth weight → special care.',
+   alerts:'Convulsions in newborn: check glucose, calcium, magnesium, sepsis screen. Grunting, nasal flaring, intercostal recession = respiratory distress → O2 and senior review urgently.',
+   drugDose:'Vitamin K 1mg IM. Tetracycline eye ointment. Dextrose 10% 2ml/kg IV for hypoglycaemia.'},
+];
+
+const NURSE_GUIDE_CATS=[...new Set(NURSE_GUIDE.map(g=>g.cat))];
+
+function renderNurseGuide(){
+  const search=(document.getElementById('ng-search')?.value||'').toLowerCase();
+  const cat=document.getElementById('ng-cat-filter')?.value||'';
+  // Populate category filter
+  const cf=document.getElementById('ng-cat-filter');
+  if(cf&&cf.options.length<=1){
+    NURSE_GUIDE_CATS.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;cf.appendChild(o);});
+    if(cat)cf.value=cat;
+  }
+  const filtered=NURSE_GUIDE.filter(g=>{
+    if(cat&&g.cat!==cat)return false;
+    if(search&&!g.name.toLowerCase().includes(search)&&!g.steps.join(' ').toLowerCase().includes(search)&&!g.cat.toLowerCase().includes(search))return false;
+    return true;
+  });
+  const catColors={
+    'First Aid Emergencies':'#dc2626','Vital Signs & Assessment':'#0891b2',
+    'Nursing Procedures':'#16a34a','Drug Calculations':'#7c3aed',
+    'Infection Control':'#d97706','Maternal & Child Health':'#db2777'
+  };
+  const grouped={};
+  filtered.forEach(g=>{if(!grouped[g.cat])grouped[g.cat]=[];grouped[g.cat].push(g);});
+  let html='';
+  if(!filtered.length){
+    html='<div class="emp" style="padding:30px;">No procedures found matching your search.</div>';
+  } else {
+    Object.entries(grouped).forEach(([category,items])=>{
+      const col=catColors[category]||'#374151';
+      html+=`<div style="margin-bottom:8px;">
+        <div style="background:${col}15;border-left:4px solid ${col};border-radius:5px;padding:7px 13px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+          <span style="font-weight:800;font-size:13px;color:${col};">${category}</span>
+          <span style="font-size:11px;color:var(--mu);">${items.length} procedure${items.length>1?'s':''}</span>
+        </div>`;
+      items.forEach(g=>{
+        const eid='ng-'+g.name.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+        html+=`<div style="border:1.5px solid var(--bd);border-radius:8px;margin-bottom:7px;overflow:hidden;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 13px;cursor:pointer;background:#fff;" onclick="toggleNgCard('${eid}')">
+            <span style="font-weight:700;font-size:14px;color:var(--p);">${g.name}</span>
+            <span id="ng-chevron-${eid}" style="color:var(--mu);font-size:16px;transition:.2s;">▼</span>
+          </div>
+          <div id="${eid}" style="display:none;padding:13px 15px;border-top:1px solid var(--bd);background:#fafbff;">
+            <div style="background:#eff6ff;border-left:3px solid #1e40af;border-radius:5px;padding:7px 11px;margin-bottom:10px;font-size:13px;color:#1e3a8a;">
+              <b>Objective:</b> ${g.objective}
+            </div>
+            <div style="font-weight:700;font-size:12px;color:var(--mu);text-transform:uppercase;margin-bottom:7px;">Step-by-Step Procedure</div>
+            <ol style="margin:0 0 12px 18px;padding:0;line-height:2;">
+              ${g.steps.map(s=>`<li style="font-size:13px;color:#1e293b;">${s}</li>`).join('')}
+            </ol>
+            ${g.notes?`<div style="background:#f0fdf4;border-left:3px solid #16a34a;border-radius:5px;padding:8px 11px;margin-bottom:8px;">
+              <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;">📝 Clinical Notes</div>
+              <div style="font-size:13px;margin-top:3px;">${g.notes}</div>
+            </div>`:''}
+            ${g.alerts?`<div style="background:#fef9c3;border-left:3px solid #ca8a04;border-radius:5px;padding:8px 11px;margin-bottom:8px;">
+              <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;">⚠️ Important Alerts</div>
+              <div style="font-size:13px;margin-top:3px;">${g.alerts}</div>
+            </div>`:''}
+            ${g.drugDose?`<div style="background:#fdf4ff;border-left:3px solid #7e22ce;border-radius:5px;padding:8px 11px;">
+              <div style="font-size:11px;font-weight:700;color:#7e22ce;text-transform:uppercase;">💊 Drug Doses Reference</div>
+              <div style="font-size:13px;margin-top:3px;">${g.drugDose}</div>
+            </div>`:''}
+          </div>
+        </div>`;
+      });
+      html+='</div>';
+    });
+  }
+  const el=document.getElementById('nurse-guide-list');
+  if(el)el.innerHTML=html;
+}
+
+function toggleNgCard(eid){
+  const el=document.getElementById(eid);
+  const ch=document.getElementById('ng-chevron-'+eid);
+  if(!el)return;
+  const isOpen=el.style.display!=='none';
+  el.style.display=isOpen?'none':'block';
+  if(ch)ch.style.transform=isOpen?'':'rotate(180deg)';
 }
 
 // ── Visit-type badge helper ──────────────────
@@ -3525,6 +4019,576 @@ function applyDxToConsult(name,icd){
     if(diagEl){diagEl.focus();diagEl.scrollIntoView({behavior:'smooth',block:'center'});}
     alert(`Applied: "${name} (${icd})" to the Differential Diagnosis and Final Diagnosis fields for patient: ${v.name}`);
   },300);
+}
+// ══════════════════════════════════════════════
+//  NURSING & FIRST AID GUIDE
+// ══════════════════════════════════════════════
+const NURSING_GUIDE=[
+
+  // ════ VITAL SIGNS ════════════════════════════
+  {cat:'Vital Signs',name:'Vital Signs — Normal Ranges & Interpretation',icon:'📊',
+   overview:'Normal vital signs vary by age. Any value outside range requires immediate documentation, reassessment, and escalation if persistent.',
+   steps:[
+     'TEMPERATURE: Normal 36.1–37.2°C | Low-grade fever 37.3–38°C | Fever ≥38.3°C | Hyperthermia >40°C | Hypothermia <35°C',
+     'PULSE: Adults 60–100 bpm | Children 1–12y: 70–120 | Infants <1y: 100–160 | Bradycardia <60 | Tachycardia >100',
+     'BLOOD PRESSURE: Normal <120/80 | Elevated 120–129/<80 | Stage 1 HTN 130–139/80–89 | Stage 2 ≥140/90 | Hypotension SBP<90',
+     'RESPIRATORY RATE: Adults 12–20/min | Children 20–30 | Infants 30–60 | Bradypnoea <12 | Tachypnoea >20 (adult)',
+     'SpO2: Normal 95–100% | Acceptable 94% | Concerning <93% | Critical <90% → immediate O2',
+     'GCS (ALERT): Eyes 4 = spontaneous | Voice 5 = oriented | Motor 6 = obeys commands | Total 15 = normal | ≤8 = severe → airway risk',
+     'PAIN SCALE: 0=none, 1-3=mild, 4-6=moderate, 7-9=severe, 10=worst imaginable',
+     '⚠ ESCALATE IMMEDIATELY: SpO2<90, RR>30 or <8, SBP<90, HR>130 or <40, Temp>40 or <35, GCS≤13 or sudden drop ≥2 points',
+   ],
+   notes:'Always compare to baseline. Trend is more important than a single reading. Document every 15min if unstable, hourly if stable post-procedure.'},
+
+  {cat:'Vital Signs',name:'Blood Pressure Measurement — Correct Technique',icon:'💪',
+   overview:'Incorrect technique is the most common cause of erroneous BP readings. Follow all steps for accuracy.',
+   steps:[
+     '1. Patient rested ≥5 minutes, seated, back supported, feet flat, arm at heart level',
+     '2. Select correct cuff size — bladder should encircle 80% of arm. Too small → falsely high; too large → falsely low',
+     '3. Apply cuff 2–3cm above antecubital fossa. Do NOT apply over clothing',
+     '4. Palpate radial pulse. Inflate to 30mmHg above where pulse disappears (estimated systolic)',
+     '5. Place stethoscope lightly over brachial artery. Do NOT tuck under cuff',
+     '6. Deflate at 2–3 mmHg/sec. First sound (Korotkoff I) = systolic. Sound disappears (Korotkoff V) = diastolic',
+     '7. Record to nearest 2mmHg. Note which arm, patient position, cuff size if non-standard',
+     '8. If first reading elevated: rest 2 minutes and repeat. Use average of two readings',
+     '9. Compare both arms on first visit. Difference >10mmHg suggests aortic disease or subclavian stenosis',
+     '⚠ Do NOT measure on: side with AV fistula, lymphoedema, mastectomy, or IV access',
+   ],
+   notes:'Automated NIBP machines are useful but manual auscultatory method is gold standard when accuracy is critical (arrhythmia, very low BP, shock).'},
+
+  {cat:'Vital Signs',name:'Temperature Measurement Methods',icon:'🌡️',
+   overview:'Different sites have different normal ranges. Use consistent method for monitoring trends.',
+   steps:[
+     'ORAL (36.2–37.2°C): Most common in adults. Wait 15min after hot/cold drink or smoking. Do not use in confused, unconscious, or seizure patients',
+     'AXILLARY (35.7–36.7°C): Least accurate. Add 0.5°C for core estimate. Use in infants when rectal not possible',
+     'RECTAL (36.6–37.6°C): Most accurate core temperature. Gold standard in critically ill. Contraindicated: rectal surgery, neutropenia, cardiac arrhythmia risk',
+     'TYMPANIC (36.1–37.8°C): Rapid; pull pinna up and back (adult) or down and back (child <3y). 3 readings, take highest',
+     'TEMPORAL ARTERY: Sweep thermometer firmly across forehead to behind ear. Accurate in adults; less reliable in children',
+     '⚠ FEVER MANAGEMENT: Paracetamol 1g (adult) q6h or Ibuprofen 400mg q8h; tepid sponging; adequate hydration; investigate cause',
+     '⚠ HYPERTHERMIA (>40°C): Active cooling — remove clothing, cool IV fluids, ice packs to groin/axilla, fan; call doctor immediately',
+     '⚠ HYPOTHERMIA (<35°C): Warm blankets, warm IV fluids, heated humidified O2; handle gently (arrhythmia risk); monitor ECG',
+   ],
+   notes:'Electronic thermometers should be calibrated regularly. Single-use probe covers must be changed between patients to prevent cross-infection.'},
+
+  // ════ FIRST AID EMERGENCIES ══════════════════
+  {cat:'First Aid',name:'Basic Life Support (BLS) — Adult CPR',icon:'❤️',
+   overview:'Start CPR within 10 seconds of confirming unresponsiveness and absent normal breathing. Every minute without CPR reduces survival by 10%.',
+   steps:[
+     '1. SAFE: Ensure scene safety. Do NOT put yourself at risk',
+     '2. CHECK RESPONSE: Shout "Are you OK?" + firm sternal rub. No response = unresponsive',
+     '3. SHOUT FOR HELP: Call loudly. Send someone to call emergency services and get AED',
+     '4. AIRWAY: Tilt head back — lift chin. Look for obvious obstruction; remove if visible',
+     '5. CHECK BREATHING: Look-listen-feel for ≤10 seconds. Occasional gasps = NOT breathing normally',
+     '6. CALL CODE / 999 / local emergency number if not already done',
+     '7. CHEST COMPRESSIONS: Heel of hand on lower half of sternum. Lock fingers. Arms straight',
+     '   — Depth: 5–6cm adults. Rate: 100–120/min ("Stayin\' Alive" tempo)',
+     '   — Allow full chest recoil between compressions. Minimise interruptions',
+     '8. RESCUE BREATHS (if trained): 30 compressions → 2 breaths over 1 second each',
+     '   — If unwilling/unable to give breaths: HANDS-ONLY CPR — continuous compressions',
+     '9. AED: Attach as soon as available. Follow voice prompts. Deliver shock if advised. Resume CPR immediately after shock',
+     '10. CONTINUE until: ROSC (normal breathing, movement), trained help takes over, or exhausted',
+     '⚠ ROSC signs: spontaneous breathing, coughing, purposeful movement, palpable pulse',
+   ],
+   notes:'Paediatric CPR: 15:2 ratio if two rescuers; 30:2 if alone. Compression depth 1/3 chest. Use 2 fingers (infant) or 1 hand (child). Give 5 rescue breaths first.'},
+
+  {cat:'First Aid',name:'Choking — Airway Obstruction',icon:'🫁',
+   overview:'Distinguish mild (can cough/speak) from severe (cannot cough/speak/breathe). Mild obstruction: encourage coughing. Severe: act immediately.',
+   steps:[
+     'MILD OBSTRUCTION (conscious, can cough/speak/cry):',
+     '  — Encourage strong coughing. Do NOT interfere. Monitor continuously',
+     'SEVERE OBSTRUCTION — ADULT/CHILD (>1 year):',
+     '  1. Lean patient forward. Give 5 sharp back blows between shoulder blades with heel of hand',
+     '  2. If unsuccessful: 5 abdominal thrusts (Heimlich manoeuvre)',
+     '     — Stand behind patient. Fist above navel below xiphisternum. Other hand over fist',
+     '     — Pull sharply inward and upward. Each thrust should be a distinct movement',
+     '  3. Alternate 5 back blows + 5 abdominal thrusts',
+     '  4. If patient loses consciousness → start BLS (CPR). Look in mouth before giving breaths',
+     'SEVERE OBSTRUCTION — INFANT (<1 year):',
+     '  1. Face-down on your forearm, head lower than chest. 5 back blows between shoulder blades',
+     '  2. Turn face-up on your thigh. 5 chest thrusts (2 fingers, centre of chest, 1 finger below nipple line)',
+     '  3. Alternate. Never do abdominal thrusts on infants (liver damage risk)',
+     'PREGNANT / OBESE: Use chest thrusts instead of abdominal thrusts',
+     '⚠ After successful Heimlich: ALWAYS refer to doctor (internal trauma risk)',
+   ],
+   notes:'If object is expelled, patient should be assessed by a doctor. If coughing persists or patient was unconscious, CXR is indicated.'},
+
+  {cat:'First Aid',name:'Anaphylaxis Management',icon:'💉',
+   overview:'Anaphylaxis is a life-threatening allergic reaction. Act within seconds. Adrenaline (epinephrine) is the FIRST and most critical treatment.',
+   steps:[
+     'RECOGNISE: Skin (urticaria, flushing, angioedema) + Airway (stridor, wheeze, throat tightness) + Circulation (hypotension, tachycardia, syncope)',
+     '   — May occur without skin signs. Skin signs alone are NOT anaphylaxis',
+     '1. CALL FOR HELP immediately',
+     '2. ADRENALINE (EPINEPHRINE) — first-line, give IMMEDIATELY:',
+     '   — Adult: 0.5mg (500 micrograms) IM into outer mid-thigh (anterolateral)',
+     '   — Child 6–12y: 0.3mg IM | Child <6y: 0.15mg IM',
+     '   — Use auto-injector (EpiPen) if available. May repeat after 5–10 minutes if no improvement',
+     '3. POSITION: Lie flat with legs elevated (or sit up if breathing difficulty). Do NOT stand patient up',
+     '4. HIGH-FLOW O2 via non-rebreather mask 15L/min',
+     '5. IV ACCESS: Large-bore cannula × 2. IV fluids 500mL–1L bolus (Crystalloid) if hypotensive',
+     '6. ANTIHISTAMINES (secondary only — do NOT delay adrenaline):',
+     '   — Chlorphenamine 10mg IV/IM (adult) | Hydrocortisone 200mg IV (adult)',
+     '7. Monitor every 5 min: BP, HR, SpO2, RR, mental status',
+     '8. OBSERVE minimum 6–12 hours (biphasic reaction risk)',
+     '⚠ NEVER give adrenaline IV except in cardiac arrest — fatal arrhythmia risk',
+   ],
+   notes:'Remove trigger if possible (stop IV drug, remove bee sting). Document: trigger, symptoms onset, all treatment given and response. Refer for allergy testing and discharge with 2 × auto-injectors.'},
+
+  {cat:'First Aid',name:'Bleeding Control & Wound Management',icon:'🩹',
+   overview:'Most bleeding can be controlled with direct pressure. Tourniquets for life-threatening limb haemorrhage only.',
+   steps:[
+     'EXTERNAL BLEEDING:',
+     '  1. Wear gloves — universal precautions always',
+     '  2. Direct pressure with clean gauze/cloth. Maintain firm pressure continuously for minimum 10 minutes',
+     '  3. Do NOT remove soaked dressing — add more over it. Removing breaks clot',
+     '  4. Elevate injured limb above heart level if no fracture',
+     '  5. If bleeding controlled: clean wound, apply sterile dressing, bandage firmly',
+     'SEVERE / ARTERIAL BLEEDING (spurting, life-threatening):',
+     '  — Apply tourniquet (if trained) 5–7cm above wound. Tighten until bleeding stops',
+     '  — Write time of application on skin. Do NOT remove — hospital only',
+     '  — Haemostatic gauze (Celox/QuikClot) into wound cavity if available — pack firmly',
+     'NOSE BLEED (Epistaxis):',
+     '  — Sit forward, head slightly forward (not back), pinch soft lower part of nose firmly for 10–15 minutes',
+     '  — Breathe through mouth. Ice pack on bridge of nose. Do NOT sniff or blow nose for 24h',
+     '  — If not controlled after 20 minutes, bilateral, posterior, or traumatic → refer immediately',
+     'WOUND IRRIGATION: Irrigate clean wounds with saline or clean water under pressure (10–20mL syringe)',
+     '⚠ Do NOT: remove embedded objects (they tamponade bleeding). Stabilise and refer',
+     '⚠ Tetanus prophylaxis: check immunisation status for any wound. Give TT if not up to date',
+   ],
+   notes:'Signs of significant blood loss: pallor, tachycardia, hypotension, anxiety, cold clammy skin, reduced consciousness. Start IV access and fluids. Call doctor immediately.'},
+
+  {cat:'First Aid',name:'Burns — Assessment & First Aid',icon:'🔥',
+   overview:'Cool the burn; prevent further injury. Do NOT use ice, butter, toothpaste or any home remedy. Assess depth, size, and site.',
+   steps:[
+     'IMMEDIATE:',
+     '  1. Remove from heat source. Ensure scene safety',
+     '  2. Remove clothing/jewellery near burn (unless stuck to skin)',
+     '  3. COOL with cool (NOT cold/iced) running water 10–20 minutes',
+     '     — Do NOT use ice, iced water, butter, toothpaste or any other substance',
+     '  4. Wrap loosely in cling film or clean non-fluffy material',
+     'ASSESS DEPTH:',
+     '  — Superficial (1st): Redness, dry, painful (like sunburn) — usually heals without treatment',
+     '  — Partial thickness (2nd): Blisters, moist, very painful, pale/mottled — heals 2–3 weeks',
+     '  — Full thickness (3rd): Dry/leathery/waxy, painless (nerves destroyed), requires grafting',
+     'ASSESS SIZE (Rule of Nines — Adult):',
+     '  — Head+Neck: 9% | Each arm: 9% | Chest: 9% | Abdomen: 9% | Upper back: 9% | Lower back: 9%',
+     '  — Each thigh: 9% | Each lower leg+foot: 9% | Genitalia: 1%',
+     '  — Children: head is larger (18%), legs smaller — use Lund & Browder chart',
+     'REFERRAL CRITERIA:',
+     '  — Burns >10% (adults) or >5% (children/elderly)',
+     '  — Full thickness burns any size; burns to face/hands/feet/genitalia/joints/circumferential',
+     '  — Inhalation injury (singed eyebrows, hoarse voice, carbonaceous sputum)',
+     'FLUID RESUSCITATION (Parkland Formula): 4mL × weight(kg) × %BSA burned in first 24h',
+     '  — Give half in first 8h from time of burn (NOT time of arrival); other half over next 16h',
+     '⚠ Inhalation injury: 100% O2 via NRB mask. Watch for airway oedema — early intubation if needed',
+   ],
+   notes:'Burns are highly susceptible to infection. Strict aseptic technique for dressing changes. Silver sulfadiazine 1% cream or non-adherent dressings (Mepitel). Analgesia is critical — burns are extremely painful.'},
+
+  {cat:'First Aid',name:'Shock — Recognition & First Aid',icon:'⚡',
+   overview:'Shock = inadequate tissue perfusion. Recognise early. Treat the cause while supporting circulation.',
+   steps:[
+     'RECOGNISE SHOCK (any 2+ signs):',
+     '  — Tachycardia (HR>100 adult) | Hypotension (SBP<90) | Tachypnoea (RR>20)',
+     '  — Cold, clammy, pale/mottled skin | Prolonged CRT >2 seconds',
+     '  — Altered consciousness | Reduced urine output (<0.5mL/kg/hr)',
+     'TYPES & CAUSES:',
+     '  — Hypovolaemic: bleeding, burns, vomiting/diarrhoea, dehydration',
+     '  — Distributive (Septic/Anaphylactic): vasodilation, infection, allergy',
+     '  — Cardiogenic: MI, arrhythmia, tamponade, tension pneumothorax',
+     '  — Obstructive: PE, cardiac tamponade',
+     'IMMEDIATE ACTIONS (call doctor — do simultaneously):',
+     '  1. Lay flat. Elevate legs 15–30° (unless head injury, respiratory distress, or cardiogenic)',
+     '  2. O2 high-flow 15L/min via non-rebreather mask',
+     '  3. Large-bore IV access × 2 (antecubital fossa preferred)',
+     '  4. IV crystalloid bolus 500mL–1L over 15–20min (NOT cardiogenic shock)',
+     '  5. Blood glucose: treat hypoglycaemia if present',
+     '  6. Monitor every 5 min: HR, BP, SpO2, RR, GCS, urine output',
+     '  7. Keep warm — prevent hypothermia',
+     '  8. Do NOT give oral fluids to shocked patient (aspiration risk)',
+     '⚠ Haemorrhagic shock: control source of bleeding FIRST',
+     '⚠ Anaphylactic shock: ADRENALINE IM immediately (see anaphylaxis guide)',
+     '⚠ Cardiogenic shock: cautious fluids. Call doctor before IV fluid in suspected MI/CCF',
+   ],
+   notes:'Trending observations are key. A single normal BP does not exclude shock — patient may be compensating. Deteriorating GCS is an ominous sign.'},
+
+  {cat:'First Aid',name:'Seizures — First Aid Management',icon:'🧠',
+   overview:'Most seizures self-terminate within 1–2 minutes. Protect the patient; do NOT restrain. Status epilepticus (>5 min) = medical emergency.',
+   steps:[
+     '1. STAY CALM. Note the time seizure started',
+     '2. PROTECT: Clear surrounding hazards. Cushion head with folded clothing/blanket',
+     '3. DO NOT: Restrain the patient | Put anything in their mouth | Give oral medication during seizure',
+     '4. POSITION: If possible, turn to recovery position during convulsion to prevent aspiration',
+     '5. OBSERVE: Type of movements, which body part starts first, eye deviation, incontinence, duration',
+     '6. AFTER SEIZURE (post-ictal): Patient may be confused, drowsy, agitated for minutes to hours',
+     '  — Recovery position (left lateral). Check airway. O2 if available',
+     '  — Check blood glucose (stat)',
+     '  — Remain calm, reassure patient',
+     '7. CALL DOCTOR IMMEDIATELY if:',
+     '  — Seizure lasts >5 minutes (STATUS EPILEPTICUS)',
+     '  — Second seizure without recovery',
+     '  — Patient does not regain consciousness',
+     '  — Breathing does not resume normally post-ictal',
+     '  — First-ever seizure | Head injury | Diabetic | Pregnant',
+     'STATUS EPILEPTICUS (>5 min) — while awaiting doctor:',
+     '  — IV/IO access if available. Blood glucose',
+     '  — Lorazepam 4mg IV slow (adult) OR Diazepam 10mg PR OR Midazolam 10mg buccal',
+     '  — O2 high-flow. Suction if secretions obstructing airway',
+   ],
+   notes:'Time is critical in status epilepticus — brain damage begins after 30 min of continuous seizure. Document meticulously: duration, semiology, recovery time, post-ictal deficits.'},
+
+  {cat:'First Aid',name:'Drowning & Near-Drowning',icon:'🌊',
+   overview:'Treat as respiratory arrest first. Hypothermia common — "not dead until warm and dead." Continue CPR even in cold-water drowning.',
+   steps:[
+     '1. SAFETY: Do NOT enter dangerous water without training/equipment. Use throw rope or extend object',
+     '2. REMOVE from water. Lay flat. Minimise time to CPR',
+     '3. CHECK RESPONSE: Shout + tap shoulders',
+     '4. OPEN AIRWAY: Head tilt-chin lift or jaw thrust (if spinal injury suspected)',
+     '5. START with 5 RESCUE BREATHS (unlike standard BLS which starts compressions)',
+     '   — Wet lungs: blow slowly and firmly. Watch for chest rise',
+     '6. If no pulse + not breathing normally → 30:2 CPR (adult)',
+     '7. O2 high-flow as soon as available. Suction mouth/oropharynx if secretions visible',
+     '8. IV access: warm IV fluids if hypothermic',
+     '9. Do NOT tilt head backwards to drain water — wastes time and delays CPR',
+     '10. Remove wet clothing. Cover with blankets — hypothermia is common and serious',
+     '⚠ ALL near-drowning victims must be assessed in hospital — delayed pulmonary oedema (12-24h)',
+     '⚠ SPINAL INJURY: If diving/trauma involved, immobilise cervical spine during rescue',
+   ],
+   notes:'Even brief submersion can cause significant hypoxia. Secondary drowning (pulmonary oedema onset hours later) means all rescued victims need hospital observation minimum 6–12 hours.'},
+
+  // ════ NURSING PROCEDURES ═════════════════════
+  {cat:'Nursing Procedures',name:'Intravenous Cannulation (IV Access)',icon:'💉',
+   overview:'Peripheral IV access for fluid/drug administration. Use strict aseptic non-touch technique (ANTT) throughout.',
+   steps:[
+     'PREPARATION:',
+     '  — Gather: IV cannula (14–22G depending on need), tourniquet, alcohol swab, gauze, transparent dressing, flush (10mL 0.9% NaCl), gloves',
+     '  — Wash hands. Apply non-sterile gloves. Explain procedure to patient. Gain consent',
+     'SITE SELECTION (preferred order): Antecubital fossa (large, easy) → Forearm (cephalic/basilic) → Back of hand → Wrist (avoid — painful near tendons)',
+     '  — Avoid: Feet (DVT risk), side of lymphoedema/mastectomy, fistula arm',
+     'PROCEDURE:',
+     '  1. Apply tourniquet 10–15cm above intended site. Patient pump fist 3–4 times',
+     '  2. Clean site with 70% alcohol swab. Allow to dry completely (minimum 30 seconds)',
+     '  3. Anchor vein: stretch skin taut below insertion point',
+     '  4. Insert needle bevel-up at 15–30° angle in direction of blood flow (towards heart)',
+     '  5. Flashback of blood in chamber = vein entered',
+     '  6. Lower angle to 5–10°. Advance a further 2mm then advance cannula off needle',
+     '  7. Release tourniquet. Apply digital pressure above tip. Remove needle',
+     '  8. Connect extension set. Flush gently. Check for swelling/resistance (infiltration)',
+     '  9. Secure with transparent dressing. Date/time label on dressing',
+     '⚠ Maximum 2 attempts per nurse per patient. Change peripheral IV every 72–96 hours',
+     '⚠ Phlebitis signs (VIPS score): pain, erythema, swelling, palpable cord, purulent exudate → remove immediately',
+   ],
+   notes:'Paediatric: 22–24G. Small gauge = slower flow but less infiltration. Warm the limb if veins not visible — warm towel 3–5min. Ultrasound guidance for difficult access.'},
+
+  {cat:'Nursing Procedures',name:'Urinary Catheterisation — Female',icon:'🩺',
+   overview:'Insert urinary catheter using strict sterile technique. Infection risk is high — indications must be clear.',
+   steps:[
+     'INDICATIONS: Urinary retention, accurate output monitoring (ICU/post-op), urological surgery, skin protection (incontinence with wounds)',
+     'CONTRAINDICATIONS: Urethral trauma (blood at meatus, perineal bruising after trauma)',
+     'EQUIPMENT: Catheter (12–14Fr female adult), sterile catheterisation pack, sterile gloves, 10mL sterile water (balloon), catheter bag',
+     'PROCEDURE:',
+     '  1. Explain and gain consent. Screen for privacy. Lithotomy position',
+     '  2. Open catheter pack using ANTT. Pour antiseptic solution. Sterile gloves on',
+     '  3. Drape perineum. Non-dominant hand: separate labia minora and maintain throughout',
+     '  4. Clean: one swab wipe from front to back. Urethral meatus first, then labia. One swipe per swab — discard',
+     '  5. Insert lubricated catheter tip into urethra (3–4cm until urine flows)',
+     '  6. Advance another 2–3cm after urine flow. Inflate balloon with 10mL sterile water',
+     '  7. Gentle tug to confirm balloon is seated against bladder neck',
+     '  8. Connect to closed drainage bag. Bag below bladder level always',
+     '  9. Secure catheter to inner thigh — prevents traction injury',
+     '⚠ Never force catheter. Resistance → call doctor (may need urological input)',
+     '⚠ Document: catheter size, balloon volume, urine colour/amount at insertion, date',
+   ],
+   notes:'CAUTI (catheter-associated UTI) prevention: maintain closed system, daily hygiene, remove catheter ASAP. Change catheter if blocked/bypassing/infected, not on routine schedule.'},
+
+  {cat:'Nursing Procedures',name:'Nasogastric (NG) Tube Insertion',icon:'🔧',
+   overview:'Insert NG tube for feeding, drainage, or medication. Correct position MUST be confirmed before any use — fatal aspirations have occurred from malpositioned tubes.',
+   steps:[
+     'EQUIPMENT: NG tube (10–16Fr depending on purpose), lubricant, 50mL syringe, pH paper (not litmus), adhesive tape, stethoscope',
+     'MEASURING LENGTH: Measure Nose–Earlobe–Xiphisternum + 10cm. Mark tube at this length',
+     'PROCEDURE:',
+     '  1. Sit patient upright (45°) if possible. Head slightly forward',
+     '  2. Check nostrils — use clearer side. Lubricate tube tip generously',
+     '  3. Insert gently into nostril. Advance along floor of nasal passage (NOT upward)',
+     '  4. When tube reaches nasopharynx (patient may gag): ask patient to sip water and swallow',
+     '  5. Advance tube with each swallow. If resistance/coughing/SpO2 drop → STOP, withdraw, retry',
+     '  6. Advance to marked length. Secure with tape to nose. Note external length at nostril',
+     'CONFIRMING POSITION (mandatory before every use):',
+     '  — Aspirate with syringe. Test aspirate on pH paper: pH ≤5.5 = gastric = SAFE',
+     '  — pH 5–6 is borderline — aspirate more, try later, or confirm with CXR',
+     '  — CXR: tube should cross midline to stomach, below diaphragm',
+     '⚠ NEVER use auscultation (air bubble sound) alone to confirm position — unreliable and dangerous',
+     '⚠ If in doubt about position → DO NOT USE. Call doctor for CXR',
+     '⚠ Contraindications: base of skull fracture, oesophageal varices/stricture, recent oesophageal surgery',
+   ],
+   notes:'Re-check pH before every feed if patient vomiting, moved, coughing spells, or tube was not secured. Re-confirm position if pH changes to >5.5 or resistance felt on feeding.'},
+
+  {cat:'Nursing Procedures',name:'Wound Dressing — Aseptic Technique',icon:'🩻',
+   overview:'Clean wounds prevent infection and promote healing. Use ANTT (Aseptic Non-Touch Technique) for all wound care.',
+   steps:[
+     'ASSESS BEFORE STARTING: Wound size, depth, tissue type (slough/granulation/epithelialising/necrotic), exudate level, signs of infection, surrounding skin',
+     'SIGNS OF WOUND INFECTION: Increased pain, erythema, warmth, oedema, purulent exudate, malodour, delayed healing, systemic fever',
+     'EQUIPMENT: Dressing pack, appropriate dressing, sterile saline/irrigation solution, clean gloves (assessment), sterile gloves (wound contact)',
+     'PROCEDURE:',
+     '  1. Wash hands. Prepare clean field. Open packs without contaminating contents',
+     '  2. Remove old dressing with clean gloves. Assess wound and surrounding skin',
+     '  3. Change to sterile gloves. Irrigate wound with normal saline (preferred) under pressure',
+     '  4. Pat dry wound margins. Do NOT dry granulation tissue bed',
+     '  5. Apply appropriate dressing:',
+     '     — Dry/clean wound: non-adherent dressing (Mepitel/Mepilex)',
+     '     — Light exudate: foam dressing',
+     '     — Heavy exudate: alginate/hydrofibre',
+     '     — Sloughy: hydrogel or autolytic debridement dressing',
+     '     — Infected: Silver-containing dressing (Aquacel Ag)',
+     '  6. Secure dressing. Avoid excessive tension on surrounding skin',
+     '  7. Document: wound dimensions (length×width×depth), tissue type %, exudate, odour, peri-wound skin',
+     '⚠ Swab only clinically infected wounds (not routinely) — clinical signs, not microbiology, guide treatment',
+   ],
+   notes:'Use TIMES wound assessment framework: Tissue, Infection/Inflammation, Moisture, Edge of wound, Surrounding skin. Reassess at every dressing change.'},
+
+  {cat:'Nursing Procedures',name:'Oxygen Therapy — Delivery Devices & Targets',icon:'💨',
+   overview:'Oxygen is a drug. Prescribe specific flow rate and target SpO2. Over-oxygenation harms COPD patients. Under-oxygenation harms everyone.',
+   steps:[
+     'TARGET SpO2:',
+     '  — Most patients: 94–98%',
+     '  — COPD (known/suspected type II failure): 88–92%',
+     '  — Infants: 91–95%',
+     'DELIVERY DEVICES (least to most O2):',
+     '  — Nasal Cannula: 1–6L/min → FiO2 24–44% | Comfortable, can eat/talk | Not for SpO2<88%',
+     '  — Simple Face Mask: 5–10L/min → FiO2 35–55% | MUST use ≥5L to prevent CO2 rebreathing',
+     '  — Venturi Mask: Precise FiO2 (24%, 28%, 31%, 35%, 40%, 60%) — USE IN COPD for accurate low-dose O2',
+     '  — Non-Rebreather Mask (NRB): 10–15L/min → FiO2 60–90% | Emergency high-flow O2',
+     '     — Ensure bag inflated before applying. Must have good mask seal',
+     '  — Humidified High-Flow Nasal Cannula (HFNC/Optiflow): 30–60L/min → FiO2 21–100% | Specialist use',
+     'MONITORING: SpO2 continuous + document every 30min. Note FiO2/flow rate and device used',
+     'WEANING O2: Reduce flow gradually while monitoring SpO2. Never abruptly stop high-flow',
+     '⚠ COPD: Use Venturi 28% mask (2L/min equivalent) as starting point. Target SpO2 88–92%',
+     '  — High O2 in COPD can cause hypercapnic respiratory failure (hypoxic drive suppression)',
+     '⚠ Dry O2 above 4L/min causes mucosal drying — use humidifier for prolonged use',
+   ],
+   notes:'Always check equipment — ensure mask fits, reservoir bag not kinked, flow set correctly. Reassess 10–15 min after initiating or changing O2.'},
+
+  // ════ MEDICATION ═════════════════════════════
+  {cat:'Medication',name:'Injection Technique — IM & SC & ID',icon:'💊',
+   overview:'Correct injection technique prevents injury, infection, and medication errors. The "5 Rights" must be checked before every injection.',
+   steps:[
+     '5 RIGHTS: Right Patient | Right Drug | Right Dose | Right Route | Right Time (+ Right Documentation)',
+     'INTRAMUSCULAR (IM):',
+     '  — Volume: ≤5mL deltoid (max 3mL preferred); ≤5mL gluteus (dorsogluteal/ventrogluteal)',
+     '  — Sites: Deltoid (vaccinations, small volume), Ventrogluteal (safest — away from sciatic nerve),',
+     '    Vastus lateralis (children, infants), Dorsogluteal (avoid — sciatic nerve risk)',
+     '  — Needle: 23–25G, 1–1.5 inch. Angle: 90°',
+     '  — Z-track technique (prevents seepage): Pull skin 2–3cm laterally before inserting, release after withdrawing',
+     '  — NEVER aspirate routinely (WHO guidance 2015) except for certain drugs where aspiration is required',
+     'SUBCUTANEOUS (SC):',
+     '  — Sites: Abdomen (avoid 5cm around navel), outer upper arm, anterior thigh, upper outer buttock',
+     '  — Volume: ≤1mL. Needle: 25–27G, 5/8–1/2 inch. Angle: 45° (thin) or 90° (adequate adipose)',
+     '  — Rotate sites — lipodystrophy from repeated injections at same site',
+     'INTRADERMAL (ID):',
+     '  — Sites: Volar aspect of forearm (Mantoux), deltoid',
+     '  — Needle: 26–27G, bevel UP, almost parallel to skin (5–15°)',
+     '  — Correct: visible blanched bleb/wheal 6–10mm after injection',
+     '⚠ NEVER: inject into scarred, inflamed, infected, bruised, or oedematous skin',
+     '⚠ Sharps safety: never recap by hand. Dispose directly into sharps bin immediately after use',
+   ],
+   notes:'Always check expiry date and drug integrity. Cold vaccines must be at room temperature before injection. Document lot number for vaccines.'},
+
+  {cat:'Medication',name:'Controlled Drug Administration',icon:'🔐',
+   overview:'Controlled drugs (opioids, benzodiazepines) require two-nurse verification, special documentation, and secured storage at all times.',
+   steps:[
+     'STORAGE: Double-locked cupboard or safe. Separate from general medications. Temperature-controlled where required',
+     'PRESCRIPTION REQUIREMENTS: Must be handwritten or authorised electronic prescription with: drug name, dose, route, frequency, prescriber signature and registration number',
+     'TWO-NURSE VERIFICATION (both nurses must be present throughout):',
+     '  1. Nurse 1: reads prescription aloud. Nurse 2: confirms against prescription',
+     '  2. Both check controlled drug register entry (running balance)',
+     '  3. Both witness drug drawn up or tablets counted',
+     '  4. Both sign controlled drug register: drug name, dose given, stock remaining, patient name, time',
+     '  5. Nurse 1 administers. Both document in patient medication record',
+     'WASTE: Any unused portion must be witnessed and signed for by both nurses. Dispose per protocol',
+     'DISCREPANCY: Any discrepancy in controlled drug balance = STOP. Do NOT correct. Report immediately to senior nurse and pharmacy. Complete incident report',
+     '⚠ Count controlled drugs at EVERY shift handover. Both outgoing and incoming nurses sign',
+     '⚠ Morphine: monitor respiratory rate (RR). If RR<10: withhold, give O2, call doctor. Naloxone 400mcg IM/IV/SC if RR<8 or unresponsive',
+   ],
+   notes:'The law (in most jurisdictions) requires a second nurse for controlled drug administration. This is non-negotiable. Any irregularity, however minor, must be reported.'},
+
+  // ════ PAEDIATRIC NURSING ══════════════════════
+  {cat:'Paediatric Nursing',name:'Paediatric Vital Signs — Age-Specific Normals',icon:'👶',
+   overview:'Children are NOT small adults. Normal values change dramatically with age. Know the normals for the child in front of you.',
+   steps:[
+     'HEART RATE (bpm):',
+     '  — Newborn (0–1m): 100–160 | Infant (1–12m): 100–150 | Toddler (1–3y): 90–150',
+     '  — Pre-school (3–5y): 80–140 | School (6–12y): 70–120 | Adolescent (>12y): 60–100',
+     'RESPIRATORY RATE (/min):',
+     '  — Newborn: 30–60 | Infant: 25–40 | Toddler: 24–40 | Pre-school: 22–34 | School: 18–30',
+     'BLOOD PRESSURE (mmHg):',
+     '  — Infant: 70–100/50–65 | Toddler: 80–110/50–80 | School: 85–120/55–80',
+     '  — Systolic minimum (formula): 70 + (2 × age in years)',
+     'TEMPERATURE: same as adults (36.1–37.2°C)',
+     'WEIGHT ESTIMATION (if scales unavailable): Weight (kg) = (Age+4) × 2 (Broselow tape more accurate)',
+     'CAPILLARY REFILL TIME: <2 seconds (press nailbed 5 seconds, release)',
+     'CHILDREN ARE COMPENSATORS:',
+     '  — Children maintain BP until 25–30% blood loss — then sudden rapid deterioration',
+     '  — TACHYCARDIA in a child = concerning until proven otherwise',
+     '  — Bradycardia in a child = PRE-ARREST sign → call immediately',
+     '⚠ ESCALATION triggers in children (PEWS/PISA):',
+     '  — HR >160 or <60 | RR >60 or <15 (depending on age) | SpO2 <92% | CRT >3sec',
+     '  — Reduced/absent response | Stridor or severe wheeze | Cyanosis',
+   ],
+   notes:'Use Paediatric Early Warning Score (PEWS) for structured escalation. A child who looks "wrong" to an experienced nurse IS wrong — trust your instinct and escalate.'},
+
+  {cat:'Paediatric Nursing',name:'Oral Rehydration Therapy (ORT)',icon:'🥤',
+   overview:'ORT is the cornerstone of dehydration management in children. It is as effective as IV fluids for mild-moderate dehydration and avoids cannulation risk.',
+   steps:[
+     'ASSESS DEHYDRATION (WHO classification):',
+     '  — No dehydration: No signs. Treat at home with ORS for every loose stool',
+     '  — Some dehydration (2–9%): 2+ signs: restless/irritable, sunken eyes, thirsty/drinks eagerly,',
+     '    slow skin turgor return (1–2 sec) → ORS PLAN B (supervised clinic/hospital)',
+     '  — Severe dehydration (≥10%): 2+ danger signs: lethargic/unconscious, sunken eyes,',
+     '    very slow skin turgor (>2 sec), not able to drink → IV PLAN C',
+     'ORS PREPARATION: 1 sachet in 1 litre clean/boiled cooled water. Stir well.',
+     '  — Alternative: 6 teaspoons sugar + 1/2 teaspoon salt in 1 litre water (emergency only)',
+     'PLAN A (no dehydration): <2y: 50–100mL ORS after each loose stool | ≥2y: 100–200mL per stool',
+     'PLAN B (some dehydration — hospital): 75mL/kg ORS over 4 hours',
+     '  — Small frequent sips if vomiting (5–10mL every 5 min). Do NOT stop for vomiting',
+     '  — Reassess after 4 hours. If improved → Plan A. If worse → Plan C',
+     'PLAN C (severe dehydration — IV): Ringers Lactate 100mL/kg IV:',
+     '  — Infants <12m: give 30mL/kg in 1h then 70mL/kg in 5h',
+     '  — Children >12m: give 30mL/kg in 30min then 70mL/kg in 2.5h',
+     '  — Reassess every 30min during IV. Start ORS when patient can drink',
+     '⚠ Zinc: 20mg (child >6m) or 10mg (<6m) daily × 10–14 days — reduces diarrhoea duration',
+     '⚠ Continue breastfeeding throughout. Normal feeding as soon as tolerated',
+   ],
+   notes:'Do NOT give plain water alone (hyponatraemia risk). Do NOT dilute ORS. Cola/juice/sports drinks are NOT ORT and are harmful in children with diarrhoea.'},
+
+  // ════ INFECTION CONTROL ═══════════════════════
+  {cat:'Infection Control',name:'Hand Hygiene — WHO 5 Moments & 7 Steps',icon:'🧼',
+   overview:'Hand hygiene is the single most effective infection control measure. 5 Moments + 7 Steps must be followed every time, by every nurse.',
+   steps:[
+     'WHO 5 MOMENTS FOR HAND HYGIENE:',
+     '  1. BEFORE touching a patient',
+     '  2. BEFORE a clean/aseptic procedure',
+     '  3. AFTER body fluid exposure risk',
+     '  4. AFTER touching a patient',
+     '  5. AFTER touching patient surroundings',
+     '7 STEPS (Ayliffe technique) — minimum 20–30 seconds:',
+     '  1. Rub palm to palm',
+     '  2. Right palm over left dorsum, interlaced fingers; repeat left over right',
+     '  3. Palm to palm, fingers interlaced',
+     '  4. Backs of fingers to opposing palms with fingers interlocked',
+     '  5. Rotational rubbing of right thumb clasped in left palm; repeat for left thumb',
+     '  6. Rotational rubbing backwards/forwards with clasped right fingers in left palm; repeat',
+     '  7. Rinse under running water. Dry with single-use towel. Turn tap off with towel',
+     'ALCOHOL HAND RUB: Use when hands are visibly clean. Same 7 steps. Rub until dry.',
+     'SOAP AND WATER required when: visibly soiled/contaminated | Contact precautions (C. diff) | After toilet',
+     '⚠ Remove rings, watches, artificial nails before clinical shifts',
+     '⚠ Short nails — nails must be short enough not to pierce gloves',
+     '⚠ Gloves do NOT replace hand hygiene — decontaminate hands before and after glove use',
+   ],
+   notes:'Studies show healthcare workers perform hand hygiene on average only 40% of required occasions. Correct technique matters as much as frequency.'},
+
+  {cat:'Infection Control',name:'Isolation & Standard Precautions',icon:'🛡️',
+   overview:'Standard precautions apply to ALL patients at ALL times regardless of diagnosis. Transmission-based precautions are ADDITIONAL layers for specific organisms.',
+   steps:[
+     'STANDARD PRECAUTIONS (all patients, every time):',
+     '  — Hand hygiene (see WHO 5 Moments)',
+     '  — Gloves: when contact with blood/body fluids/mucous membranes/non-intact skin',
+     '  — Apron/gown: when splashing of body fluids is anticipated',
+     '  — Eye protection/face shield: aerosol/splash risk to eyes/face',
+     '  — Safe sharps handling: never recap, direct to sharps bin immediately',
+     '  — Environmental cleaning: all patient contact surfaces between patients',
+     'CONTACT PRECAUTIONS (MRSA, C.diff, VRE, skin/wound infections, diarrhoea):',
+     '  — Gloves + apron/gown for ALL room entries',
+     '  — Single room preferred. Cohort if not possible',
+     '  — Dedicated equipment (stethoscope, BP cuff) for patient',
+     '  — C.diff: SOAP and water hand hygiene ONLY (alcohol gel ineffective on spores)',
+     'DROPLET PRECAUTIONS (influenza, meningitis, pertussis, COVID-19):',
+     '  — Surgical mask for all room entries',
+     '  — Single room or minimum 1m separation',
+     '  — Patient wears surgical mask during transport',
+     'AIRBORNE PRECAUTIONS (TB, measles, chickenpox):',
+     '  — FFP2/N95 respirator (fit-checked). Negative pressure room if available',
+     '  — Door closed at all times. Minimise staff entry',
+     '  — Patient wears surgical mask when outside room',
+     '⚠ PPE: Put on (don) in order: Gown → Mask/Respirator → Eye protection → Gloves',
+     '⚠ Take off (doff) in order: Gloves → Eye protection → Gown → Mask. Hand hygiene between each step',
+   ],
+   notes:'Transmission-based precautions should be initiated on clinical suspicion — do NOT wait for lab confirmation. Communicate isolation requirements clearly during handover.'},
+];
+
+const NG_CATS=[...new Set(NURSING_GUIDE.map(g=>g.cat))];
+
+function renderNursingGuide(){
+  const search=(document.getElementById('ng-search')?.value||'').toLowerCase();
+  const cat=document.getElementById('ng-cat-filter')?.value||'';
+  // Populate category filter
+  const cf=document.getElementById('ng-cat-filter');
+  if(cf&&cf.options.length<=1){
+    NG_CATS.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;cf.appendChild(o);});
+    if(cat)cf.value=cat;
+  }
+  const filtered=NURSING_GUIDE.filter(g=>{
+    if(cat&&g.cat!==cat)return false;
+    if(search&&!g.name.toLowerCase().includes(search)&&!g.overview.toLowerCase().includes(search)&&!g.steps.some(s=>s.toLowerCase().includes(search)))return false;
+    return true;
+  });
+  const grouped={};
+  filtered.forEach(g=>{if(!grouped[g.cat])grouped[g.cat]=[];grouped[g.cat].push(g);});
+  const catColors={
+    'Vital Signs':'#0891b2','First Aid':'#dc2626','Nursing Procedures':'#7c3aed',
+    'Medication':'#16a34a','Paediatric Nursing':'#db2777','Infection Control':'#d97706'
+  };
+  let html='';
+  if(!filtered.length){html='<div class="emp" style="padding:30px;">No topics found matching your search.</div>';}
+  else{
+    Object.entries(grouped).forEach(([cat,items])=>{
+      const col=catColors[cat]||'#374151';
+      html+=`<div style="margin-bottom:8px;">
+        <div style="background:${col}18;border-left:4px solid ${col};border-radius:5px;padding:6px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px;">
+          <span style="font-weight:800;font-size:13px;color:${col};">${cat}</span>
+          <span style="font-size:11px;color:var(--mu);">${items.length} topic${items.length>1?'s':''}</span>
+        </div>`;
+      items.forEach(g=>{
+        const eid='ng-'+g.name.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+        html+=`<div style="border:1.5px solid var(--bd);border-radius:8px;margin-bottom:6px;overflow:hidden;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 13px;cursor:pointer;background:#fff;" onclick="toggleNgCard('${eid}')">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <span style="font-size:20px;">${g.icon}</span>
+              <span style="font-weight:700;font-size:14px;color:var(--p);">${g.name}</span>
+              <span style="font-size:11px;background:${col}18;color:${col};padding:1px 8px;border-radius:8px;font-weight:600;">${g.cat}</span>
+            </div>
+            <span id="ng-chev-${eid}" style="color:var(--mu);font-size:16px;transition:.2s;">▼</span>
+          </div>
+          <div id="${eid}" style="display:none;border-top:1px solid var(--bd);background:#fafbff;">
+            <div style="padding:10px 14px;background:${col}10;border-bottom:1px solid ${col}30;font-size:13px;color:#1e293b;font-style:italic;">${g.overview}</div>
+            <div style="padding:10px 14px;">
+              <div style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:7px;">Step-by-Step Protocol</div>
+              ${g.steps.map(step=>{
+                const isHeader=step.endsWith(':')&&!step.startsWith(' ')&&!step.startsWith('—')&&!step.startsWith('⚠');
+                const isWarn=step.startsWith('⚠');
+                const isSub=step.startsWith('  ');
+                if(isWarn)return`<div style="background:#fff1f2;border-left:3px solid #dc2626;border-radius:4px;padding:5px 10px;margin:3px 0;font-size:13px;color:#9f1239;">${step}</div>`;
+                if(isHeader)return`<div style="font-weight:700;font-size:13px;color:${col};margin:8px 0 4px;">${step}</div>`;
+                if(isSub)return`<div style="padding:2px 0 2px 16px;font-size:13px;color:#334155;line-height:1.6;">${step.trim()}</div>`;
+                return`<div style="padding:3px 0;font-size:13px;color:#1e293b;line-height:1.6;border-bottom:1px solid #f1f5f9;">${step}</div>`;
+              }).join('')}
+              <div style="margin-top:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:5px;padding:7px 11px;font-size:12px;color:#78350f;">
+                <b>📝 Notes:</b> ${g.notes}
+              </div>
+            </div>
+          </div>
+        </div>`;
+      });
+      html+='</div>';
+    });
+  }
+  const el=document.getElementById('nursing-guide-list');
+  if(el)el.innerHTML=html;
+}
+function toggleNgCard(eid){
+  const el=document.getElementById(eid);
+  const ch=document.getElementById('ng-chev-'+eid);
+  if(!el)return;
+  const isOpen=el.style.display!=='none';
+  el.style.display=isOpen?'none':'block';
+  if(ch)ch.style.transform=isOpen?'':'rotate(180deg)';
 }
 const RAD_TEMPLATES={
   'Chest X-Ray':`CHEST X-RAY REPORT
