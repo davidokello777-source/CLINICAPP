@@ -390,6 +390,14 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- RECEPTION -->
     <section id="sec-reception">
+      <div class="stabs">
+        <button class="st active" onclick="swRec('register',this)">📝 Register</button>
+        <button class="st" onclick="swRec('appointments',this)">📅 Appointments</button>
+        <button class="st" onclick="swRec('sms',this)">📱 SMS/Notify</button>
+      </div>
+
+      <!-- ══ TAB: REGISTER ══ -->
+      <div id="rec-register">
       <!-- Follow-ups Due Panel -->
       <div id="followup-panel" class="card" style="margin-bottom:12px;border-left:4px solid var(--w);display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -452,8 +460,117 @@ document.addEventListener("DOMContentLoaded", function(){
         <table id="table-pats"></table>
       </div>
     
+      </div><!-- /rec-register -->
+
+      <!-- ══ TAB: APPOINTMENTS ══ -->
+      <div id="rec-appointments" style="display:none;">
+        <div class="card" style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+            <h3 style="margin:0;color:var(--p);">📅 Appointment Book</h3>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+              <input type="date" id="appt-date-filter" onchange="renderAppointments()" style="margin:0;font-size:13px;">
+              <button onclick="oApptModal()" class="bp" style="font-size:13px;">+ Book Appointment</button>
+            </div>
+          </div>
+          <div class="g2" style="margin-bottom:14px;">
+            <div style="background:#eff6ff;border-radius:8px;padding:10px 14px;text-align:center;">
+              <div id="appt-stat-today" style="font-size:28px;font-weight:800;color:var(--p);">0</div>
+              <div style="font-size:12px;color:var(--mu);">Today's Appointments</div>
+            </div>
+            <div style="background:#f0fdf4;border-radius:8px;padding:10px 14px;text-align:center;">
+              <div id="appt-stat-pending" style="font-size:28px;font-weight:800;color:#16a34a;">0</div>
+              <div style="font-size:12px;color:var(--mu);">Pending / Upcoming</div>
+            </div>
+          </div>
+          <table id="table-appointments" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- ══ TAB: SMS / NOTIFY ══ -->
+      <div id="rec-sms" style="display:none;">
+        <div class="card" style="margin-bottom:12px;">
+          <h3 style="margin:0 0 4px;color:var(--p);">📱 SMS & WhatsApp Notifications</h3>
+          <p style="font-size:12px;color:var(--mu);margin:0 0 14px;">Configure your SMS gateway. Africa's Talking is recommended for East/West Africa. Twilio works globally.</p>
+          <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
+            <h4 style="margin:0 0 10px;color:var(--p);">⚙️ SMS Gateway Settings</h4>
+            <div class="g2">
+              <div><label>Provider</label>
+                <select id="sms-provider" style="margin:0;" onchange="toggleSmsProvider()">
+                  <option value="">— Not Configured —</option>
+                  <option value="africastalking">Africa's Talking</option>
+                  <option value="twilio">Twilio</option>
+                  <option value="whatsapp">WhatsApp Business API</option>
+                  <option value="manual">Manual (Copy & Send)</option>
+                </select>
+              </div>
+              <div><label>Sender Name / Number</label><input id="sms-sender" placeholder="e.g. TaliMedicals or +256700000000"></div>
+            </div>
+            <div id="sms-at-fields">
+              <div class="g2">
+                <div><label>API Username</label><input id="sms-at-user" placeholder="Africa's Talking username"></div>
+                <div><label>API Key</label><input id="sms-at-key" placeholder="Africa's Talking API Key" type="password"></div>
+              </div>
+            </div>
+            <div id="sms-twilio-fields" style="display:none;">
+              <div class="g2">
+                <div><label>Account SID</label><input id="sms-twilio-sid" placeholder="Twilio Account SID"></div>
+                <div><label>Auth Token</label><input id="sms-twilio-token" placeholder="Twilio Auth Token" type="password"></div>
+              </div>
+            </div>
+            <div class="ab"><button onclick="saveSmsSettings()" class="ba">💾 Save SMS Settings</button>
+            <button onclick="testSms()" class="bo">🔔 Send Test SMS</button></div>
+          </div>
+          <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
+            <h4 style="margin:0 0 8px;color:#166534;">📋 Notification Templates</h4>
+            <div style="margin-bottom:10px;"><label>Appointment Reminder (sent 24h before)</label>
+              <textarea id="sms-tpl-appt" rows="3" style="font-size:12px;" placeholder="Dear {name}, your appointment at Tali Medicals on {date} at {time} is confirmed. Call us on {phone} for any changes."></textarea>
+            </div>
+            <div style="margin-bottom:10px;"><label>Lab Results Ready</label>
+              <textarea id="sms-tpl-lab" rows="2" style="font-size:12px;" placeholder="Dear {name}, your lab results are ready. Please visit Tali Medicals to collect. Call {phone} for queries."></textarea>
+            </div>
+            <div style="margin-bottom:10px;"><label>Prescription Ready</label>
+              <textarea id="sms-tpl-rx" rows="2" style="font-size:12px;" placeholder="Dear {name}, your prescription is ready at the Tali Medicals pharmacy. Hours: {hours}. Call {phone}."></textarea>
+            </div>
+            <div style="margin-bottom:10px;"><label>Follow-up Reminder</label>
+              <textarea id="sms-tpl-followup" rows="2" style="font-size:12px;" placeholder="Dear {name}, a reminder: your follow-up appointment at Tali Medicals is on {date}. Call {phone} if you need to reschedule."></textarea>
+            </div>
+            <div class="ab"><button onclick="saveSmsTemplates()" class="ba">💾 Save Templates</button></div>
+          </div>
+          <div class="card" style="padding:10px;">
+            <h4 style="margin:0 0 8px;color:var(--p);">📤 Send Manual Notification</h4>
+            <div class="g2">
+              <div><label>Patient</label>
+                <select id="sms-manual-patient" style="margin:0;font-size:13px;">
+                  <option value="">— Select patient —</option>
+                </select>
+              </div>
+              <div><label>Message Type</label>
+                <select id="sms-manual-type" style="margin:0;font-size:13px;" onchange="previewSmsMsg()">
+                  <option value="custom">Custom Message</option>
+                  <option value="appt">Appointment Reminder</option>
+                  <option value="lab">Lab Results Ready</option>
+                  <option value="rx">Prescription Ready</option>
+                  <option value="followup">Follow-up Reminder</option>
+                </select>
+              </div>
+            </div>
+            <label>Message</label>
+            <textarea id="sms-manual-msg" rows="3" placeholder="Type message or select a template type above..."></textarea>
+            <div id="sms-manual-preview" style="font-size:11px;color:var(--mu);margin-bottom:8px;"></div>
+            <div class="ab">
+              <button onclick="sendManualSms()" class="bp">📤 Send Message</button>
+              <button onclick="previewSmsMsg()" class="bo">👁 Preview</button>
+            </div>
+          </div>
+          <div class="card" style="padding:10px;margin-top:12px;">
+            <h4 style="margin:0 0 8px;color:var(--p);">📜 Message Log</h4>
+            <table id="table-sms-log" style="font-size:12px;"></table>
+          </div>
+        </div>
+      </div>
+
       <!-- DIRECTOR: Records Management Panel -->
-      <div class="card" style="margin-top:16px;">
+      <div id="rec-records" class="card" style="margin-top:12px;display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
           <h4 style="color:var(--d);margin:0;">🗑️ Records Management <span style="font-size:11px;font-weight:400;color:var(--mu);">(Director Only)</span></h4>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
@@ -578,6 +695,7 @@ document.addEventListener("DOMContentLoaded", function(){
     <section id="sec-doctor">
       <div class="stabs">
         <button class="st active" onclick="swDoc('queue',this)">📋 Queue</button>
+        <button class="st" onclick="swDoc('appointments',this)">📅 My Schedule</button>
         <button class="st" onclick="swDoc('allpats',this)">📁 All Patients</button>
         <button class="st" onclick="swDoc('reg',this)">➕ Register</button>
         <button class="st" onclick="swDoc('dxguide',this)">📖 Dx Guide</button>
@@ -745,6 +863,19 @@ document.addEventListener("DOMContentLoaded", function(){
           <div id="dx-guide-list"></div>
         </div>
       </div>
+      <!-- Doctor: My Schedule -->
+      <div id="doc-appointments" style="display:none;">
+        <div class="card" style="padding:12px 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+            <h3 style="margin:0;color:var(--p);">📅 My Appointment Schedule</h3>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input type="date" id="doc-appt-date" onchange="renderDocAppointments()" style="margin:0;font-size:13px;">
+              <button onclick="document.getElementById('doc-appt-date').value=new Date().toISOString().split('T')[0];renderDocAppointments();" class="bsm bo">Today</button>
+            </div>
+          </div>
+          <table id="table-doc-appointments" style="font-size:13px;"></table>
+        </div>
+      </div>
     </section>
 
     <!-- BILLING -->
@@ -874,36 +1005,6 @@ document.addEventListener("DOMContentLoaded", function(){
         <button class="st" onclick="swInv('expiry',this)">⚠ Near Expiry</button>
       </div>
       <div class="card" style="padding:9px;"><table id="table-inv"></table></div>
-      <div id="inv-add-modal" class="mo">
-        <div class="mb" style="max-width:520px;">
-          <button class="mc" onclick="cModal('inv-add-modal')">✕</button>
-          <h3 id="inv-modal-title" style="color:var(--p);margin-bottom:11px;">Add / Restock Item</h3>
-          <input type="hidden" id="invEditId">
-          <label>Item Name *</label><input id="invName" placeholder="e.g. Amoxicillin 500mg">
-          <div class="g3">
-            <div><label>Category</label><select id="invCat"><option>Medication</option><option>Consumable</option><option>Equipment</option><option>Reagent</option></select></div>
-            <div><label>Inventory Section</label><select id="invSection"><option value="general">General Pharmacy</option><option value="lab">Lab Supplies</option><option value="ent">ENT Supplies</option><option value="dental">Dental Supplies</option></select></div>
-            <div><label>Drug Class</label><select id="invClass"><option>Antibiotic</option><option>Analgesic</option><option>Analgesic/NSAID</option><option>Opioid Analgesic</option><option>Antimalarial</option><option>Antihypertensive</option><option>Antidiabetic</option><option>Antiparasitic</option><option>Antifungal</option><option>Antiretroviral</option><option>CNS/Neurological</option><option>Cardiovascular</option><option>Cardiovascular/Diuretic</option><option>Corticosteroid</option><option>Gastrointestinal</option><option>Respiratory</option><option>Vitamins &amp; Minerals</option><option>Hormones &amp; Steroids</option><option>IV Fluids &amp; Electrolytes</option><option>Dermatological</option><option>Ophthalmological</option><option>Consumable</option><option>Other</option></select></div>
-          </div>
-          <div class="g2">
-            <div><label>Formulation</label><select id="invForm"><option>Tablet</option><option>Capsule</option><option>Syrup</option><option>Suspension</option><option>Injection (IV)</option><option>Injection (IM)</option><option>Injection (SC)</option><option>IV Fluid</option><option>Cream</option><option>Ointment</option><option>Drops</option><option>Eye Drops</option><option>Ear Drops</option><option>Inhaler</option><option>Suppository</option><option>Powder</option><option>Solution</option><option>Patch</option><option>N/A</option></select></div>
-            <div><label>Strength / Concentration</label><input id="invStrength" placeholder="e.g. 500mg, 125mg/5ml"></div>
-          </div>
-          <div class="g2">
-            <div><label>Unit Price ($) *</label><input type="number" id="invPrice" placeholder="0.00" step="0.01" min="0"></div>
-            <div><label>Reorder Level</label><input type="number" id="invReorder" placeholder="10" min="0"></div>
-          </div>
-          <div class="g2">
-            <div><label>Add Stock Qty</label><input type="number" id="invQty" placeholder="0" min="0"></div>
-            <div><label>Unit</label><select id="invUnit"><option>Tablets</option><option>Capsules</option><option>Vials</option><option>Ampoules</option><option>Bottles</option><option>Sachets</option><option>Strips</option><option>Bags</option><option>Tubes</option><option>Inhalers</option><option>Boxes</option><option>Units</option></select></div>
-          </div>
-          <div class="g2"><div><label>Batch No.</label><input id="invBatch" placeholder="Optional"></div><div><label>Expiry Date</label><input type="month" id="invExpiry"></div></div>
-          <label>Supplier (Link to Supplier)</label>
-          <select id="invSupplierLink" style="margin-bottom:4px;"><option value="">— Not linked to a supplier —</option></select>
-          <input id="invSupplier" placeholder="Or type free-text supplier name (optional)">
-          <div class="ab"><button onclick="saveInvItem()" class="ba">Save</button><button onclick="cModal('inv-add-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
-        </div>
-      </div>
     </section>
 
     <!-- EXPENSES -->
@@ -1075,57 +1176,6 @@ document.addEventListener("DOMContentLoaded", function(){
         <table id="rad-procs-editor-table" style="font-size:13px;"></table>
       </div>
 
-      <div id="staff-modal" class="mo">
-        <div class="mb" style="max-width:560px;">
-          <button class="mc" onclick="cModal('staff-modal')">✕</button>
-          <h3 id="staff-modal-title" style="color:var(--p);margin-bottom:11px;"></h3>
-          <input type="hidden" id="staffEid">
-
-          <!-- ROLE SELECTOR -->
-          <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:10px 13px;margin-bottom:12px;">
-            <label style="margin:0 0 5px;font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;">Staff Role *</label>
-            <select id="staffRolePreset" onchange="applyRolePreset()" style="margin:0 0 5px;font-size:13px;font-weight:600;">
-              <option value="">— Select a role —</option>
-            </select>
-            <div id="role-desc" style="font-size:12px;color:var(--mu);font-style:italic;min-height:15px;"></div>
-          </div>
-
-          <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:7px;">Basic Info</p>
-          <div class="g2"><div><label>Full Name *</label><input id="staffName" placeholder="e.g. Dr. John Smith"></div><div><label>Username *</label><input id="staffUser" placeholder="login username"></div></div>
-          <label>Password *</label><input type="password" id="staffPass">
-          <div class="g2"><div><label>Role / Position (display)</label><input id="staffRole" placeholder="e.g. Senior Nurse, Pharmacist"></div><div><label>Employee / Staff ID</label><input id="staffEmpId" placeholder="e.g. EMP-001"></div></div>
-          <div class="g2"><div><label>Gender</label><select id="staffGender"><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select></div><div><label>Date of Birth</label><input type="date" id="staffDOB"></div></div>
-          <div class="g2"><div><label>Phone</label><input id="staffPhone" placeholder="e.g. +256 700 000000"></div><div><label>Email</label><input type="email" id="staffEmail" placeholder="staff@email.com"></div></div>
-          <label>Address</label><input id="staffAddress" placeholder="Home address">
-          <div class="g2"><div><label>Emergency Contact Name</label><input id="staffECName" placeholder="Next of kin name"></div><div><label>Emergency Contact Phone</label><input id="staffECPhone" placeholder="Emergency phone"></div></div>
-          <div class="g2"><div><label>Date Joined</label><input type="date" id="staffJoined"></div><div><label>National ID / Passport</label><input id="staffNatId" placeholder="ID number"></div></div>
-          <div class="g2">
-            <div><label>Shift</label>
-              <select id="staffShift" style="margin:0;">
-                <option value="">Not Assigned</option>
-                <option value="Morning (7am–3pm)">Morning (7am–3pm)</option>
-                <option value="Afternoon (3pm–10pm)">Afternoon (3pm–10pm)</option>
-                <option value="Night (10pm–7am)">Night (10pm–7am)</option>
-                <option value="Day (8am–5pm)">Day (8am–5pm)</option>
-                <option value="On Call">On Call</option>
-              </select>
-            </div>
-            <div><label>Account Status</label>
-              <select id="staffAccountStatus" style="margin:0;">
-                <option value="Active">Active</option>
-                <option value="Suspended">Suspended</option>
-                <option value="On Leave">On Leave</option>
-              </select>
-            </div>
-          </div>
-          <div style="margin-top:6px;"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;text-transform:none;font-size:13px;"><input type="checkbox" id="staffForcePwd" style="width:auto;margin:0;"> Force password change on next login</label></div>
-          <hr class="dv">
-          <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:4px;">Section Access <span style="font-weight:400;font-style:italic;text-transform:none;">(auto-set by role — override if needed)</span></p>
-          <div id="sec-checks" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px;"></div>
-          <div style="margin-top:4px;"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;text-transform:none;font-size:13px;"><input type="checkbox" id="staffAdmin" style="width:auto;margin:0;" onchange="syncAdminCheck()"> Grant full Admin / Director access</label></div>
-          <div class="ab"><button onclick="saveStaff()" class="bp">💾 Save Staff</button><button onclick="cModal('staff-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
-        </div>
-      </div>
       <!-- Admin: Nursing Procedures Editor -->
       <div style="display:flex;justify-content:space-between;align-items:center;margin:18px 0 10px;flex-wrap:wrap;gap:7px;">
         <div>
@@ -2642,9 +2692,15 @@ function swDoc(tab,btn){
   document.getElementById('doc-allpats').style.display=tab==='allpats'?'block':'none';
   document.getElementById('doc-reg').style.display=tab==='reg'?'block':'none';
   document.getElementById('doc-dxguide').style.display=tab==='dxguide'?'block':'none';
+  document.getElementById('doc-appointments').style.display=tab==='appointments'?'block':'none';
   if(tab==='reg')injectReg('doc-reg');
   if(tab==='allpats')renderAllPats();
   if(tab==='dxguide')renderDxGuide();
+  if(tab==='appointments'){
+    const el=document.getElementById('doc-appt-date');
+    if(el&&!el.value)el.value=new Date().toISOString().split('T')[0];
+    renderDocAppointments();
+  }
 }
 
 function renderCons(){
@@ -7489,6 +7545,466 @@ async function sendChat(){
       body:JSON.stringify(d)});
   }catch(e){ console.warn('Chat save failed',e); }
 }
+
+// ══════════════════════════════════════════════
+//  RECEPTION TAB SWITCHER
+// ══════════════════════════════════════════════
+function swRec(tab,btn){
+  document.querySelectorAll('#sec-reception .stabs .st').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.getElementById('rec-register').style.display=tab==='register'?'block':'none';
+  document.getElementById('rec-appointments').style.display=tab==='appointments'?'block':'none';
+  document.getElementById('rec-sms').style.display=tab==='sms'?'block':'none';
+  // Show records panel only on register tab
+  const rr=document.getElementById('rec-records');
+  if(rr)rr.style.display=tab==='register'?'block':'none';
+  if(tab==='appointments'){
+    const d=document.getElementById('appt-date-filter');
+    if(d&&!d.value)d.value=new Date().toISOString().split('T')[0];
+    renderAppointments();
+  }
+  if(tab==='sms'){loadSmsSettings();renderSmsLog();populateSmsPatientList();}
+}
+
+// ══════════════════════════════════════════════
+//  APPOINTMENTS SYSTEM
+// ══════════════════════════════════════════════
+let appointments=[];
+function _loadAppointments(){
+  try{appointments=JSON.parse(localStorage.getItem('tali_appointments')||'[]');}catch(e){appointments=[];}
+}
+function _saveAppointments(){
+  localStorage.setItem('tali_appointments',JSON.stringify(appointments));
+}
+function oApptModal(id){
+  _loadAppointments();
+  const a=id?appointments.find(x=>x.id===id):null;
+  // Populate patient dropdown
+  const sel=document.getElementById('apptPatient');
+  sel.innerHTML='<option value="">— Select patient —</option>'+
+    patients.slice().sort((a,b)=>a.name.localeCompare(b.name))
+    .map(p=>`<option value="${p.id}" ${a&&a.patId===p.id?'selected':''}>${p.name}</option>`).join('');
+  // Populate doctor dropdown
+  const dsel=document.getElementById('apptDoctor');
+  const docs=staffList.filter(s=>s.sections&&s.sections.includes('doctor'));
+  dsel.innerHTML='<option value="">— Any available —</option>'+
+    docs.map(d=>`<option value="${d.id}" ${a&&a.doctorId===d.id?'selected':''}>${d.name}</option>`).join('');
+  document.getElementById('apptEditId').value=a?a.id:'';
+  document.getElementById('apptDate').value=a?a.date:new Date().toISOString().split('T')[0];
+  document.getElementById('apptTime').value=a?a.time:'08:00';
+  document.getElementById('apptType').value=a?a.type:'General';
+  document.getElementById('apptDuration').value=a?a.duration:30;
+  document.getElementById('apptPriority').value=a?a.priority:'Normal';
+  document.getElementById('apptNotes').value=a?a.notes:'';
+  document.getElementById('apptPatientName').value=a?a.patientName:'';
+  document.getElementById('apptSendSms').checked=false;
+  document.getElementById('appt-modal-title').textContent=a?'Edit Appointment':'📅 Book Appointment';
+  oModal('appt-modal');
+}
+function saveAppointment(){
+  _loadAppointments();
+  const eid=document.getElementById('apptEditId').value;
+  const patId=document.getElementById('apptPatient').value;
+  const patientName=patId?(patients.find(p=>p.id===patId)||{}).name||'':
+    document.getElementById('apptPatientName').value.trim();
+  if(!patientName)return alert('Please select a patient or enter a name.');
+  const date=document.getElementById('apptDate').value;
+  const time=document.getElementById('apptTime').value;
+  if(!date||!time)return alert('Date and time are required.');
+  const doctorId=document.getElementById('apptDoctor').value;
+  const doctorName=doctorId?(staffList.find(s=>s.id===doctorId)||{}).name||'Any':'Any';
+  const appt={
+    id:eid||'APT-'+Date.now().toString().slice(-7),
+    patId,patientName,date,time,
+    type:document.getElementById('apptType').value,
+    duration:parseInt(document.getElementById('apptDuration').value)||30,
+    priority:document.getElementById('apptPriority').value,
+    notes:document.getElementById('apptNotes').value.trim(),
+    doctorId,doctorName,
+    status:'Scheduled',
+    createdBy:currentUser?.name||'Staff',
+    createdAt:new Date().toISOString()
+  };
+  if(eid){const idx=appointments.findIndex(a=>a.id===eid);if(idx>-1)appointments[idx]=appt;}
+  else appointments.push(appt);
+  _saveAppointments();
+  cModal('appt-modal');
+  // Send SMS confirmation if checked
+  if(document.getElementById('apptSendSms').checked){
+    const p=patients.find(x=>x.id===patId);
+    if(p&&p.phone){
+      const tpl=_getSmsTemplate('appt');
+      const msg=_fillSmsTemplate(tpl,{name:patientName,date,time,phone:_getSmsSettings().sender||''});
+      _logSms(patientName,p.phone,'Appointment Confirmation',msg,'Auto');
+    }
+  }
+  renderAppointments();
+  alert(`Appointment saved for ${patientName} on ${date} at ${time}.`);
+}
+function renderAppointments(){
+  _loadAppointments();
+  const dateFilter=document.getElementById('appt-date-filter')?.value||'';
+  let appts=appointments.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
+  if(dateFilter)appts=appts.filter(a=>a.date===dateFilter);
+  const today=new Date().toISOString().split('T')[0];
+  const todayCount=appointments.filter(a=>a.date===today).length;
+  const pendingCount=appointments.filter(a=>a.status==='Scheduled'&&a.date>=today).length;
+  const s1=document.getElementById('appt-stat-today');const s2=document.getElementById('appt-stat-pending');
+  if(s1)s1.textContent=todayCount;if(s2)s2.textContent=pendingCount;
+  const priorityStyle={Urgent:'#dc2626',Normal:'#16a34a','Follow-up':'#0891b2','First Visit':'#7c3aed'};
+  const statusStyle={Scheduled:'#0891b2',Arrived:'#16a34a',Completed:'#6b7280',Cancelled:'#dc2626','No Show':'#d97706'};
+  let h=`<tr><th>Patient</th><th>Date</th><th>Time</th><th>Clinic</th><th>Doctor</th><th>Priority</th><th>Status</th><th>Actions</th></tr>`;
+  if(!appts.length)h+=`<tr><td colspan="8" class="emp">No appointments found. <button onclick="oApptModal()" class="bsm ba" style="margin-left:8px;">+ Book Now</button></td></tr>`;
+  appts.forEach(a=>{
+    const isToday=a.date===today;
+    const pc=priorityStyle[a.priority]||'#6b7280';
+    const sc=statusStyle[a.status]||'#6b7280';
+    h+=`<tr style="${isToday?'background:#fffbeb;':''}">
+      <td><b>${a.patientName}</b>${isToday?'<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:0 5px;border-radius:5px;margin-left:4px;">Today</span>':''}</td>
+      <td style="font-size:12px;">${a.date}</td>
+      <td style="font-weight:700;color:var(--p);">${a.time}</td>
+      <td style="font-size:12px;">${a.type}</td>
+      <td style="font-size:12px;color:var(--mu);">${a.doctorName||'Any'}</td>
+      <td><span style="background:${pc}22;color:${pc};padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;">${a.priority}</span></td>
+      <td><span style="background:${sc}22;color:${sc};padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;">${a.status}</span></td>
+      <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
+        <button class="bsm bo" onclick="oApptModal('${a.id}')">Edit</button>
+        <button class="bsm" style="background:#16a34a22;color:#16a34a;" onclick="updateApptStatus('${a.id}','Arrived')">✓ Arrived</button>
+        <button class="bsm" style="background:#6b728022;color:#6b7280;" onclick="updateApptStatus('${a.id}','Cancelled')">✕ Cancel</button>
+        <button class="bsm" style="background:#0891b222;color:#0891b2;" onclick="sendApptReminder('${a.id}')">📱 SMS</button>
+      </div></td>
+    </tr>`;
+  });
+  const el=document.getElementById('table-appointments');
+  if(el)el.innerHTML=h;
+}
+function updateApptStatus(id,status){
+  _loadAppointments();
+  const a=appointments.find(x=>x.id===id);
+  if(!a)return;
+  if(!confirm(`Mark appointment for ${a.patientName} as "${status}"?`))return;
+  a.status=status;
+  _saveAppointments();
+  renderAppointments();
+}
+function renderDocAppointments(){
+  _loadAppointments();
+  const dateVal=document.getElementById('doc-appt-date')?.value||new Date().toISOString().split('T')[0];
+  const doc=currentUser;
+  let appts=appointments.filter(a=>a.date===dateVal);
+  if(doc&&!doc.isAdmin)appts=appts.filter(a=>!a.doctorId||a.doctorId===doc.id);
+  appts.sort((a,b)=>a.time.localeCompare(b.time));
+  const statusStyle={Scheduled:'#0891b2',Arrived:'#16a34a',Completed:'#6b7280',Cancelled:'#dc2626','No Show':'#d97706'};
+  let h=`<tr><th>Time</th><th>Patient</th><th>Clinic</th><th>Duration</th><th>Notes</th><th>Status</th><th>Action</th></tr>`;
+  if(!appts.length)h+=`<tr><td colspan="7" class="emp">No appointments for this date.</td></tr>`;
+  appts.forEach(a=>{
+    const sc=statusStyle[a.status]||'#6b7280';
+    h+=`<tr>
+      <td style="font-weight:800;color:var(--p);font-size:15px;">${a.time}</td>
+      <td><b>${a.patientName}</b></td>
+      <td style="font-size:12px;">${a.type}</td>
+      <td style="font-size:12px;color:var(--mu);">${a.duration} min</td>
+      <td style="font-size:12px;color:var(--mu);">${a.notes||'—'}</td>
+      <td><span style="background:${sc}22;color:${sc};padding:1px 8px;border-radius:8px;font-size:11px;font-weight:700;">${a.status}</span></td>
+      <td><button class="bsm ba" onclick="updateApptStatus('${a.id}','Completed')">✓ Done</button></td>
+    </tr>`;
+  });
+  const el=document.getElementById('table-doc-appointments');
+  if(el)el.innerHTML=h;
+}
+function sendApptReminder(id){
+  _loadAppointments();
+  const a=appointments.find(x=>x.id===id);if(!a)return;
+  const p=patients.find(x=>x.id===a.patId);
+  const phone=p?.phone||'';
+  if(!phone){alert(`No phone number on record for ${a.patientName}. Cannot send SMS.`);return;}
+  const tpl=_getSmsTemplate('appt');
+  const msg=_fillSmsTemplate(tpl,{name:a.patientName,date:a.date,time:a.time,phone:_getSmsSettings().sender||''});
+  _sendSms(phone,msg,a.patientName,'Appointment Reminder');
+}
+
+// ══════════════════════════════════════════════
+//  SMS / WHATSAPP NOTIFICATION SYSTEM
+// ══════════════════════════════════════════════
+function _getSmsSettings(){
+  try{return JSON.parse(localStorage.getItem('tali_sms_settings')||'{}');}catch(e){return{};}
+}
+function _getSmsTemplates(){
+  const def={
+    appt:'Dear {name}, your appointment at Tali Medicals on {date} at {time} is confirmed. Call {phone} for changes.',
+    lab:'Dear {name}, your lab results are ready. Please visit Tali Medicals to collect. Call {phone} for queries.',
+    rx:'Dear {name}, your prescription is ready at the Tali Medicals pharmacy. Call {phone} for assistance.',
+    followup:'Dear {name}, a reminder: your follow-up at Tali Medicals is on {date}. Call {phone} to reschedule.'
+  };
+  try{return {...def,...JSON.parse(localStorage.getItem('tali_sms_templates')||'{}')};}catch(e){return def;}
+}
+function _getSmsTemplate(type){return _getSmsTemplates()[type]||'';}
+function _fillSmsTemplate(tpl,vars){
+  return tpl.replace(/\{(\w+)\}/g,(_,k)=>vars[k]||'');
+}
+function _logSms(patientName,phone,type,msg,sentBy){
+  const log=JSON.parse(localStorage.getItem('tali_sms_log')||'[]');
+  log.unshift({id:'SMS-'+Date.now(),patientName,phone,type,msg,sentBy,time:new Date().toLocaleString(),status:'Sent'});
+  if(log.length>200)log.pop();
+  localStorage.setItem('tali_sms_log',JSON.stringify(log));
+}
+function saveSmsSettings(){
+  const s={
+    provider:document.getElementById('sms-provider')?.value||'',
+    sender:document.getElementById('sms-sender')?.value.trim()||'',
+    atUser:document.getElementById('sms-at-user')?.value.trim()||'',
+    atKey:document.getElementById('sms-at-key')?.value.trim()||'',
+    twilioSid:document.getElementById('sms-twilio-sid')?.value.trim()||'',
+    twilioToken:document.getElementById('sms-twilio-token')?.value.trim()||''
+  };
+  localStorage.setItem('tali_sms_settings',JSON.stringify(s));
+  alert('SMS settings saved.');
+}
+function loadSmsSettings(){
+  const s=_getSmsSettings();const t=_getSmsTemplates();
+  const f=id=>document.getElementById(id);
+  if(f('sms-provider'))f('sms-provider').value=s.provider||'';
+  if(f('sms-sender'))f('sms-sender').value=s.sender||'';
+  if(f('sms-at-user'))f('sms-at-user').value=s.atUser||'';
+  if(f('sms-at-key'))f('sms-at-key').value=s.atKey||'';
+  if(f('sms-twilio-sid'))f('sms-twilio-sid').value=s.twilioSid||'';
+  if(f('sms-twilio-token'))f('sms-twilio-token').value=s.twilioToken||'';
+  if(f('sms-tpl-appt'))f('sms-tpl-appt').value=t.appt||'';
+  if(f('sms-tpl-lab'))f('sms-tpl-lab').value=t.lab||'';
+  if(f('sms-tpl-rx'))f('sms-tpl-rx').value=t.rx||'';
+  if(f('sms-tpl-followup'))f('sms-tpl-followup').value=t.followup||'';
+  toggleSmsProvider();
+}
+function saveSmsTemplates(){
+  const t={
+    appt:document.getElementById('sms-tpl-appt')?.value||'',
+    lab:document.getElementById('sms-tpl-lab')?.value||'',
+    rx:document.getElementById('sms-tpl-rx')?.value||'',
+    followup:document.getElementById('sms-tpl-followup')?.value||''
+  };
+  localStorage.setItem('tali_sms_templates',JSON.stringify(t));
+  alert('SMS templates saved.');
+}
+function toggleSmsProvider(){
+  const p=document.getElementById('sms-provider')?.value||'';
+  const atF=document.getElementById('sms-at-fields');
+  const twF=document.getElementById('sms-twilio-fields');
+  if(atF)atF.style.display=p==='africastalking'?'block':'none';
+  if(twF)twF.style.display=p==='twilio'?'block':'none';
+}
+function populateSmsPatientList(){
+  const sel=document.getElementById('sms-manual-patient');
+  if(!sel)return;
+  sel.innerHTML='<option value="">— Select patient —</option>'+
+    patients.slice().sort((a,b)=>a.name.localeCompare(b.name))
+    .map(p=>`<option value="${p.id}">${p.name} ${p.phone?'('+p.phone+')':''}</option>`).join('');
+}
+function previewSmsMsg(){
+  const patId=document.getElementById('sms-manual-patient')?.value||'';
+  const type=document.getElementById('sms-manual-type')?.value||'custom';
+  const p=patients.find(x=>x.id===patId);
+  if(type!=='custom'){
+    const tpl=_getSmsTemplate(type);
+    const msg=_fillSmsTemplate(tpl,{
+      name:p?.name||'Patient',date:new Date().toLocaleDateString(),
+      time:'',phone:_getSmsSettings().sender||''
+    });
+    const ta=document.getElementById('sms-manual-msg');
+    if(ta)ta.value=msg;
+  }
+  const msg=document.getElementById('sms-manual-msg')?.value||'';
+  const prev=document.getElementById('sms-manual-preview');
+  if(prev)prev.textContent=`${msg.length} characters${msg.length>160?' (will split into '+(Math.ceil(msg.length/160))+' SMS parts)':''}`;
+}
+function sendManualSms(){
+  const patId=document.getElementById('sms-manual-patient')?.value||'';
+  const msg=(document.getElementById('sms-manual-msg')?.value||'').trim();
+  if(!patId)return alert('Select a patient.');
+  if(!msg)return alert('Enter a message.');
+  const p=patients.find(x=>x.id===patId);
+  if(!p||!p.phone){alert('No phone number on record for this patient.');return;}
+  const type=document.getElementById('sms-manual-type')?.value||'custom';
+  _sendSms(p.phone,msg,p.name,type);
+}
+async function _sendSms(phone,msg,patientName,type){
+  const s=_getSmsSettings();
+  let success=false;let statusMsg='';
+  if(s.provider==='africastalking'&&s.atUser&&s.atKey){
+    try{
+      // Africa's Talking API
+      const resp=await fetch('https://api.africastalking.com/version1/messaging',{
+        method:'POST',
+        headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded',
+          'apiKey':s.atKey,'username':s.atUser},
+        body:`username=${encodeURIComponent(s.atUser)}&to=${encodeURIComponent(phone)}&message=${encodeURIComponent(msg)}${s.sender?'&from='+encodeURIComponent(s.sender):''}`
+      });
+      const d=await resp.json();
+      success=d?.SMSMessageData?.Recipients?.[0]?.status==='Success';
+      statusMsg=success?'Sent via Africa\'s Talking':'AT Error: '+(d?.SMSMessageData?.Recipients?.[0]?.status||'Unknown');
+    }catch(e){statusMsg='Network error: '+e.message;}
+  } else if(s.provider==='manual'||!s.provider){
+    // Manual mode — show a copy/send dialog
+    success=true;statusMsg='Manual';
+    const wa=phone.replace(/\D/g,'');
+    const waUrl=`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`;
+    if(confirm(`Provider not configured or set to Manual.\n\nMessage to ${patientName} (${phone}):\n\n"${msg}"\n\nClick OK to open WhatsApp, or Cancel to copy the message.`)){
+      window.open(waUrl,'_blank');
+    } else {
+      navigator.clipboard?.writeText(msg).then(()=>alert('Message copied to clipboard.'));
+    }
+  } else {
+    statusMsg='SMS provider not fully configured. Go to SMS Settings tab.';
+    alert(statusMsg);
+  }
+  _logSms(patientName,phone,type,msg,currentUser?.name||'System');
+  renderSmsLog();
+  if(success&&s.provider!=='manual')alert(`✅ SMS sent to ${patientName} (${phone})`);
+}
+function testSms(){
+  const s=_getSmsSettings();
+  if(!s.provider)return alert('Configure a provider in SMS Settings first.');
+  const phone=prompt('Enter a test phone number (with country code, e.g. +256700000000):');
+  if(!phone)return;
+  _sendSms(phone,'This is a test message from Tali Medicals HIMS. Your SMS notifications are working correctly.','Test','Test');
+}
+function renderSmsLog(){
+  const log=JSON.parse(localStorage.getItem('tali_sms_log')||'[]');
+  const el=document.getElementById('table-sms-log');if(!el)return;
+  let h=`<tr><th>Time</th><th>Patient</th><th>Phone</th><th>Type</th><th>Message</th><th>By</th></tr>`;
+  if(!log.length)h+=`<tr><td colspan="6" class="emp">No messages sent yet.</td></tr>`;
+  log.slice(0,50).forEach(l=>{
+    h+=`<tr>
+      <td style="font-size:11px;white-space:nowrap;">${l.time}</td>
+      <td style="font-size:12px;"><b>${l.patientName}</b></td>
+      <td style="font-size:11px;">${l.phone}</td>
+      <td style="font-size:11px;"><span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:8px;">${l.type}</span></td>
+      <td style="font-size:11px;color:var(--mu);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.msg}">${l.msg}</td>
+      <td style="font-size:11px;">${l.sentBy||'—'}</td>
+    </tr>`;
+  });
+  el.innerHTML=h;
+}
+
+// ══════════════════════════════════════════════
+//  DRUG INTERACTION & ALLERGY ALERT (ENHANCED)
+// ══════════════════════════════════════════════
+// Known drug interaction pairs [drug1_keyword, drug2_keyword, severity, description]
+const DRUG_INTERACTIONS=[
+  ['warfarin','aspirin','HIGH','Increased bleeding risk. Avoid combination; monitor INR closely if necessary.'],
+  ['warfarin','ibuprofen','HIGH','Increased bleeding risk and GI haemorrhage. Avoid NSAIDs with warfarin.'],
+  ['warfarin','amoxicillin','MODERATE','Antibiotics can potentiate warfarin effect. Monitor INR.'],
+  ['warfarin','metronidazole','HIGH','Metronidazole markedly increases warfarin effect. Monitor INR closely.'],
+  ['warfarin','fluconazole','HIGH','Fluconazole significantly increases INR. Reduce warfarin dose and monitor.'],
+  ['metformin','alcohol','MODERATE','Increased risk of lactic acidosis. Advise patient to avoid alcohol.'],
+  ['metformin','contrast','HIGH','Hold metformin 48h before/after IV iodinated contrast (renal impairment risk).'],
+  ['digoxin','amiodarone','HIGH','Amiodarone increases digoxin levels. Reduce digoxin dose by 50%. Monitor levels.'],
+  ['digoxin','furosemide','MODERATE','Hypokalaemia from furosemide increases digoxin toxicity risk. Monitor K+.'],
+  ['simvastatin','amiodarone','HIGH','Increased risk of myopathy/rhabdomyolysis. Max simvastatin 20mg with amiodarone.'],
+  ['simvastatin','erythromycin','HIGH','Increased risk of myopathy. Avoid combination or withhold statin.'],
+  ['simvastatin','fluconazole','HIGH','Markedly increased statin levels — myopathy risk. Avoid combination.'],
+  ['ace inhibitor','potassium','MODERATE','ACE inhibitors cause K+ retention. Avoid K+ supplements unless monitored.'],
+  ['lisinopril','potassium','MODERATE','ACE inhibitor — avoid potassium supplements; monitor renal function and K+.'],
+  ['ramipril','potassium','MODERATE','ACE inhibitor — K+ retention risk. Monitor electrolytes.'],
+  ['ssri','tramadol','HIGH','Risk of serotonin syndrome (agitation, hyperthermia, tachycardia). Avoid if possible.'],
+  ['fluoxetine','tramadol','HIGH','Serotonin syndrome risk. Avoid combination.'],
+  ['sertraline','tramadol','HIGH','Serotonin syndrome risk. Avoid combination.'],
+  ['cipro','ciprofloxacin','',null], // skip self
+  ['metronidazole','alcohol','HIGH','Disulfiram-like reaction (flushing, nausea, vomiting). Alcohol strictly avoided for 48h after last dose.'],
+  ['nsaid','antihypertensive','MODERATE','NSAIDs can blunt antihypertensive effect and worsen renal function. Use with caution.'],
+  ['ibuprofen','lisinopril','MODERATE','NSAIDs reduce ACE inhibitor efficacy and may worsen renal function.'],
+  ['aspirin','ibuprofen','MODERATE','Ibuprofen may block aspirin cardioprotective effect. Give aspirin 2h before ibuprofen.'],
+  ['clopidogrel','omeprazole','MODERATE','Omeprazole may reduce clopidogrel efficacy. Use pantoprazole instead.'],
+  ['phenytoin','fluconazole','HIGH','Fluconazole markedly increases phenytoin levels — toxicity risk. Monitor levels.'],
+  ['carbamazepine','macrolide','HIGH','Macrolides inhibit carbamazepine metabolism — toxicity risk. Avoid; monitor levels.'],
+  ['lithium','nsaid','HIGH','NSAIDs increase lithium levels (toxicity). Avoid; monitor lithium levels closely.'],
+  ['lithium','ibuprofen','HIGH','Ibuprofen raises lithium to toxic levels. Use paracetamol instead.'],
+  ['sildenafil','nitrate','HIGH','Severe hypotension — potentially fatal. Absolutely contraindicated together.'],
+  ['morphine','benzodiazepine','HIGH','Additive respiratory depression. Use minimum doses; monitor closely.'],
+  ['morphine','diazepam','HIGH','CNS and respiratory depression — risk of fatal respiratory arrest.'],
+  ['codeine','diazepam','HIGH','Additive CNS depression. Monitor respiratory rate.'],
+  ['cotrimoxazole','methotrexate','HIGH','Cotrimoxazole markedly increases methotrexate toxicity. Avoid combination.'],
+  ['quinolone','antacid','MODERATE','Antacids reduce quinolone absorption. Give quinolone 2h before or 6h after antacids.'],
+  ['tetracycline','antacid','MODERATE','Divalent cations (Ca, Mg) chelate tetracyclines — reduced absorption. Separate by 2h.'],
+  ['tetracycline','iron','MODERATE','Iron significantly reduces tetracycline absorption. Separate doses by 2–3h.'],
+  ['theophylline','ciprofloxacin','HIGH','Ciprofloxacin increases theophylline levels — risk of toxicity (seizures, arrhythmia).'],
+  ['adrenaline','beta blocker','HIGH','Non-selective beta-blockers block adrenaline — risk of severe hypertension.'],
+];
+
+// Drug-allergy cross-reactivity map
+const ALLERGY_CROSS_REACT={
+  'penicillin':['amoxicillin','ampicillin','flucloxacillin','co-amoxiclav','augmentin','piperacillin','pip-tazo'],
+  'amoxicillin':['penicillin','ampicillin','co-amoxiclav','augmentin'],
+  'sulfa':['cotrimoxazole','sulfamethoxazole','trimethoprim','sulfonamide'],
+  'sulfonamide':['cotrimoxazole','sulfamethoxazole'],
+  'nsaid':['ibuprofen','naproxen','diclofenac','mefenamic acid','indomethacin','ketorolac','celecoxib'],
+  'aspirin':['ibuprofen','naproxen','diclofenac','salicylate'],
+  'codeine':['morphine','tramadol','dihydrocodeine','oxycodone'],
+  'morphine':['codeine','tramadol','dihydrocodeine','fentanyl'],
+};
+
+function checkDrugInteractions(v){
+  const rxList=(v.prescriptions||[]).filter(r=>r.name);
+  if(rxList.length<2){
+    const el=document.getElementById('drug-interaction-banner');
+    if(el)el.style.display='none';
+    return;
+  }
+  const rxNames=rxList.map(r=>(r.name+' '+(r.drugClass||'')).toLowerCase());
+  const alerts=[];
+  // Check each pair
+  for(let i=0;i<rxNames.length;i++){
+    for(let j=i+1;j<rxNames.length;j++){
+      DRUG_INTERACTIONS.forEach(([d1,d2,sev,desc])=>{
+        if(!desc)return;
+        const a=rxNames[i];const b=rxNames[j];
+        if((a.includes(d1)&&b.includes(d2))||(a.includes(d2)&&b.includes(d1))){
+          alerts.push({drug1:rxList[i].name,drug2:rxList[j].name,severity:sev,desc});
+        }
+      });
+    }
+  }
+  // Remove duplicates
+  const seen=new Set();
+  const unique=alerts.filter(a=>{const k=a.drug1+'|'+a.drug2;if(seen.has(k))return false;seen.add(k);return true;});
+  let el=document.getElementById('drug-interaction-banner');
+  if(!el){
+    el=document.createElement('div');el.id='drug-interaction-banner';
+    const medList=document.getElementById('med-orders-list');
+    if(medList&&medList.parentNode)medList.parentNode.insertBefore(el,medList);
+  }
+  if(!unique.length){el.style.display='none';return;}
+  const sevColor={'HIGH':'#dc2626','MODERATE':'#d97706','LOW':'#0891b2'};
+  el.style.cssText='display:block;background:#fff1f2;border:2px solid #fecdd3;border-radius:7px;padding:10px 14px;margin-bottom:8px;';
+  el.innerHTML=`<div style="font-weight:800;color:#991b1b;font-size:13px;margin-bottom:6px;">⚡ Drug Interaction Alert${unique.length>1?' ('+unique.length+' interactions)':''}</div>`+
+    unique.map(a=>{
+      const col=sevColor[a.severity]||'#6b7280';
+      return`<div style="background:#fff;border:1px solid ${col}33;border-left:3px solid ${col};border-radius:5px;padding:6px 10px;margin-bottom:5px;font-size:12px;">
+        <span style="font-weight:700;color:${col};">[${a.severity}]</span>
+        <b>${a.drug1}</b> + <b>${a.drug2}</b>: ${a.desc}
+      </div>`;
+    }).join('');
+}
+
+// Override selectDrug to include drug interaction check
+const _origSelectDrug=selectDrug;
+// Patch selectDrug to also run drug interactions check after each new prescription
+const _selectDrugOriginal=window.selectDrug;
+window.selectDrug=function(eName,eStr,eForm,price,eDrugClass){
+  const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  const name=dec(eName);const strength=dec(eStr);const form=dec(eForm);const drugClass=dec(eDrugClass);
+  const rid='Rx-'+Date.now().toString().slice(-6);
+  v.prescriptions=v.prescriptions||[];
+  v.prescriptions.push({id:rid,name,strength,formulation:form,drugClass,price,qty:1,instructions:'Once daily (OD)',duration:'7 days',patientInstructions:'',dispensed:false,dispensedTime:'',dispensedBy:''});
+  medRows.push({id:medRowId++,rxId:rid,locked:false});
+  if(!v.consultFee)v.consultFee=CONSULT_FEE;
+  lg(v,'Prescribed',`${name} ${strength} ${form}`);
+  if((v.prescriptions||[]).length===1)speak(`Attention pharmacy. Prescription ready for patient ${v.name}.`);
+  document.getElementById('med-search').value='';
+  document.getElementById('drug-results').style.display='none';
+  renderMedRows();save();updateOrderSummary(v);
+  checkAllergyAlert(v);
+  checkDrugInteractions(v);
+};
 </script>
 
 <script>
@@ -7779,41 +8295,6 @@ function renderDirRecords(){
           <div id="sup-balance-bar" style="margin-top:10px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:7px;padding:10px 14px;font-size:13px;"></div>
         </div>
       </div>
-      <!-- Add/Edit Supplier Modal -->
-      <div id="sup-add-modal" class="mo">
-        <div class="mb" style="max-width:480px;">
-          <button class="mc" onclick="cModal('sup-add-modal')">✕</button>
-          <h3 id="sup-modal-title" style="color:var(--p);margin-bottom:11px;">Add Supplier</h3>
-          <input type="hidden" id="supEditId">
-          <label>Supplier Name *</label><input id="supName" placeholder="e.g. Kampala Pharma Ltd">
-          <div class="g2">
-            <div><label>Phone *</label><input id="supPhone" placeholder="+256..."></div>
-            <div><label>Email</label><input id="supEmail" placeholder="supplier@email.com"></div>
-          </div>
-          <label>Address</label><input id="supAddress" placeholder="Physical address">
-          <label>Notes</label><textarea id="supNotes" rows="2" placeholder="Any additional info..."></textarea>
-          <div class="ab"><button onclick="saveSupplier()" class="ba">Save</button><button onclick="cModal('sup-add-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
-        </div>
-      </div>
-      <!-- Add PO Modal -->
-      <div id="sup-po-modal" class="mo">
-        <div class="mb" style="max-width:540px;">
-          <button class="mc" onclick="cModal('sup-po-modal')">✕</button>
-          <h3 style="color:var(--p);margin-bottom:11px;">📦 Add Purchase Order / Delivery</h3>
-          <input type="hidden" id="poSupId">
-          <div class="g2">
-            <div><label>Date</label><input type="date" id="poDate"></div>
-            <div><label>Invoice / Reference No.</label><input id="poRef" placeholder="INV-001"></div>
-          </div>
-          <label>Items Description</label><textarea id="poItems" rows="3" placeholder="e.g. Amoxicillin 500mg x200, Paracetamol x500..."></textarea>
-          <div class="g2">
-            <div><label>Total Amount ($)</label><input type="number" id="poAmount" step="0.01" min="0" placeholder="0.00"></div>
-            <div><label>Amount Paid ($)</label><input type="number" id="poPaid" step="0.01" min="0" placeholder="0.00"></div>
-          </div>
-          <label>Notes</label><input id="poNotes" placeholder="Optional notes">
-          <div class="ab"><button onclick="savePO()" class="ba">Save PO</button><button onclick="cModal('sup-po-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
-        </div>
-      </div>
     </section>
   </div><!-- /main-wrap -->
 </div><!-- /app -->
@@ -7841,6 +8322,74 @@ function renderDirRecords(){
 
 
 <!-- PRINT AREA: must be direct child of body for print CSS to work -->
+<!-- ══ APPOINTMENT MODAL ══ -->
+<div id="appt-modal" class="mo">
+  <div class="mb" style="max-width:520px;">
+    <button class="mc" onclick="cModal('appt-modal')">✕</button>
+    <h3 id="appt-modal-title" style="color:var(--p);margin-bottom:12px;">📅 Book Appointment</h3>
+    <input type="hidden" id="apptEditId">
+    <div class="g2">
+      <div><label>Patient *</label>
+        <select id="apptPatient" style="margin:0;font-size:13px;">
+          <option value="">— Select patient —</option>
+        </select>
+      </div>
+      <div><label>Or: Patient Name (new/walk-in)</label><input id="apptPatientName" placeholder="Name if not registered yet"></div>
+    </div>
+    <div class="g2">
+      <div><label>Date *</label><input type="date" id="apptDate"></div>
+      <div><label>Time *</label><input type="time" id="apptTime"></div>
+    </div>
+    <div class="g2">
+      <div><label>Clinic / Type *</label>
+        <select id="apptType" style="margin:0;font-size:13px;">
+          <option value="General">General Consultation</option>
+          <option value="Dental">Dental</option>
+          <option value="ENT">ENT</option>
+          <option value="ANC">Antenatal Care (ANC)</option>
+          <option value="Family Planning">Family Planning</option>
+          <option value="Lab">Laboratory</option>
+          <option value="Radiology">Radiology</option>
+          <option value="Review">Review / Follow-up</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div><label>Doctor / Clinician</label>
+        <select id="apptDoctor" style="margin:0;font-size:13px;">
+          <option value="">— Any available —</option>
+        </select>
+      </div>
+    </div>
+    <div class="g2">
+      <div><label>Duration (minutes)</label>
+        <select id="apptDuration" style="margin:0;font-size:13px;">
+          <option value="15">15 min</option>
+          <option value="20">20 min</option>
+          <option value="30" selected>30 min</option>
+          <option value="45">45 min</option>
+          <option value="60">1 hour</option>
+        </select>
+      </div>
+      <div><label>Priority</label>
+        <select id="apptPriority" style="margin:0;font-size:13px;">
+          <option value="Normal">Normal</option>
+          <option value="Urgent">Urgent</option>
+          <option value="Follow-up">Follow-up</option>
+          <option value="First Visit">First Visit</option>
+        </select>
+      </div>
+    </div>
+    <label>Notes / Reason</label><input id="apptNotes" placeholder="Brief reason for appointment">
+    <label style="display:inline-flex;align-items:center;gap:6px;text-transform:none;font-size:13px;cursor:pointer;margin-top:6px;">
+      <input type="checkbox" id="apptSendSms" style="width:auto;margin:0;"> Send SMS confirmation to patient
+    </label>
+    <div class="ab">
+      <button onclick="saveAppointment()" class="ba">💾 Save Appointment</button>
+      <button onclick="cModal('appt-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div id="pra">
   <div id="pra-sub" style="font-size:11px;color:#64748b;margin-bottom:6px;"></div>
   <div id="pra-con"></div>
@@ -7904,6 +8453,128 @@ function renderDirRecords(){
       <p style="font-style:italic;color:#1e3a8a;">Care with Purpose. Healing with Love.</p>
       <p style="font-size:12px;color:#94a3b8;margin-top:16px;">You may now close this page.</p>
     </div>
+  </div>
+</div>
+
+<!-- ══ SUPPLIER ADD/EDIT MODAL (body-level — moved out of sec-suppliers section to fix visibility bug) ══ -->
+<div id="sup-add-modal" class="mo">
+  <div class="mb" style="max-width:480px;">
+    <button class="mc" onclick="cModal('sup-add-modal')">✕</button>
+    <h3 id="sup-modal-title" style="color:var(--p);margin-bottom:11px;">Add Supplier</h3>
+    <input type="hidden" id="supEditId">
+    <label>Supplier Name *</label><input id="supName" placeholder="e.g. Kampala Pharma Ltd">
+    <div class="g2">
+      <div><label>Phone *</label><input id="supPhone" placeholder="+256..."></div>
+      <div><label>Email</label><input id="supEmail" placeholder="supplier@email.com"></div>
+    </div>
+    <label>Address</label><input id="supAddress" placeholder="Physical address">
+    <label>Notes</label><textarea id="supNotes" rows="2" placeholder="Any additional info..."></textarea>
+    <div class="ab"><button onclick="saveSupplier()" class="ba">Save</button><button onclick="cModal('sup-add-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
+  </div>
+</div>
+
+<!-- ══ SUPPLIER PO MODAL (body-level — moved out of sec-suppliers section to fix visibility bug) ══ -->
+<div id="sup-po-modal" class="mo">
+  <div class="mb" style="max-width:540px;">
+    <button class="mc" onclick="cModal('sup-po-modal')">✕</button>
+    <h3 style="color:var(--p);margin-bottom:11px;">📦 Add Purchase Order / Delivery</h3>
+    <input type="hidden" id="poSupId">
+    <div class="g2">
+      <div><label>Date</label><input type="date" id="poDate"></div>
+      <div><label>Invoice / Reference No.</label><input id="poRef" placeholder="INV-001"></div>
+    </div>
+    <label>Items Description</label><textarea id="poItems" rows="3" placeholder="e.g. Amoxicillin 500mg x200, Paracetamol x500..."></textarea>
+    <div class="g2">
+      <div><label>Total Amount ($)</label><input type="number" id="poAmount" step="0.01" min="0" placeholder="0.00"></div>
+      <div><label>Amount Paid ($)</label><input type="number" id="poPaid" step="0.01" min="0" placeholder="0.00"></div>
+    </div>
+    <label>Notes</label><input id="poNotes" placeholder="Optional notes">
+    <div class="ab"><button onclick="savePO()" class="ba">Save PO</button><button onclick="cModal('sup-po-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
+  </div>
+</div>
+
+<!-- ══ INV ADD MODAL (body-level — moved out of sec-inventory section to fix visibility bug) ══ -->
+<div id="inv-add-modal" class="mo">
+  <div class="mb" style="max-width:520px;">
+    <button class="mc" onclick="cModal('inv-add-modal')">✕</button>
+    <h3 id="inv-modal-title" style="color:var(--p);margin-bottom:11px;">Add / Restock Item</h3>
+    <input type="hidden" id="invEditId">
+    <label>Item Name *</label><input id="invName" placeholder="e.g. Amoxicillin 500mg">
+    <div class="g3">
+      <div><label>Category</label><select id="invCat"><option>Medication</option><option>Consumable</option><option>Equipment</option><option>Reagent</option></select></div>
+      <div><label>Inventory Section</label><select id="invSection"><option value="general">General Pharmacy</option><option value="lab">Lab Supplies</option><option value="ent">ENT Supplies</option><option value="dental">Dental Supplies</option></select></div>
+      <div><label>Drug Class</label><select id="invClass"><option>Antibiotic</option><option>Analgesic</option><option>Analgesic/NSAID</option><option>Opioid Analgesic</option><option>Antimalarial</option><option>Antihypertensive</option><option>Antidiabetic</option><option>Antiparasitic</option><option>Antifungal</option><option>Antiretroviral</option><option>CNS/Neurological</option><option>Cardiovascular</option><option>Cardiovascular/Diuretic</option><option>Corticosteroid</option><option>Gastrointestinal</option><option>Respiratory</option><option>Vitamins &amp; Minerals</option><option>Hormones &amp; Steroids</option><option>IV Fluids &amp; Electrolytes</option><option>Dermatological</option><option>Ophthalmological</option><option>Consumable</option><option>Other</option></select></div>
+    </div>
+    <div class="g2">
+      <div><label>Formulation</label><select id="invForm"><option>Tablet</option><option>Capsule</option><option>Syrup</option><option>Suspension</option><option>Injection (IV)</option><option>Injection (IM)</option><option>Injection (SC)</option><option>IV Fluid</option><option>Cream</option><option>Ointment</option><option>Drops</option><option>Eye Drops</option><option>Ear Drops</option><option>Inhaler</option><option>Suppository</option><option>Powder</option><option>Solution</option><option>Patch</option><option>N/A</option></select></div>
+      <div><label>Strength / Concentration</label><input id="invStrength" placeholder="e.g. 500mg, 125mg/5ml"></div>
+    </div>
+    <div class="g2">
+      <div><label>Unit Price ($) *</label><input type="number" id="invPrice" placeholder="0.00" step="0.01" min="0"></div>
+      <div><label>Reorder Level</label><input type="number" id="invReorder" placeholder="10" min="0"></div>
+    </div>
+    <div class="g2">
+      <div><label>Add Stock Qty</label><input type="number" id="invQty" placeholder="0" min="0"></div>
+      <div><label>Unit</label><select id="invUnit"><option>Tablets</option><option>Capsules</option><option>Vials</option><option>Ampoules</option><option>Bottles</option><option>Sachets</option><option>Strips</option><option>Bags</option><option>Tubes</option><option>Inhalers</option><option>Boxes</option><option>Units</option></select></div>
+    </div>
+    <div class="g2"><div><label>Batch No.</label><input id="invBatch" placeholder="Optional"></div><div><label>Expiry Date</label><input type="month" id="invExpiry"></div></div>
+    <label>Supplier (Link to Supplier)</label>
+    <select id="invSupplierLink" style="margin-bottom:4px;"><option value="">— Not linked to a supplier —</option></select>
+    <input id="invSupplier" placeholder="Or type free-text supplier name (optional)">
+    <div class="ab"><button onclick="saveInvItem()" class="ba">Save</button><button onclick="cModal('inv-add-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
+  </div>
+</div>
+
+<!-- ══ STAFF MODAL (body-level — moved out of admin-tab-services to fix visibility bug) ══ -->
+<div id="staff-modal" class="mo">
+  <div class="mb" style="max-width:560px;">
+    <button class="mc" onclick="cModal('staff-modal')">✕</button>
+    <h3 id="staff-modal-title" style="color:var(--p);margin-bottom:11px;"></h3>
+    <input type="hidden" id="staffEid">
+
+    <!-- ROLE SELECTOR -->
+    <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:10px 13px;margin-bottom:12px;">
+      <label style="margin:0 0 5px;font-size:12px;font-weight:700;color:var(--p);text-transform:uppercase;">Staff Role *</label>
+      <select id="staffRolePreset" onchange="applyRolePreset()" style="margin:0 0 5px;font-size:13px;font-weight:600;">
+        <option value="">— Select a role —</option>
+      </select>
+      <div id="role-desc" style="font-size:12px;color:var(--mu);font-style:italic;min-height:15px;"></div>
+    </div>
+
+    <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:7px;">Basic Info</p>
+    <div class="g2"><div><label>Full Name *</label><input id="staffName" placeholder="e.g. Dr. John Smith"></div><div><label>Username *</label><input id="staffUser" placeholder="login username"></div></div>
+    <label>Password *</label><input type="password" id="staffPass">
+    <div class="g2"><div><label>Role / Position (display)</label><input id="staffRole" placeholder="e.g. Senior Nurse, Pharmacist"></div><div><label>Employee / Staff ID</label><input id="staffEmpId" placeholder="e.g. EMP-001"></div></div>
+    <div class="g2"><div><label>Gender</label><select id="staffGender"><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select></div><div><label>Date of Birth</label><input type="date" id="staffDOB"></div></div>
+    <div class="g2"><div><label>Phone</label><input id="staffPhone" placeholder="e.g. +256 700 000000"></div><div><label>Email</label><input type="email" id="staffEmail" placeholder="staff@email.com"></div></div>
+    <label>Address</label><input id="staffAddress" placeholder="Home address">
+    <div class="g2"><div><label>Emergency Contact Name</label><input id="staffECName" placeholder="Next of kin name"></div><div><label>Emergency Contact Phone</label><input id="staffECPhone" placeholder="Emergency phone"></div></div>
+    <div class="g2"><div><label>Date Joined</label><input type="date" id="staffJoined"></div><div><label>National ID / Passport</label><input id="staffNatId" placeholder="ID number"></div></div>
+    <div class="g2">
+      <div><label>Shift</label>
+        <select id="staffShift" style="margin:0;">
+          <option value="">Not Assigned</option>
+          <option value="Morning (7am–3pm)">Morning (7am–3pm)</option>
+          <option value="Afternoon (3pm–10pm)">Afternoon (3pm–10pm)</option>
+          <option value="Night (10pm–7am)">Night (10pm–7am)</option>
+          <option value="Day (8am–5pm)">Day (8am–5pm)</option>
+          <option value="On Call">On Call</option>
+        </select>
+      </div>
+      <div><label>Account Status</label>
+        <select id="staffAccountStatus" style="margin:0;">
+          <option value="Active">Active</option>
+          <option value="Suspended">Suspended</option>
+          <option value="On Leave">On Leave</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:6px;"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;text-transform:none;font-size:13px;"><input type="checkbox" id="staffForcePwd" style="width:auto;margin:0;"> Force password change on next login</label></div>
+    <hr class="dv">
+    <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:4px;">Section Access <span style="font-weight:400;font-style:italic;text-transform:none;">(auto-set by role — override if needed)</span></p>
+    <div id="sec-checks" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px;"></div>
+    <div style="margin-top:4px;"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;text-transform:none;font-size:13px;"><input type="checkbox" id="staffAdmin" style="width:auto;margin:0;" onchange="syncAdminCheck()"> Grant full Admin / Director access</label></div>
+    <div class="ab"><button onclick="saveStaff()" class="bp">💾 Save Staff</button><button onclick="cModal('staff-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
   </div>
 </div>
 
