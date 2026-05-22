@@ -332,9 +332,17 @@ document.addEventListener("DOMContentLoaded", function(){
       </div>
       <!-- Stats card -->
       <div style="background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.25);border-radius:14px;padding:24px;backdrop-filter:blur(12px);">
-        <h4 style="color:#fff;margin:0 0 14px;font-size:15px;">🏥 Clinic Overview</h4>
-        <div id="login-stats" style="color:rgba(255,255,255,0.9);font-size:13px;line-height:2.4;"></div>
-        <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.2);font-size:11px;color:rgba(255,255,255,0.5);text-align:center;">Care with Purpose · Healing with Love</div>
+        <div style="text-align:center;margin-bottom:14px;">
+          <img src="" class="logo-img" style="width:72px;height:72px;object-fit:contain;border-radius:50%;background:rgba(255,255,255,0.15);padding:6px;margin-bottom:8px;" alt="Tali Medicals">
+          <div id="login-fac-name" style="color:#fff;font-weight:800;font-size:15px;letter-spacing:.03em;"></div>
+          <div id="login-fac-tagline" style="color:rgba(255,255,255,0.7);font-size:11px;font-style:italic;margin-top:3px;"></div>
+          <div id="login-fac-services" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px;justify-content:center;"></div>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.2);padding-top:12px;">
+          <h4 style="color:#fff;margin:0 0 10px;font-size:13px;">📊 Quick Stats</h4>
+          <div id="login-stats" style="color:rgba(255,255,255,0.9);font-size:13px;line-height:2.4;"></div>
+        </div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.2);font-size:10px;color:rgba(255,255,255,0.4);text-align:center;">TALI HIMS v3.3 · Secure Health Information System</div>
       </div>
     </div>
   </div>
@@ -1758,9 +1766,21 @@ function lg(v,act,val=''){if(!v.timeline)v.timeline=[];v.timeline.push({act,val,
 //  INIT
 // ══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',async()=>{
-  // Populate login page quick stats before login
+  // Populate login page quick stats and clinic branding before login
   try{
     const ls=localStorage.getItem('tali_data');
+    const fac=JSON.parse(localStorage.getItem('tali_facility')||'{}');
+    // Facility name and tagline
+    const nameEl=document.getElementById('login-fac-name');
+    if(nameEl)nameEl.textContent=(fac.name||'TALI MEDICALS INTERNATIONAL').toUpperCase();
+    const tagEl=document.getElementById('login-fac-tagline');
+    if(tagEl)tagEl.textContent=fac.tagline||'Care with Purpose. Healing with Love.';
+    // Service badges — customisable via Admin > Settings > Facility
+    const svcEl=document.getElementById('login-fac-services');
+    if(svcEl){
+      const services=fac.services||['General OPD','Laboratory','Pharmacy','Radiology','Dental','ANC','Emergency'];
+      svcEl.innerHTML=services.map(s=>`<span style="background:rgba(255,255,255,0.18);color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap;">${s}</span>`).join('');
+    }
     if(ls){
       const d=JSON.parse(ls);
       const pats=(d.patients||[]).length;
@@ -1768,12 +1788,14 @@ window.addEventListener('DOMContentLoaded',async()=>{
       const todayV=(d.visits||[]).filter(v=>v.date===today).length;
       const sups=(d.suppliers||[]).length;
       const inv=(d.inventory||[]).length;
+      const staff=(d.staffList||[]).length;
       const el=document.getElementById('login-stats');
       if(el)el.innerHTML=`
         <div>👥 <b>${pats}</b> Registered Patients</div>
         <div>📋 <b>${todayV}</b> Visits Today</div>
         <div>💊 <b>${inv}</b> Inventory Items</div>
-        <div>🏪 <b>${sups}</b> Suppliers</div>`;
+        <div>🏪 <b>${sups}</b> Suppliers</div>
+        <div>👩‍⚕️ <b>${staff}</b> Staff Members</div>`;
     }
   }catch(e){}
 
