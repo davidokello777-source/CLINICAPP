@@ -1013,10 +1013,11 @@ document.addEventListener("DOMContentLoaded", function(){
     <!-- PHARMACY -->
     <section id="sec-pharmacy">
       <div class="stabs">
-        <button class="st active" onclick="swPharm('pending',this)">💊 Pending Prescriptions</button>
-        <button class="st" onclick="swPharm('walkin',this)">🚶 Walk-in Collection</button>
-        <button class="st" onclick="swPharm('dispensed',this)">✅ Dispensed History</button>
-        <button class="st" onclick="swPharm('reg',this)">➕ Register Patient</button>
+        <button class="st active" onclick="swPharm('pending',this)">💊 Prescriptions</button>
+        <button class="st" onclick="swPharm('walkin',this)">🚶 Walk-ins</button>
+        <button class="st" onclick="swPharm('pos',this)">🛒 Make a Sale</button>
+        <button class="st" onclick="swPharm('dispensed',this)">✅ Dispensed</button>
+        <button class="st" onclick="swPharm('pharmguide',this)">📘 Pharm Guide</button>
       </div>
       <div class="card"><table id="table-pharm"></table></div>
       <!-- Walk-in panel -->
@@ -1027,6 +1028,70 @@ document.addEventListener("DOMContentLoaded", function(){
       </div>
       <!-- Register patient panel -->
       <div id="pharm-reg" style="display:none;"></div>
+
+      <!-- ══ MAKE A SALE / POS PANEL ══ -->
+      <div id="pharm-pos" style="display:none;">
+        <div class="card" style="padding:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+            <div>
+              <h3 style="margin:0;color:var(--p);">🛒 Make a Sale — OTC Medications</h3>
+              <p style="font-size:12px;color:var(--mu);margin:2px 0 0;">Sell over-the-counter medications directly. Stock is deducted and a receipt is printed.</p>
+            </div>
+            <button onclick="initPOS()" class="bsm bo">🗑 Clear Cart</button>
+          </div>
+          <div class="g2">
+            <div>
+              <div style="display:flex;gap:5px;margin-bottom:8px;">
+                <input id="pos-search" placeholder="Search medication..." oninput="searchPOS()" autocomplete="off" style="flex:1;margin:0;font-size:13px;">
+              </div>
+              <div id="pos-results" style="max-height:180px;overflow-y:auto;border:1px solid var(--bd);border-radius:6px;display:none;background:#fff;margin-bottom:8px;"></div>
+              <div style="border:1.5px solid var(--bd);border-radius:8px;min-height:100px;overflow-y:auto;max-height:240px;">
+                <table id="pos-cart-table" style="width:100%;font-size:12px;border-collapse:collapse;"></table>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:700;color:var(--p);">Customer Name (optional)</label>
+              <input id="pos-customer-name" placeholder="Walk-in customer" style="margin-bottom:8px;">
+              <label style="font-size:12px;font-weight:700;color:var(--p);">Payment Method</label>
+              <select id="pos-payment" style="margin-bottom:10px;font-size:13px;">
+                <option value="Cash">Cash</option>
+                <option value="Mobile Money">Mobile Money</option>
+                <option value="Insurance">Insurance</option>
+                <option value="Card">Card / POS</option>
+              </select>
+              <div style="background:#eff6ff;border-radius:8px;padding:10px 14px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span>Subtotal:</span><span id="pos-subtotal">$0.00</span></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                  <span style="font-size:13px;">Discount %:</span>
+                  <input type="number" id="pos-discount" value="0" min="0" max="100" oninput="recalcPOS()" style="width:60px;margin:0;font-size:13px;text-align:center;">
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:17px;font-weight:900;color:var(--p);border-top:1.5px solid #bfdbfe;padding-top:8px;margin-top:4px;"><span>TOTAL:</span><span id="pos-total">$0.00</span></div>
+              </div>
+              <label style="font-size:12px;font-weight:700;color:var(--p);">Amount Paid ($)</label>
+              <input type="number" id="pos-paid" placeholder="0.00" step="0.01" oninput="recalcPOS()" style="margin-bottom:4px;">
+              <div id="pos-change" style="font-size:13px;font-weight:700;min-height:18px;margin-bottom:10px;"></div>
+              <button onclick="completePOS()" class="ba" style="width:100%;padding:10px;font-size:14px;font-weight:700;">💰 Complete Sale &amp; Print Receipt</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ PHARMACY GUIDE PANEL ══ -->
+      <div id="pharm-pharmguide" style="display:none;">
+        <div class="card" style="padding:12px 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+            <div>
+              <h3 style="margin:0;color:#7c0404;">📘 Pharmacy Clinical Guidelines</h3>
+              <p style="font-size:12px;color:var(--mu);margin:2px 0 0;">Standard pharmacy practice, dispensing, drug information and patient counselling.</p>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <input id="pg-search" placeholder="🔍 Search guidelines…" oninput="renderPharmGuide()" style="width:200px;margin:0;font-size:13px;">
+              <select id="pg-cat" onchange="renderPharmGuide()" style="margin:0;font-size:13px;"><option value="">All Topics</option></select>
+            </div>
+          </div>
+          <div id="pharm-guide-content"></div>
+        </div>
+      </div>
     </section>
 
     <!-- RADIOLOGY -->
@@ -4324,32 +4389,42 @@ function printLabResults(){printAllLabs(activeVid);}
 function swPharm(tab,btn){
   pharmTab=tab;
   document.querySelectorAll('#sec-pharmacy .st').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
+  if(btn)btn.classList.add('active');
+  // Hide all panels
+  const mainCard=document.getElementById('table-pharm')?.closest?.('.card');
+  if(mainCard)mainCard.style.display='none';
   document.getElementById('pharm-walkin-panel').style.display='none';
   document.getElementById('pharm-reg').style.display='none';
-  document.getElementById('table-pharm').closest('.card').style.display='block';
+  const posP=document.getElementById('pharm-pos');if(posP)posP.style.display='none';
+  const guideP=document.getElementById('pharm-pharmguide');if(guideP)guideP.style.display='none';
+  // Show requested panel
+  if(tab==='pos'){
+    if(posP){posP.style.display='block';initPOS();}return;
+  }
+  if(tab==='pharmguide'){
+    if(guideP){guideP.style.display='block';renderPharmGuide();}return;
+  }
   if(tab==='reg'){
-    document.getElementById('table-pharm').closest('.card').style.display='none';
     document.getElementById('pharm-reg').style.display='block';
-    // Inject a pharmacy-only registration form
     const el=document.getElementById('pharm-reg');
-    el.innerHTML=`
-      <div class="card">
-        <h3 style="margin-bottom:4px;color:var(--p);">💊 Register Walk-in Patient</h3>
-        <p style="font-size:12px;color:var(--mu);margin:0 0 12px;">For patients collecting previously prescribed medications or buying OTC drugs without a prior visit.</p>
-        <div class="g">
-          <div><label>Full Name *</label><input id="ph-reg-name" placeholder="Patient full name"></div>
-          <div><label>Gender</label><select id="ph-reg-gender"><option>Male</option><option>Female</option></select></div>
-          <div><label>Age</label><div style="display:flex;gap:5px;"><input type="number" id="ph-reg-age" placeholder="Age" style="width:55%;margin:0;"><select id="ph-reg-age-unit" style="width:45%;margin:0;"><option>Years</option><option>Months</option></select></div></div>
-          <div><label>Phone</label><input id="ph-reg-phone" placeholder="+256..."></div>
-        </div>
-        <label>Reason / Prescription Details</label>
-        <input id="ph-reg-note" placeholder="e.g. Collecting Amoxicillin prescription from Dr. Smith">
-        <button onclick="registerPharmWalkin()" class="bp" style="margin-top:10px;width:100%;">💊 Register & Add to Queue</button>
-        <div id="ph-reg-result" style="margin-top:8px;"></div>
-      </div>`;
+    el.innerHTML=`<div class="card">
+      <h3 style="margin-bottom:4px;color:var(--p);">💊 Register Walk-in Patient</h3>
+      <p style="font-size:12px;color:var(--mu);margin:0 0 12px;">For patients collecting previously prescribed medications or OTC drugs.</p>
+      <div class="g">
+        <div><label>Full Name *</label><input id="ph-reg-name" placeholder="Patient full name"></div>
+        <div><label>Gender</label><select id="ph-reg-gender"><option>Male</option><option>Female</option></select></div>
+        <div><label>Age</label><div style="display:flex;gap:5px;"><input type="number" id="ph-reg-age" placeholder="Age" style="width:55%;margin:0;"><select id="ph-reg-age-unit" style="width:45%;margin:0;"><option>Years</option><option>Months</option></select></div></div>
+        <div><label>Phone</label><input id="ph-reg-phone" placeholder="+256..."></div>
+      </div>
+      <label>Reason / Prescription Details</label>
+      <input id="ph-reg-note" placeholder="e.g. Collecting Amoxicillin prescription from Dr. Smith">
+      <button onclick="registerPharmWalkin()" class="bp" style="margin-top:10px;width:100%;">💊 Register & Add to Queue</button>
+      <div id="ph-reg-result" style="margin-top:8px;"></div>
+    </div>`;
     return;
   }
+  if(mainCard)mainCard.style.display='block';
+  if(tab==='walkin')document.getElementById('pharm-walkin-panel').style.display='block';
   renderPharm();
 }
 function registerPharmWalkin(){
