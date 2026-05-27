@@ -10155,9 +10155,202 @@ function toggleHrCard(eid){
 const _origLogin=login;
 login=function(){
   _origLogin();
-  // Show verse 600ms after login completes
   setTimeout(()=>{if(currentUser)showDailyVerse();},700);
 };
+
+// ══════════════════════════════════════════════
+//  INSURANCE MANAGEMENT
+// ══════════════════════════════════════════════
+let insurances=[];
+function _loadInsurances(){try{insurances=JSON.parse(localStorage.getItem('tali_insurances')||'[]');}catch(e){insurances=[];}}
+function _saveInsurances(){localStorage.setItem('tali_insurances',JSON.stringify(insurances));}
+function oInsuranceModal(id){
+  _loadInsurances();
+  const ins=id?insurances.find(x=>x.id===id):null;
+  document.getElementById('insEditId').value=ins?ins.id:'';
+  document.getElementById('ins-modal-title').textContent=ins?'Edit Insurance Provider':'Add Insurance Provider';
+  ['insName','insCode','insPhone','insEmail','insPolicy','insInpatientLimit','insOutpatientLimit','insPharmLimit','insLabLimit','insNotes'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value=ins?ins[id.replace('ins','').charAt(0).toLowerCase()+id.replace('ins','').slice(1)]||'':'';
+  });
+  oModal('insurance-modal');
+}
+function saveInsurance(){
+  const name=(document.getElementById('insName')?.value||'').trim();
+  if(!name)return alert('Provider name is required.');
+  _loadInsurances();
+  const eid=document.getElementById('insEditId')?.value||'';
+  const obj={
+    id:eid||'INS-'+Date.now().toString().slice(-6),
+    name,
+    code:(document.getElementById('insCode')?.value||'').trim(),
+    phone:(document.getElementById('insPhone')?.value||'').trim(),
+    email:(document.getElementById('insEmail')?.value||'').trim(),
+    policy:(document.getElementById('insPolicy')?.value||'').trim(),
+    inpatientLimit:parseFloat(document.getElementById('insInpatientLimit')?.value)||0,
+    outpatientLimit:parseFloat(document.getElementById('insOutpatientLimit')?.value)||0,
+    pharmLimit:parseFloat(document.getElementById('insPharmLimit')?.value)||0,
+    labLimit:parseFloat(document.getElementById('insLabLimit')?.value)||0,
+    notes:(document.getElementById('insNotes')?.value||'').trim(),
+    createdBy:currentUser?.name||'Admin',createdAt:new Date().toLocaleDateString()
+  };
+  if(eid){const idx=insurances.findIndex(x=>x.id===eid);if(idx>-1)insurances[idx]=obj;else insurances.push(obj);}
+  else insurances.push(obj);
+  _saveInsurances();populateInsuranceDropdowns();cModal('insurance-modal');renderInsurance();
+  alert('Insurance provider saved: '+name);
+}
+function renderInsurance(){
+  _loadInsurances();
+  let h=`<tr><th>Provider</th><th>Code</th><th>Phone</th><th>Inpatient</th><th>Outpatient</th><th>Pharmacy</th><th>Lab</th><th>Policy</th><th>Actions</th></tr>`;
+  if(!insurances.length)h+=`<tr><td colspan="9" class="emp">No insurance providers yet. Click "+ Add Insurance" to add one.</td></tr>`;
+  insurances.forEach(ins=>{
+    h+=`<tr>
+      <td><b>${ins.name}</b></td><td style="font-size:12px;">${ins.code||'—'}</td><td style="font-size:12px;">${ins.phone||'—'}</td>
+      <td style="font-size:12px;">${ins.inpatientLimit?'$'+ins.inpatientLimit:'—'}</td>
+      <td style="font-size:12px;">${ins.outpatientLimit?'$'+ins.outpatientLimit:'—'}</td>
+      <td style="font-size:12px;">${ins.pharmLimit?'$'+ins.pharmLimit:'—'}</td>
+      <td style="font-size:12px;">${ins.labLimit?'$'+ins.labLimit:'—'}</td>
+      <td style="font-size:11px;color:var(--mu);max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${ins.policy||'—'}</td>
+      <td><div style="display:flex;gap:3px;">
+        <button class="bsm bo" onclick="oInsuranceModal('${ins.id}')">Edit</button>
+        <button class="bsm bd2" onclick="deleteInsurance('${ins.id}')">🗑</button>
+      </div></td>
+    </tr>`;
+  });
+  const el=document.getElementById('table-insurance');if(el)el.innerHTML=h;
+}
+function deleteInsurance(id){
+  if(!confirm('Delete this insurance provider?'))return;
+  _loadInsurances();insurances=insurances.filter(x=>x.id!==id);
+  _saveInsurances();renderInsurance();
+}
+function populateInsuranceDropdowns(){
+  _loadInsurances();
+  const sel=document.getElementById('pInsuranceProvider');
+  if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Select insurance —</option>'+
+    insurances.map(ins=>`<option value="${ins.name}" ${ins.name===cur?'selected':''}>${ins.name}${ins.code?' ('+ins.code+')':''}</option>`).join('');
+}
+function toggleInsuranceField(){
+  const payType=document.getElementById('pPayType')?.value||'Cash';
+  const insField=document.getElementById('insurance-field');
+  const memField=document.getElementById('insurance-member-field');
+  const show=['Insurance','NHIF','Corporate'].includes(payType);
+  if(insField)insField.style.display=show?'block':'none';
+  if(memField)memField.style.display=show?'block':'none';
+  if(show)populateInsuranceDropdowns();
+}
+
+// ══════════════════════════════════════════════
+//  PHARMACY GUIDE
+// ══════════════════════════════════════════════
+const PHARM_GUIDE=[
+  {cat:'Dispensing Practice',name:'5 Rights of Medication Safety',content:'<b>Verify ALL 5 Rights before dispensing:</b><br><br><b>1. RIGHT PATIENT</b> — Confirm full name + ID. Never assume.<br><b>2. RIGHT DRUG</b> — Check generic AND brand name. LASA drugs cause most errors: Carboplatin/Cisplatin | Prednisolone/Prednisone | Glibenclamide/Glipizide<br><b>3. RIGHT DOSE</b> — Verify dose is appropriate for age, weight, and organ function. Paediatric doses MUST be weight-based.<br><b>4. RIGHT ROUTE</b> — Oral, IV, IM, SC, topical, SL. Never give IV drugs intended for IM use.<br><b>5. RIGHT TIME</b> — Correct frequency (OD/BD/TDS/QDS/PRN). Timing with meals matters.<br><br><b>Additional: Right documentation | Right reason | Right patient education</b>'},
+  {cat:'Dispensing Practice',name:'Prescription Validity & Controlled Drugs',content:'<b>VALID PRESCRIPTION MUST INCLUDE:</b> Prescriber name, qualifications, facility, date | Patient name, age | Drug, strength, formulation, quantity, directions | Prescriber signature<br><br><b>EXPIRY:</b> General: 6 months | Antibiotics: 1 month | Controlled drugs: 28 days<br><br><b>CONTROLLED SUBSTANCES (morphine, pethidine, diazepam, tramadol, ketamine):</b><br>• Original signature prescription only<br>• Record in Controlled Drug Register: date, patient, prescriber, qty, running balance<br>• Locked cabinet separate from general stock<br>• Two-pharmacist verification recommended<br><br><b>REFUSE IF:</b> Prescription altered/illegible | Prescriber not registered | Quantity unreasonably large'},
+  {cat:'Drug Information',name:'Abbreviations & Timing with Meals',content:'<b>FREQUENCY:</b> OD=once daily | BD=twice | TDS=three times | QDS=four times | PRN=as needed | STAT=immediately | Nocte=at night<br><br><b>ROUTE:</b> PO=oral | IV=intravenous | IM=intramuscular | SC=subcutaneous | SL=sublingual | Top=topical | PR=per rectum<br><br><b>TIMING WITH FOOD:</b><br>With food: Metformin, NSAIDs, iron<br>30-60 min BEFORE food: PPIs (omeprazole), levothyroxine<br>2h before/after: Fluoroquinolones, tetracyclines<br>Empty stomach: Rifampicin, isoniazid, ampicillin<br>AT BEDTIME: Statins, amitriptyline, antihistamines<br><br><b>STORAGE:</b> Room temp (15-25C): most orals | Refrigerated (2-8C): insulin, vaccines, reconstituted amoxicillin | Light-sensitive: metronidazole IV, nifedipine'},
+  {cat:'Drug Information',name:'High-Alert Medications',content:'<b>Double-check ALL of these:</b><br><br><b>INSULIN:</b> Never abbreviate units as U. Use insulin syringes. Open vials: room temp 28 days.<br><b>KCl:</b> NEVER give concentrated IV bolus — fatal cardiac arrest. Max: 20mmol/hr peripheral.<br><b>WARFARIN:</b> INR 2-3 (AF/DVT) | 2.5-3.5 (mechanical valve). Many interactions.<br><b>MORPHINE:</b> Monitor RR. Have naloxone available. Risk of respiratory depression with benzodiazepines.<br><b>HEPARIN (UFH):</b> Requires APTT monitoring. Antidote: Protamine 1mg/100 units.<br><b>CYTOTOXICS:</b> Gloves, gown, mask mandatory. Cytotoxic waste containers.'},
+  {cat:'Patient Counselling',name:'Antibiotic Counselling',content:'<b>KEY MESSAGES:</b><br><br><b>1. Complete the full course</b> — even if you feel better. Stopping causes resistance.<br><b>2. Metronidazole + alcohol = NEVER</b> — disulfiram reaction. Avoid alcohol 48h after last dose.<br><b>3. Ciprofloxacin/tetracycline</b> — avoid dairy, antacids, iron within 2 hours.<br><b>4. Rifampicin</b> — reduces OCP effectiveness. Use additional contraception + 4 weeks after.<br><b>5. Allergy signs:</b> Rash + difficulty breathing = STOP and seek emergency care.<br><b>6. Bloody diarrhoea after course</b> = C. difficile — contact clinic.'},
+  {cat:'Drug Interactions',name:'Critical Combinations to Avoid',content:'<b>CONTRAINDICATED:</b><br>Sildenafil + Nitrates → fatal hypotension<br>MAO inhibitors + Tramadol/SSRIs → serotonin syndrome<br>Methotrexate + Cotrimoxazole → bone marrow suppression<br><br><b>REQUIRES MONITORING:</b><br>Warfarin + Antibiotics → raised INR | Warfarin + Amiodarone → halve warfarin dose<br>Digoxin + Amiodarone → toxicity (halve digoxin dose)<br>Simvastatin + Amiodarone/Erythromycin → myopathy<br>SSRIs + Tramadol → serotonin syndrome<br>Lithium + NSAIDs → lithium toxicity<br>Clopidogrel + Omeprazole → use pantoprazole instead<br><br><b>ABSORPTION:</b> Antacids reduce quinolones, tetracyclines, iron, levothyroxine — separate by 2h'},
+];
+const PHARM_GUIDE_CATS=[...new Set(PHARM_GUIDE.map(g=>g.cat))];
+function renderPharmGuide(){
+  const search=(document.getElementById('pg-search')?.value||'').toLowerCase();
+  const cat=document.getElementById('pg-cat')?.value||'';
+  const cf=document.getElementById('pg-cat');
+  if(cf&&cf.options.length<=1)PHARM_GUIDE_CATS.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;cf.appendChild(o);});
+  const filtered=PHARM_GUIDE.filter(g=>(!cat||g.cat===cat)&&(!search||g.name.toLowerCase().includes(search)||g.content.toLowerCase().includes(search)));
+  const grouped={};filtered.forEach(g=>{if(!grouped[g.cat])grouped[g.cat]=[];grouped[g.cat].push(g);});
+  const colors={'Dispensing Practice':'#1e3a8a','Drug Information':'#7c3aed','Patient Counselling':'#0891b2','Drug Interactions':'#dc2626'};
+  let html='';
+  if(!filtered.length){html='<div class="emp">No guidelines found.</div>';}
+  else Object.entries(grouped).forEach(([category,items])=>{
+    const col=colors[category]||'#374151';
+    html+=`<div style="margin-bottom:8px;"><div style="background:${col}15;border-left:4px solid ${col};border-radius:5px;padding:6px 13px;margin-bottom:7px;font-weight:800;font-size:13px;color:${col};">📘 ${category}</div>`;
+    items.forEach(g=>{
+      const eid='pg-'+g.name.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+      html+=`<div style="border:1.5px solid var(--bd);border-radius:8px;margin-bottom:6px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;padding:9px 13px;cursor:pointer;background:#fff;" onclick="toggleGuideCard('pg','${eid}')">
+          <span style="font-weight:700;font-size:14px;color:var(--p);">${g.name}</span>
+          <span id="pg-ch-${eid}" style="color:var(--mu);font-size:16px;transition:.2s;">▼</span>
+        </div>
+        <div id="pg-${eid}" style="display:none;padding:12px 16px;border-top:1px solid var(--bd);background:#fafbff;font-size:13px;line-height:1.9;">${g.content}</div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  const el=document.getElementById('pharm-guide-content');if(el)el.innerHTML=html;
+}
+
+// ══════════════════════════════════════════════
+//  BILLING MONEY HANDLING GUIDE
+// ══════════════════════════════════════════════
+const BILLING_GUIDE=[
+  {cat:'Cash Handling',name:'Daily Cash Management',content:'<b>OPENING FLOAT:</b> Count and verify opening float at shift start. Document with your signature. Report any discrepancy from previous closing immediately.<br><br><b>RECEIVING PAYMENT:</b><br>1. Confirm amount due with patient<br>2. Count cash in full view of patient<br>3. Announce amount received: "I am receiving UGX 50,000"<br>4. Issue receipt IMMEDIATELY — every transaction<br>5. Return change and count it back<br>6. Never leave cash unattended<br><br><b>RECEIPT MUST SHOW:</b> Date, receipt number, patient name, itemised services, amount paid, payment method, cashier name and signature.<br><br><b>CLOSING:</b> Balance cash. Complete Z-report. Cash must match: Opening float + Total receipts - Refunds. Discrepancies require written explanation. Seal in envelope with count sheet.'},
+  {cat:'Cash Handling',name:'Discrepancies & Zero Tolerance Policy',content:'<b>SHORT CASH:</b><br>&lt;$1: Recount, likely rounding<br>$1-$10: Discrepancy form. Supervisor reviews.<br>&gt;$10: Finance Manager immediately. Do not close shift.<br>Repeated shortages: disciplinary process regardless of amount.<br><br><b>EXCESS CASH:</b> Any excess belongs to the facility. Document and hand over ALL excess. Excess is as serious as shortage.<br><br><b>CASHIERS MUST NEVER:</b><br>• Issue verbal receipts ("give you the receipt later")<br>• Accept payment and pocket for later recording<br>• Manually alter printed receipts<br>• Allow patients to leave without receipt<br>• Keep personal float for change'},
+  {cat:'Insurance Billing',name:'Insurance Claims Processing',content:'<b>AT REGISTRATION:</b><br>1. Verify insurance card: name, policy number, validity dates, co-pay<br>2. Check if service is covered (Admin > Insurance tab)<br>3. Record provider and member number<br>4. Inform patient of co-pay and non-covered items upfront<br><br><b>AFTER SERVICE:</b><br>1. Generate itemised invoice<br>2. Separate claimable from non-covered items<br>3. Patient pays co-pay and non-covered cash<br>4. Insurance portion = "Insurance Receivable"<br><br><b>CLAIM SUBMISSION:</b> Claim form + Itemised invoice + Clinical notes + Insurance card copy. Submit within 30-90 days.<br><br><b>FOLLOW-UP:</b> If no response in 30 days, follow up in writing. Rejected claims: correct and resubmit.'},
+  {cat:'Financial Controls',name:'Internal Controls & Fraud Prevention',content:'<b>SEGREGATION OF DUTIES:</b> Person recording transaction ≠ person approving or handling cash.<br>Receptionist registers → Cashier collects → Finance reconciles.<br><br><b>RECEIPT CONTROLS:</b> Pre-numbered sequential receipts. Any gap requires explanation. Cancelled receipts kept — never destroyed.<br><br><b>REFUND POLICY:</b> Written request + original receipt + supervisor approval. Finance Manager signature for amounts &gt;$50.<br><br><b>AUDIT TRAIL:</b> HIMS logs all transactions with username, time and changes. Permanent and tamper-evident. All staff know their actions are recorded.'},
+];
+const BILLING_GUIDE_CATS=[...new Set(BILLING_GUIDE.map(g=>g.cat))];
+function renderBillingGuide(){
+  const search=(document.getElementById('bg-search')?.value||'').toLowerCase();
+  const cat=document.getElementById('bg-cat')?.value||'';
+  const cf=document.getElementById('bg-cat');
+  if(cf&&cf.options.length<=1)BILLING_GUIDE_CATS.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;cf.appendChild(o);});
+  const filtered=BILLING_GUIDE.filter(g=>(!cat||g.cat===cat)&&(!search||g.name.toLowerCase().includes(search)||g.content.toLowerCase().includes(search)));
+  const grouped={};filtered.forEach(g=>{if(!grouped[g.cat])grouped[g.cat]=[];grouped[g.cat].push(g);});
+  const colors={'Cash Handling':'#16a34a','Insurance Billing':'#0891b2','Financial Controls':'#dc2626'};
+  let html='';
+  if(!filtered.length){html='<div class="emp">No guides found.</div>';}
+  else Object.entries(grouped).forEach(([category,items])=>{
+    const col=colors[category]||'#374151';
+    html+=`<div style="margin-bottom:8px;"><div style="background:${col}15;border-left:4px solid ${col};border-radius:5px;padding:6px 13px;margin-bottom:7px;font-weight:800;font-size:13px;color:${col};">💰 ${category}</div>`;
+    items.forEach(g=>{
+      const eid='bg-'+g.name.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+      html+=`<div style="border:1.5px solid var(--bd);border-radius:8px;margin-bottom:6px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;padding:9px 13px;cursor:pointer;background:#fff;" onclick="toggleGuideCard('bg','${eid}')">
+          <span style="font-weight:700;font-size:14px;color:var(--p);">${g.name}</span>
+          <span id="bg-ch-${eid}" style="color:var(--mu);font-size:16px;transition:.2s;">▼</span>
+        </div>
+        <div id="bg-${eid}" style="display:none;padding:12px 16px;border-top:1px solid var(--bd);background:#fafbff;font-size:13px;line-height:1.9;">${g.content}</div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  const el=document.getElementById('billing-guide-content');if(el)el.innerHTML=html;
+}
+function toggleGuideCard(prefix,eid){
+  const el=document.getElementById(prefix+'-'+eid);const ch=document.getElementById(prefix+'-ch-'+eid);
+  if(!el)return;const open=el.style.display!=='none';
+  el.style.display=open?'none':'block';if(ch)ch.style.transform=open?'':'rotate(180deg)';
+}
+
+// ══════════════════════════════════════════════
+//  LAB INTERPRETATION CHARTS
+// ══════════════════════════════════════════════
+const LAB_CHARTS=[
+  {cat:'Stool Analysis',name:'Stool Analysis Reference Chart',content:'<b>MACROSCOPIC:</b><br><table style="font-size:12px;border-collapse:collapse;width:100%;"><tr style="background:#d1fae5;"><th style="padding:4px 8px;text-align:left;">Feature</th><th style="text-align:left;">Normal</th><th style="text-align:left;">Abnormal</th></tr><tr><td style="padding:3px 8px;"><b>Colour</b></td><td>Brown</td><td>Black/tarry=upper GI bleed | Bright red=lower GI bleed | Pale/clay=obstructive jaundice | Green=rapid transit | Yellow=fat malabsorption</td></tr><tr style="background:#f8fafc;"><td><b>Consistency</b></td><td>Formed/soft</td><td>Watery=diarrhoea | Frothy=carbohydrate malabsorption | Bulky/greasy=steatorrhoea</td></tr><tr><td><b>Blood</b></td><td>Absent</td><td>Frank=colitis, cancer, dysentery | Occult+=polyps, cancer, peptic ulcer, hookworm</td></tr><tr style="background:#f8fafc;"><td><b>Mucus</b></td><td>Trace/none</td><td>Excess=IBD, amoebic colitis, rectal polyp</td></tr></table><br><b>MICROSCOPIC:</b><br><table style="font-size:12px;border-collapse:collapse;width:100%;"><tr style="background:#d1fae5;"><th style="padding:4px 8px;text-align:left;">Finding</th><th>Normal</th><th style="text-align:left;">Significance</th></tr><tr><td style="padding:3px 8px;"><b>WBC (pus cells)</b></td><td>0-5/HPF</td><td>>5/HPF=invasive infection (Shigella, Salmonella, Campylobacter, amoeba)</td></tr><tr style="background:#f8fafc;"><td><b>RBC</b></td><td>Absent</td><td>Present=dysentery, amoebic colitis, IBD, colonic cancer</td></tr><tr><td><b>Ova/eggs</b></td><td>Absent</td><td>Ascaris | Hookworm | Trichuris | Schistosoma (S.mansoni=lateral spine)</td></tr><tr style="background:#f8fafc;"><td><b>Cysts/Trophozoites</b></td><td>Absent</td><td>E.histolytica=amoebic dysentery | Giardia lamblia=teardrop cysts | Cryptosporidium=acid-fast oocysts</td></tr><tr><td><b>Undigested fat</b></td><td>Absent</td><td>Fat globules=pancreatic insufficiency, coeliac disease</td></tr></table>'},
+  {cat:'Urine Analysis',name:'Urinalysis Interpretation Chart',content:'<b>DIPSTICK REFERENCE:</b><br><table style="font-size:12px;border-collapse:collapse;width:100%;"><tr style="background:#dbeafe;"><th style="padding:4px 8px;text-align:left;">Parameter</th><th>Normal</th><th style="text-align:left;">Abnormal Significance</th></tr><tr><td style="padding:3px 8px;"><b>Colour</b></td><td>Pale-amber</td><td>Dark=dehydration | Orange=bilirubin | Red/pink=haematuria/rifampicin | Brown=myoglobinuria</td></tr><tr style="background:#f8fafc;"><td><b>pH</b></td><td>4.5-8.0</td><td>Persistently alkaline=UTI (Proteus) or RTA. Acidic=DKA, starvation</td></tr><tr><td><b>Protein</b></td><td>Trace/Neg</td><td>2+=100mg/dL | 3+=300mg/dL | 4+=>2g/dL. Nephrotic, pre-eclampsia, GN, DM nephropathy</td></tr><tr style="background:#f8fafc;"><td><b>Glucose</b></td><td>Negative</td><td>BG >10mmol/L or renal glycosuria</td></tr><tr><td><b>Ketones</b></td><td>Negative</td><td>DKA, starvation, prolonged vomiting</td></tr><tr style="background:#f8fafc;"><td><b>Leucocyte esterase</b></td><td>Negative</td><td>WBCs in urine=UTI, urethritis, vaginitis</td></tr><tr><td><b>Nitrites</b></td><td>Negative</td><td>Gram-negative bacteria (E.coli, Klebsiella). False neg: Enterococcus, Staph</td></tr><tr style="background:#f8fafc;"><td><b>Blood</b></td><td>Negative</td><td>Haematuria=UTI, stones, malignancy, GN | Haemoglobinuria=haemolysis</td></tr><tr><td><b>Bilirubin</b></td><td>Negative</td><td>Conjugated hyperbilirubinaemia (hepatic/post-hepatic jaundice)</td></tr></table><br><b>URINE CASTS:</b> RBC casts=GN | WBC casts=pyelonephritis | Granular=AKI/CKD | Fatty=nephrotic syndrome'},
+  {cat:'CSF Analysis',name:'CSF Reference Chart',content:'<table style="font-size:11px;border-collapse:collapse;width:100%;overflow-x:auto;"><tr style="background:#ede9fe;"><th style="padding:4px 7px;text-align:left;">Parameter</th><th>Normal</th><th>Bacterial Meningitis</th><th>Viral Meningitis</th><th>TB Meningitis</th><th>SAH</th></tr><tr><td style="padding:3px 7px;"><b>Appearance</b></td><td>Clear</td><td>Turbid/cloudy</td><td>Clear</td><td>Xanthochromic</td><td>Blood-stained</td></tr><tr style="background:#f8fafc;"><td><b>WBC</b></td><td>0-5 lymph</td><td>↑↑↑ neutrophils</td><td>↑ lymphocytes</td><td>↑ lymphocytes</td><td>Normal</td></tr><tr><td><b>Protein</b></td><td>0.15-0.45 g/L</td><td>↑↑ (>1 g/L)</td><td>Normal-slightly ↑</td><td>↑↑ (1-5 g/L)</td><td>↑</td></tr><tr style="background:#f8fafc;"><td><b>Glucose</b></td><td>>60% blood glu</td><td>↓↓ (<40%)</td><td>Normal</td><td>↓ (<50%)</td><td>Normal</td></tr><tr><td><b>Gram stain</b></td><td>Negative</td><td>+ve in 60-80%</td><td>Negative</td><td>AFB in 10-40%</td><td>N/A</td></tr></table><br><b>PATHOGENS BY AGE:</b> Neonates: GBS, E.coli, Listeria | Children: N.meningitidis, S.pneumoniae | Adults: N.meningitidis, S.pneumoniae | Elderly/HIV: S.pneumoniae, Cryptococcus'},
+  {cat:'Blood Film',name:'Blood Film Morphology Chart',content:'<b>RED CELL ABNORMALITIES:</b><br><table style="font-size:12px;border-collapse:collapse;width:100%;"><tr style="background:#fee2e2;"><th style="padding:4px 8px;text-align:left;">Morphology</th><th style="text-align:left;">Associated Conditions</th></tr><tr><td style="padding:3px 8px;"><b>Microcytes</b></td><td>Iron deficiency, thalassaemia, sideroblastic anaemia</td></tr><tr style="background:#f8fafc;"><td><b>Macrocytes</b></td><td>B12/folate deficiency, liver disease, alcohol, haemolysis</td></tr><tr><td><b>Target cells</b></td><td>Thalassaemia, HbC, liver disease, iron deficiency</td></tr><tr style="background:#f8fafc;"><td><b>Spherocytes</b></td><td>Hereditary spherocytosis, ABO haemolysis, autoimmune</td></tr><tr><td><b>Sickle cells</b></td><td>Sickle cell anaemia (HbSS)</td></tr><tr style="background:#f8fafc;"><td><b>Schistocytes</b></td><td>TTP/HUS, DIC, prosthetic heart valve</td></tr><tr><td><b>Tear-drop cells</b></td><td>Myelofibrosis, thalassaemia, megaloblastic anaemia</td></tr><tr style="background:#f8fafc;"><td><b>Rouleaux</b></td><td>Multiple myeloma, inflammatory states</td></tr></table><br><b>WBC ABNORMALITIES:</b> Hypersegmented neutrophils=B12/folate deficiency | Blast cells=LEUKAEMIA (URGENT) | Atypical lymphocytes=EBV/CMV | Smear cells=CLL'},
+];
+function renderLabCharts(){
+  const colors={'Stool Analysis':'#92400e','Urine Analysis':'#1e40af','CSF Analysis':'#7c3aed','Blood Film':'#dc2626'};
+  let html='<div style="margin-top:18px;border-top:2px solid var(--bd);padding-top:14px;"><h4 style="color:var(--p);margin:0 0 10px;">📊 Lab Interpretation Charts</h4>';
+  LAB_CHARTS.forEach(g=>{
+    const col=colors[g.cat]||'#374151';
+    const eid='lc-'+g.name.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+    html+=`<div style="border:1.5px solid var(--bd);border-radius:8px;margin-bottom:7px;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 13px;cursor:pointer;background:${col}10;border-left:4px solid ${col};" onclick="toggleGuideCard('lc','${eid}')">
+        <span style="font-weight:700;font-size:14px;color:${col};">📊 ${g.name}</span>
+        <span id="lc-ch-${eid}" style="color:var(--mu);font-size:16px;transition:.2s;">▼</span>
+      </div>
+      <div id="lc-${eid}" style="display:none;padding:12px 16px;border-top:1px solid var(--bd);background:#fafbff;font-size:12px;line-height:1.9;overflow-x:auto;">${g.content}</div>
+    </div>`;
+  });
+  html+='</div>';
+  const el=document.getElementById('lab-labguide');
+  if(el)el.insertAdjacentHTML('beforeend',html);
+}
 </script>
 
 <script>
