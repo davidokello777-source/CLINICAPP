@@ -435,9 +435,29 @@ document.addEventListener("DOMContentLoaded", function(){
         </div>
         <table id="followup-table" style="font-size:13px;"></table>
       </div>
-      <div class="card">
+      <!-- Smart search: Real-time returning patient detection -->
+      <div class="card" id="smart-reg-card">
         <h3 style="margin-bottom:11px;">Patient Registration</h3>
-        <div class="g">
+        <!-- Live patient lookup -->
+        <div style="position:relative;margin-bottom:10px;" id="smart-search-wrap">
+          <label style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;">Search Existing Patient (type name to check)</label>
+          <input id="smart-name-search" placeholder="Start typing patient name to check if they exist..." oninput="smartPatientSearch()" autocomplete="off" style="font-size:14px;padding:9px 12px;border:2px solid var(--s);border-radius:7px;background:#f0f9ff;">
+          <div id="smart-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:300;background:#fff;border:2px solid var(--s);border-radius:0 0 8px 8px;box-shadow:0 8px 24px rgba(0,0,0,.15);max-height:260px;overflow-y:auto;"></div>
+        </div>
+        <!-- Outstanding bill warning banner -->
+        <div id="outstanding-bill-banner" style="display:none;background:#fef2f2;border:2px solid #ef4444;border-radius:8px;padding:12px 16px;margin-bottom:10px;font-size:13px;color:#991b1b;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div><span style="font-weight:800;">⚠️ OUTSTANDING BALANCE ALERT</span><div id="outstanding-bill-detail" style="margin-top:4px;"></div></div>
+            <button onclick="acknowledgeOutstanding()" style="background:#ef4444;color:#fff;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px;white-space:nowrap;">Override &amp; Continue</button>
+          </div>
+        </div>
+        <!-- Returning patient pre-fill notice -->
+        <div id="returning-pat-notice" style="display:none;background:#f0fdf4;border:1.5px solid #10b981;border-radius:7px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#065f46;">
+          <span style="font-weight:700;">✅ Returning Patient Detected</span> — demographics have been pre-filled from previous visit.<br>
+          <span id="returning-pat-name" style="font-weight:700;"></span> &nbsp;
+          <button onclick="clearReturningPat()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:12px;text-decoration:underline;">Clear &amp; register as new patient</button>
+        </div>
+      <div class="g">
           <div><label>Full Name *</label><input id="pName" placeholder="Full name"></div>
           <div><label>Gender *</label><select id="pGender"><option>Male</option><option>Female</option></select></div>
           <div><label>Age *</label><div style="display:flex;gap:5px;margin-top:2px;"><input type="number" id="pAgeVal" placeholder="32" min="0" style="width:55%;margin:0;"><select id="pAgeUnit" style="width:45%;margin:0;"><option value="years">Years</option><option value="months">Months</option><option value="days">Days</option></select></div></div>
@@ -504,7 +524,7 @@ document.addEventListener("DOMContentLoaded", function(){
           <label>Member / Policy Number</label>
           <input id="pInsuranceMemberNo" placeholder="e.g. INS-123456">
         </div>
-        <button onclick="registerPatient()" class="bp" style="margin-top:11px;">Register &amp; Route Patient</button>
+        <button onclick="registerPatient()" class="bp" style="margin-top:11px;" id="reg-btn">📝 Register &amp; Route Patient</button>
       </div>
       <div class="card">
         <input id="patSearch" placeholder="Search patients by name..." onkeyup="renderPatients()" style="margin-bottom:8px;">
@@ -783,9 +803,14 @@ document.addEventListener("DOMContentLoaded", function(){
             <h4 style="color:var(--pu);margin-bottom:8px;">📡 Radiology Results</h4>
             <div id="rad-res-display"></div>
           </div>
-          <!-- Clinical History -->
-          <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:7px;">Clinical History</p>
-          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(PC)</span><span class="abbr-full">Presenting Complaint</span></span><span class="cr">▼</span></div><div class="cbody">
+          <!-- ══ CLINICALLY ORDERED CONSULTATION FORM ══ -->
+          <!-- STEP 1: HISTORY -->
+          <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#1e3a8a,#2563eb);color:#fff;border-radius:7px;padding:8px 14px;margin-bottom:10px;">
+            <span style="font-size:16px;">📋</span>
+            <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Step 1 — History</span>
+          </div>
+          <!-- PC accordion -->
+          <div class="cb"><div class="ch open" onclick="tClin(this)"><span><span class="abbr-hdr">(PC)</span><span class="abbr-full">Presenting Complaint</span></span><span class="cr">▼</span></div><div class="cbody open">
             <div style="margin-bottom:6px;">
               <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">
                 <input id="pc-complaint-input" list="pc-datalist" placeholder="Symptom (e.g. Headache)" style="flex:2;min-width:140px;margin:0;font-size:13px;">
@@ -800,60 +825,98 @@ document.addEventListener("DOMContentLoaded", function(){
               <input type="hidden" id="hPC">
             </div>
           </div></div>
-          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(HPC)</span><span class="abbr-full">History of Presenting Complaint</span></span><span class="cr">▼</span></div><div class="cbody"><textarea id="hHPC" rows="3" placeholder="Duration, onset, character..."></textarea></div></div>
-          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(PM/PSH)</span><span class="abbr-full">Past Medical &amp; Surgical History</span></span><span class="cr">▼</span></div><div class="cbody"><textarea id="hPMH" rows="3" placeholder="Previous illnesses, operations..."></textarea></div></div>
-          <div class="cb" id="ogBlock" style="display:none;"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(O/G)</span><span class="abbr-full">Obstetric &amp; Gynaecological History — Female</span></span><span class="cr">▼</span></div><div class="cbody"><div class="g2"><div><label>LMP</label><input id="hLMP"></div><div><label>Gravida/Para</label><input id="hGP"></div></div><textarea id="hOG" rows="2" placeholder="Obs/Gyn notes..." style="margin-top:6px;"></textarea></div></div>
-          <div class="cb"><div class="ch" onclick="tClin(this)"><span>👨‍👩‍👧 Family & Social History</span><span class="cr">▼</span></div><div class="cbody"><textarea id="hFSH" rows="2" placeholder="Family illnesses, occupation..."></textarea></div></div>
-          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(DH/A)</span><span class="abbr-full">Drug History &amp; Allergies</span></span><span class="cr">▼</span></div><div class="cbody"><textarea id="hDrug" rows="2" placeholder="Current medications..."></textarea><label>Allergies</label><input id="hAllergy" placeholder="e.g. Penicillin — rash. None known."></div></div>
-          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(PE)</span><span class="abbr-full">Physical Examination</span></span><span class="cr">▼</span></div><div class="cbody">
-            <div class="g2"><div><label>General Appearance</label><input id="hPEGeneral" placeholder="e.g. Alert, oriented, not in distress"></div><div><label>Head & Neck</label><input id="hPEHead" placeholder="e.g. No lymphadenopathy, JVP normal"></div></div>
-            <div class="g2"><div><label>Chest / Respiratory</label><input id="hPEChest" placeholder="e.g. Clear to auscultation bilaterally"></div><div><label>Cardiovascular</label><input id="hPECVS" placeholder="e.g. Regular rate and rhythm, no murmurs"></div></div>
-            <div class="g2"><div><label>Abdomen</label><input id="hPEAbdomen" placeholder="e.g. Soft, non-tender, no hepatosplenomegaly"></div><div><label>CNS / Neurological</label><input id="hPECNS" placeholder="e.g. GCS 15, pupils equal and reactive"></div></div>
-            <div class="g2"><div><label>Extremities / MSK</label><input id="hPEExtremities" placeholder="e.g. No oedema, full range of motion"></div><div><label>Skin</label><input id="hPESkin" placeholder="e.g. No rash, jaundice, or cyanosis"></div></div>
-            <label>Other Examination Findings</label><textarea id="hPEOther" rows="2" placeholder="Any other relevant examination findings..."></textarea>
-          </div></div>
-          <hr class="dv">
-          <label><span class="abbr-hdr">(Diff Dx)</span> <span class="abbr-full">Differential Diagnosis</span></label><textarea id="cDiffDx" rows="2" placeholder="Differentials being considered..."></textarea>
-          <hr class="dv">
-          <!-- LAB ORDERS (multi-select searchable) -->
-          <div id="lab-order-sec">
-            <p style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:6px;"><span class="abbr-hdr">(Ix)</span> <span class="abbr-full" style="text-transform:uppercase;">Investigations — Lab Orders</span></p>
-            <input id="lab-search" placeholder="Search lab tests..." onkeyup="filterLabTests()" style="margin-bottom:6px;">
-            <div class="lab-check-list" id="lab-check-list"></div>
-            <div id="selected-labs-display" style="margin-top:6px;"></div>
-          </div>
-          <hr class="dv">
-          <!-- RADIOLOGY ORDERS -->
-          <div>
-            <p style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:6px;"><span class="abbr-hdr">(Rad)</span> <span class="abbr-full" style="text-transform:uppercase;">Radiology / Imaging</span></p>
-            <div id="rad-orders-list"></div>
-            <button class="badd" onclick="addRadRow()">+ Add Procedure</button>
-          </div>
-          <hr class="dv">
-          <!-- NURSING / SURGICAL PROCEDURE ORDERS -->
-          <div id="proc-order-sec">
-            <p style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:6px;"><span class="abbr-hdr">(Pr)</span> <span class="abbr-full" style="text-transform:uppercase;">Nursing &amp; Surgical Procedures</span></p>
-            <div id="proc-orders-list"></div>
-            <div style="display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap;">
-              <select id="proc-order-select" style="flex:1;min-width:200px;margin:0;font-size:13px;">
-                <option value="">-- Select procedure to order --</option>
-              </select>
-              <button class="badd" onclick="addProcOrder()">+ Order Procedure</button>
+          <!-- Full history in 2-column grid inside single accordion -->
+          <div class="cb"><div class="ch open" onclick="tClin(this)"><span><span class="abbr-hdr">(HPC · PMH · DH · Allergy · FSH)</span><span class="abbr-full">Full Clinical History</span></span><span class="cr">▼</span></div><div class="cbody open">
+            <div class="g2">
+              <div><label><span class="abbr-hdr">(HPC)</span> History of Presenting Complaint</label><textarea id="hHPC" rows="3" placeholder="Duration, onset, character, severity, radiation, aggravating/relieving factors..."></textarea></div>
+              <div><label><span class="abbr-hdr">(PM/PSH)</span> Past Medical &amp; Surgical History</label><textarea id="hPMH" rows="3" placeholder="Previous illnesses, operations, hospitalisations, chronic conditions..."></textarea></div>
             </div>
+            <div class="g2" style="margin-top:6px;">
+              <div><label><span class="abbr-hdr">(DH)</span> Drug History — Current Medications</label><textarea id="hDrug" rows="2" placeholder="Current medications, doses, duration..."></textarea></div>
+              <div><label>⚠ Allergies</label><input id="hAllergy" placeholder="e.g. Penicillin — rash. None known." style="margin-bottom:4px;"><label>👨‍👩‍👧 Family &amp; Social History</label><textarea id="hFSH" rows="2" placeholder="Family illnesses, occupation, smoking, alcohol, travel..."></textarea></div>
+            </div>
+            <div id="ogBlock" style="display:none;margin-top:6px;">
+              <div style="background:#fce7f3;border-left:3px solid #db2777;border-radius:5px;padding:8px 12px;">
+                <label style="color:#9d174d;"><span class="abbr-hdr">(O/G)</span> Obstetric &amp; Gynaecological History — Female</label>
+                <div class="g2" style="margin-bottom:4px;"><div><label>LMP</label><input id="hLMP"></div><div><label>Gravida/Para</label><input id="hGP"></div></div>
+                <textarea id="hOG" rows="2" placeholder="Obs/Gyn notes, previous pregnancies, contraception..."></textarea>
+              </div>
+            </div>
+          </div></div>
+
+          <!-- STEP 2: EXAMINATION -->
+          <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#065f46,#10b981);color:#fff;border-radius:7px;padding:8px 14px;margin:12px 0 10px;">
+            <span style="font-size:16px;">🩺</span>
+            <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Step 2 — Physical Examination</span>
           </div>
-          <hr class="dv">
-          <!-- FINAL DX -->
-          <label><span class="abbr-hdr">(Dx)</span> <span class="abbr-full">Final Diagnosis</span></label><input id="cFinalDx" placeholder="Final/confirmed diagnosis...">
-          <label><span class="abbr-hdr">(Mx)</span> <span class="abbr-full">Management Plan / Clinical Notes</span></label><textarea id="cNotes" rows="2" placeholder="Management plan, clinical notes..."></textarea>
-          <label><span class="abbr-hdr">(Rec)</span> <span class="abbr-full">Doctor's Recommendations to Patient</span></label><textarea id="cRecommendations" rows="2" placeholder="Patient education, lifestyle advice, follow-up instructions, dietary recommendations, activity restrictions..."></textarea>
-          <hr class="dv">
-          <!-- PRESCRIPTION (formulation-aware) -->
-          <div>
-            <p style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:6px;"><span class="abbr-hdr">(Rx)</span> <span class="abbr-full" style="text-transform:uppercase;">Prescription Orders</span></p>
+          <div class="cb"><div class="ch open" onclick="tClin(this)"><span><span class="abbr-hdr">(PE)</span><span class="abbr-full">Physical Examination Findings</span></span><span class="cr">▼</span></div><div class="cbody open">
+            <div class="g2"><div><label>General Appearance</label><input id="hPEGeneral" placeholder="e.g. Alert, oriented, not in distress"></div><div><label>Head &amp; Neck</label><input id="hPEHead" placeholder="e.g. No lymphadenopathy, JVP normal"></div></div>
+            <div class="g2" style="margin-top:5px;"><div><label>Chest / Respiratory</label><input id="hPEChest" placeholder="e.g. Clear to auscultation bilaterally"></div><div><label>Cardiovascular</label><input id="hPECVS" placeholder="e.g. Regular rate and rhythm, no murmurs"></div></div>
+            <div class="g2" style="margin-top:5px;"><div><label>Abdomen</label><input id="hPEAbdomen" placeholder="e.g. Soft, non-tender, no hepatosplenomegaly"></div><div><label>CNS / Neurological</label><input id="hPECNS" placeholder="e.g. GCS 15, pupils equal and reactive"></div></div>
+            <div class="g2" style="margin-top:5px;"><div><label>Extremities / MSK</label><input id="hPEExtremities" placeholder="e.g. No oedema, full range of motion"></div><div><label>Skin</label><input id="hPESkin" placeholder="e.g. No rash, jaundice, or cyanosis"></div></div>
+            <label style="margin-top:5px;">Other Examination Findings</label><textarea id="hPEOther" rows="2" placeholder="Any other relevant examination findings..."></textarea>
+          </div></div>
+          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(Diff Dx)</span><span class="abbr-full">Differential Diagnosis</span></span><span class="cr">▼</span></div><div class="cbody"><textarea id="cDiffDx" rows="2" placeholder="Differentials being considered..."></textarea></div></div>
+
+          <!-- STEP 3: INVESTIGATIONS -->
+          <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#5b21b6,#7c3aed);color:#fff;border-radius:7px;padding:8px 14px;margin:12px 0 10px;">
+            <span style="font-size:16px;">🔬</span>
+            <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Step 3 — Investigations</span>
+          </div>
+          <div class="g2">
+            <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(Ix-Lab)</span><span class="abbr-full">Lab Orders</span></span><span class="cr">▼</span></div><div class="cbody">
+              <div id="lab-order-sec">
+                <input id="lab-search" placeholder="Search lab tests..." onkeyup="filterLabTests()" style="margin-bottom:6px;">
+                <div class="lab-check-list" id="lab-check-list"></div>
+                <div id="selected-labs-display" style="margin-top:6px;"></div>
+              </div>
+            </div></div>
+            <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(Rad)</span><span class="abbr-full">Radiology / Imaging</span></span><span class="cr">▼</span></div><div class="cbody">
+              <div id="rad-orders-list"></div>
+              <button class="badd" onclick="addRadRow()">+ Add Imaging</button>
+            </div></div>
+          </div>
+
+          <!-- STEP 4: PRESCRIPTIONS -->
+          <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#92400e,#f59e0b);color:#fff;border-radius:7px;padding:8px 14px;margin:12px 0 10px;">
+            <span style="font-size:16px;">💊</span>
+            <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Step 4 — Prescriptions</span>
+          </div>
+          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(Rx)</span><span class="abbr-full">Prescription Orders</span></span><span class="cr">▼</span></div><div class="cbody">
             <input id="med-search" placeholder="Search drug by name, class or formulation..." onkeyup="filterMeds()" style="margin-bottom:5px;">
             <div class="drug-search-results" id="drug-results" style="display:none;"></div>
             <div id="med-orders-list"></div>
+          </div></div>
+
+          <!-- STEP 5: PROCEDURES -->
+          <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#991b1b,#ef4444);color:#fff;border-radius:7px;padding:8px 14px;margin:12px 0 10px;">
+            <span style="font-size:16px;">🔪</span>
+            <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Step 5 — Nursing &amp; Surgical Procedures</span>
           </div>
+          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(Pr)</span><span class="abbr-full">Procedure Orders</span></span><span class="cr">▼</span></div><div class="cbody">
+            <div id="proc-order-sec">
+              <div id="proc-orders-list"></div>
+              <div style="display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap;">
+                <select id="proc-order-select" style="flex:1;min-width:200px;margin:0;font-size:13px;">
+                  <option value="">-- Select procedure to order --</option>
+                </select>
+                <button class="badd" onclick="addProcOrder()">+ Order Procedure</button>
+              </div>
+            </div>
+          </div></div>
+
+          <!-- STEP 6: SUMMARY / DISCHARGE -->
+          <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#0c4a6e,#0ea5e9);color:#fff;border-radius:7px;padding:8px 14px;margin:12px 0 10px;">
+            <span style="font-size:16px;">📝</span>
+            <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Step 6 — Summary &amp; Discharge</span>
+          </div>
+          <div class="cb"><div class="ch open" onclick="tClin(this)"><span><span class="abbr-hdr">(Dx / Mx / Rec)</span><span class="abbr-full">Diagnosis, Management &amp; Recommendations</span></span><span class="cr">▼</span></div><div class="cbody open">
+            <label><span class="abbr-hdr">(Dx)</span> Final Diagnosis</label><input id="cFinalDx" placeholder="Final/confirmed diagnosis...">
+            <div class="g2" style="margin-top:6px;">
+              <div><label><span class="abbr-hdr">(Mx)</span> Management Plan / Clinical Notes</label><textarea id="cNotes" rows="2" placeholder="Management plan, clinical notes..."></textarea></div>
+              <div><label><span class="abbr-hdr">(Rec)</span> Doctor's Recommendations to Patient</label><textarea id="cRecommendations" rows="2" placeholder="Patient education, lifestyle advice, dietary recommendations, activity restrictions..."></textarea></div>
+            </div>
+          </div></div>
           <!-- Order Summary -->
           <div class="osum"><h5>📋 Current Visit Bill</h5><div id="order-sum-body"><div class="emp">No orders yet.</div></div></div>
           <!-- Allergy Warning Banner -->
@@ -2003,8 +2066,10 @@ function login(){
   const landing=s.isAdmin?'director':(s.landing||s.sections?.[0]||'reception');
   showSection(landing);
   _startAlertPolling();
+  // Queue reminder on login
+  setTimeout(()=>_showLoginQueueReminder(s), 1200);
   if(pol.forcePwdChange&&s.forcePasswordChange){
-    setTimeout(()=>alert(`Welcome ${s.name}. Please change your password immediately by going to your profile.`),800);
+    setTimeout(()=>alert(`Welcome ${s.name}. Please change your password immediately by going to your profile.`),2400);
   }
 }
 
@@ -2161,8 +2226,22 @@ function registerPatient(){
   const ageVal=document.getElementById('pAgeVal').value;
   if(!name||!ageVal)return alert('Enter name and age.');
   const consultType=document.getElementById('pConsultType').value;
-  const pId='P-'+Date.now().toString().slice(-7);
-  patients.push({id:pId,name,gender:document.getElementById('pGender').value,ageVal:parseInt(ageVal),ageUnit:document.getElementById('pAgeUnit').value,phone:document.getElementById('pPhone').value,address:document.getElementById('pAddress').value,kinName:document.getElementById('pKinName').value,kinPhone:document.getElementById('pKinPhone').value});
+  // Improvement 2: Use existing patient ID for returning patients
+  let pId;
+  if(_returningPatId && patients.find(x=>x.id===_returningPatId)){
+    pId=_returningPatId;
+    // Update demographics in case they changed
+    const existing=patients.find(x=>x.id===pId);
+    if(existing){
+      existing.name=name;existing.gender=document.getElementById('pGender').value;
+      existing.ageVal=parseInt(ageVal);existing.ageUnit=document.getElementById('pAgeUnit').value;
+      existing.phone=document.getElementById('pPhone').value;existing.address=document.getElementById('pAddress').value;
+      existing.kinName=document.getElementById('pKinName').value;existing.kinPhone=document.getElementById('pKinPhone').value;
+    }
+  } else {
+    pId='P-'+Date.now().toString().slice(-7);
+    patients.push({id:pId,name,gender:document.getElementById('pGender').value,ageVal:parseInt(ageVal),ageUnit:document.getElementById('pAgeUnit').value,phone:document.getElementById('pPhone').value,address:document.getElementById('pAddress').value,kinName:document.getElementById('pKinName').value,kinPhone:document.getElementById('pKinPhone').value});
+  }
   const payType=document.getElementById('pPayType')?.value||'Cash';
   const insuranceProv=document.getElementById('pInsuranceProvider')?.value||'';
   const memberNo=document.getElementById('pInsuranceMemberNo')?.value.trim()||'';
@@ -2187,9 +2266,14 @@ function registerPatient(){
     IMMUNISATION:'Immunisation',PROCEDURE_ONLY:'Procedure and Dressing clinic',
     PHARMACY_ONLY:'Pharmacy to collect medication',
   };
-  speak(`Patient ${name} has been registered for ${ctSpeech[consultType]||consultType}.`);
+  _speakRegistrationAlert(name, consultType, ctSpeech[consultType]||consultType);
   ['pName','pPhone','pAddress','pKinName','pKinPhone'].forEach(f=>document.getElementById(f).value='');
   document.getElementById('pAgeVal').value='';
+  // Clear smart search and returning patient state
+  _returningPatId=null;
+  const sns=document.getElementById('smart-name-search');if(sns)sns.value='';
+  const rn=document.getElementById('returning-pat-notice');if(rn)rn.style.display='none';
+  const ob=document.getElementById('outstanding-bill-banner');if(ob)ob.style.display='none';
   const routeMsg={
     GENERAL:'→ Triage Queue',LAB_ONLY:'→ Lab directly',RADIOLOGY:'→ Radiology',
     DENTAL:'→ Special (Dental)',ENT:'→ Special (ENT)',OTHER_SPECIAL:'→ Special Consultation',
@@ -2286,6 +2370,7 @@ function openChart(pId){
           <button class="bsm bo" onclick="printVisitReport('${v.id}')">📄 Print</button>
           <button class="bsm bo" onclick="printInvoice('${v.id}')">🖨 Invoice</button>
           ${(v.labs||[]).some(l=>l.done)?`<button class="bsm" style="background:var(--a);color:#fff;" onclick="printAllLabs('${v.id}')">🔬 Labs PDF</button>`:''}
+          ${v.dischargeSnapshot||v.status==='DISCHARGED'?`<button class="bsm" style="background:#0c4a6e;color:#fff;" onclick="viewDischargeSnapshot('${v.id}')">📋 Discharge Summary</button>`:''}
         </div>
       </div>
       <div style="font-size:12px;margin-bottom:7px;">${labItems} ${radItems} ${rxItems}</div>
@@ -3491,9 +3576,39 @@ function _showQueueList(){
   activeVid=null;
 }
 
+function _snapshotDischargeSummary(v){
+  // Snapshot the discharge summary at time of discharge — persists forever
+  const p=patients.find(x=>x.id===v.patId);
+  const cl=v.clinical||{};
+  const rxList=(v.prescriptions||[]).filter(r=>r.name);
+  const doctor=staffList.find(s=>s.sections&&s.sections.includes('doctor'))||{name:'Attending Physician'};
+  const snap={
+    snappedAt:new Date().toLocaleString(),
+    dischargeDate:v.dischargeDate||new Date().toLocaleDateString(),
+    patientName:v.name,
+    patientAge:p?p.ageVal+' '+p.ageUnit:'—',
+    patientGender:p?p.gender:'—',
+    patientPhone:p?p.phone||'—':'—',
+    visitDate:v.date,
+    visitId:v.id,
+    diagnosis:cl.finalDx||'—',
+    notes:cl.notes||'—',
+    recommendations:cl.recommendations||'—',
+    returnDate:cl.returnDate||'—',
+    returnNote:cl.returnNote||'—',
+    medications:rxList.map(r=>({name:r.name,strength:r.strength||'—',form:r.formulation||'—',qty:r.qty,freq:r.instructions||'—',dur:r.duration||'—',instr:r.patientInstructions||'—'})),
+    procedures:(v.procedures||[]).filter(p=>p.name).map(p=>({name:p.name,completed:p.completed,by:p.completedBy||'—',time:p.completedTime||'—',notes:p.notes||'—'})),
+    dischargingDoctor:currentUser?.name||doctor.name,
+    dischargingRole:currentUser?.role||doctor.role||'Doctor',
+  };
+  v.dischargeSnapshot=snap;
+}
+
 function endVisit(){
   const v=visits.find(x=>x.id===activeVid);if(!v)return;
-  saveClinical();v.status='DISCHARGED';v.dischargeDate=new Date().toLocaleDateString();
+  saveClinical();
+  v.status='DISCHARGED';v.dischargeDate=new Date().toLocaleDateString();
+  _snapshotDischargeSummary(v);
   lg(v,'Discharged');speak(`Patient ${v.name} has been discharged. Thank you for visiting Tali Medicals International.`);
   save();_showQueueList();renderCons();
   alert(`${v.name} discharged.`);
@@ -9721,6 +9836,242 @@ window.speak=function(text){
   playDropSound();
   if(_origSpeak)_origSpeak(text);
 };
+
+// ══ IMPROVEMENT 4: Enhanced Voice Alerts ══════
+function _speakRegistrationAlert(name, consultType, dest){
+  const isEmergency = consultType === 'EMERGENCY';
+  // Play drop sound (2x for emergency)
+  playDropSound();
+  if(isEmergency) setTimeout(()=>playDropSound(), 400);
+  // Speak name twice with destination
+  const msg = isEmergency
+    ? `EMERGENCY. ${name}. EMERGENCY. ${name}. Please attend immediately.`
+    : `${name}. ${name}. Please proceed to ${dest}.`;
+  if(voiceEnabled && window.speechSynthesis){
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(msg);
+    u.lang='en-US'; u.rate=isEmergency?0.78:0.88; u.pitch=isEmergency?1.1:1;
+    const voices=window.speechSynthesis.getVoices();
+    const eng=voices.find(v=>v.lang.startsWith('en')&&!v.name.includes('Google'));
+    if(eng)u.voice=eng;
+    window.speechSynthesis.speak(u);
+  }
+  // Also broadcast cross-device
+  _broadcastAlertAll(msg);
+}
+
+// ══ Login Queue Reminder Toast ══
+function _showLoginQueueReminder(staffMember){
+  // Count relevant queue items for this staff role
+  const sections = staffMember.sections || [];
+  let toasts = [];
+  if(sections.includes('nurse')||sections.includes('reception')){
+    const triageCount = visits.filter(v=>v.status==='WAITING_TRIAGE').length;
+    if(triageCount>0) toasts.push({msg:`🔔 ${triageCount} patient${triageCount>1?'s':''} waiting in your Triage queue`, color:'#0369a1'});
+    const nurseQ = visits.filter(v=>v.status==='IN_NURSE_QUEUE').length;
+    if(nurseQ>0) toasts.push({msg:`🔔 ${nurseQ} patient${nurseQ>1?'s':''} in the Nurse queue`, color:'#0d9488'});
+  }
+  if(sections.includes('doctor')){
+    const docQ = visits.filter(v=>v.status==='WAITING_DOCTOR').length;
+    if(docQ>0) toasts.push({msg:`🔔 ${docQ} patient${docQ>1?'s':''} in your consultation queue`, color:'#1e3a8a'});
+  }
+  if(sections.includes('lab')){
+    const labQ = visits.filter(v=>(v.labs||[]).some(l=>l.name&&!l.done)).length;
+    if(labQ>0) toasts.push({msg:`🔔 ${labQ} lab order${labQ>1?'s':''} awaiting processing`, color:'#92400e'});
+  }
+  if(sections.includes('pharmacy')){
+    const rxQ = visits.filter(v=>(v.prescriptions||[]).some(r=>r.name&&!r.dispensed)).length;
+    if(rxQ>0) toasts.push({msg:`🔔 ${rxQ} prescription${rxQ>1?'s':''} awaiting dispensing`, color:'#065f46'});
+  }
+  if(sections.includes('radiology')){
+    const radQ = visits.filter(v=>(v.radiology||[]).some(r=>r.name&&!r.done)).length;
+    if(radQ>0) toasts.push({msg:`🔔 ${radQ} imaging order${radQ>1?'s':''} pending results`, color:'#5b21b6'});
+  }
+  if(!toasts.length) return;
+  // Play drop sound (capped at 3)
+  const tones = Math.min(toasts.length, 3);
+  for(let i=0;i<tones;i++) setTimeout(()=>playDropSound(), i*350);
+  // Show stacked toasts
+  toasts.forEach((t,i)=>{
+    setTimeout(()=>_showToast(t.msg, t.color), i*600+400);
+  });
+}
+
+function _showToast(msg, color='#1e3a8a'){
+  // Create or reuse toast container
+  let wrap = document.getElementById('toast-wrap');
+  if(!wrap){
+    wrap = document.createElement('div');
+    wrap.id='toast-wrap';
+    Object.assign(wrap.style,{position:'fixed',top:'14px',right:'14px',zIndex:'9999',display:'flex',flexDirection:'column',gap:'8px',pointerEvents:'none'});
+    document.body.appendChild(wrap);
+  }
+  const toast = document.createElement('div');
+  Object.assign(toast.style,{
+    background:color,color:'#fff',padding:'10px 18px',borderRadius:'9px',
+    fontSize:'13px',fontWeight:'700',boxShadow:'0 4px 18px rgba(0,0,0,.25)',
+    opacity:'0',transform:'translateX(30px)',transition:'opacity .3s, transform .3s',
+    pointerEvents:'auto',maxWidth:'320px'
+  });
+  toast.textContent = msg;
+  wrap.appendChild(toast);
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{toast.style.opacity='1';toast.style.transform='translateX(0)';});
+  });
+  setTimeout(()=>{
+    toast.style.opacity='0';toast.style.transform='translateX(30px)';
+    setTimeout(()=>toast.remove(),350);
+  },5000);
+}
+
+// ══ Discharge Snapshot Viewer ══
+function viewDischargeSnapshot(vid){
+  const v=visits.find(x=>x.id===vid);if(!v)return;
+  // Use snapshot if exists, else build from live data with warning
+  if(v.dischargeSnapshot){
+    _renderSnapshotModal(v.dischargeSnapshot);
+  } else {
+    // Fallback: generate from live data
+    printDischargeSummary(vid);
+  }
+}
+
+function _renderSnapshotModal(snap){
+  let modal = document.getElementById('discharge-snap-modal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id='discharge-snap-modal';
+    modal.className='mo';
+    modal.innerHTML=`<div class="mb" style="max-width:700px;max-height:90vh;overflow-y:auto;">
+      <button class="mc" onclick="cModal('discharge-snap-modal')">✕</button>
+      <div id="discharge-snap-content"></div>
+      <div class="ab"><button onclick="printDischargeSummary(_lastSnapVid)" class="bp">🖨 Print</button>
+      <button onclick="cModal('discharge-snap-modal')" style="background:#e2e8f0;color:#475569;">Close</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  const fac=_getFacilitySettings();
+  const rxRows = (snap.medications||[]).map(r=>`<tr><td><b>${r.name}</b></td><td>${r.strength}</td><td>${r.form}</td><td>${r.qty}</td><td>${r.freq}</td><td>${r.dur}</td><td>${r.instr}</td></tr>`).join('');
+  const procRows=(snap.procedures||[]).map(p=>`<tr><td>${p.name}</td><td style="font-weight:700;">${p.completed?'✅ Done':'⏳ Pending'}</td><td>${p.by}</td><td>${p.time}</td><td>${p.notes}</td></tr>`).join('');
+  document.getElementById('discharge-snap-content').innerHTML=`
+    <div style="background:#1e3a8a;color:#fff;border-radius:8px;padding:14px 18px;margin-bottom:14px;">
+      <div style="font-size:18px;font-weight:800;text-align:center;margin-bottom:4px;">${(fac.name||'TALI MEDICALS INTERNATIONAL').toUpperCase()}</div>
+      <div style="text-align:center;font-size:11px;opacity:.8;">DISCHARGE SUMMARY <span style="background:rgba(255,255,255,.2);padding:1px 8px;border-radius:10px;margin-left:6px;">Snapshot — ${snap.snappedAt}</span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;font-size:13px;background:#f8fafc;border-radius:7px;padding:11px 14px;">
+      <div><b>Patient:</b> ${snap.patientName}</div>
+      <div><b>Visit Date:</b> ${snap.visitDate}</div>
+      <div><b>Age:</b> ${snap.patientAge}</div>
+      <div><b>Gender:</b> ${snap.patientGender}</div>
+      <div><b>Phone:</b> ${snap.patientPhone}</div>
+      <div><b>Discharge Date:</b> ${snap.dischargeDate}</div>
+    </div>
+    <div style="background:#eff6ff;border-left:4px solid #1e3a8a;border-radius:5px;padding:10px 14px;margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--mu);text-transform:uppercase;font-weight:700;margin-bottom:4px;">Diagnosis</div>
+      <div style="font-size:16px;font-weight:800;color:#1e3a8a;">${snap.diagnosis}</div>
+      ${snap.notes&&snap.notes!=='—'?`<div style="font-size:13px;margin-top:6px;color:#334155;">${snap.notes}</div>`:''}
+    </div>
+    ${rxRows?`<div style="margin-bottom:12px;"><div style="font-weight:700;font-size:13px;padding:5px 10px;background:#f0fdf4;border-left:4px solid #10b981;margin-bottom:6px;">💊 MEDICATIONS TO TAKE HOME</div>
+    <table class="pit"><tr><th>Medication</th><th>Strength</th><th>Form</th><th>Qty</th><th>Frequency</th><th>Duration</th><th>Instructions</th></tr>${rxRows}</table></div>`:'<div style="font-size:13px;color:#64748b;margin-bottom:12px;">No take-home medications prescribed.</div>'}
+    ${procRows?`<div style="margin-bottom:12px;"><div style="font-weight:700;font-size:13px;padding:5px 10px;background:#ede9fe;border-left:4px solid #7c3aed;margin-bottom:6px;">🔪 PROCEDURES PERFORMED</div>
+    <table class="pit"><tr><th>Procedure</th><th>Status</th><th>By</th><th>Time</th><th>Notes</th></tr>${procRows}</table></div>`:''}
+    <div style="margin-bottom:12px;"><div style="font-weight:700;font-size:13px;padding:5px 10px;background:#eff6ff;border-left:4px solid #3b82f6;margin-bottom:6px;">📋 FOLLOW-UP INSTRUCTIONS</div>
+    <div style="font-size:13px;padding:8px 12px;border:1px solid #e2e8f0;border-radius:5px;min-height:40px;">${snap.recommendations||'No specific follow-up instructions recorded.'}</div></div>
+    ${snap.returnDate&&snap.returnDate!=='—'?`<div style="background:#fef9c3;border:1.5px solid #fbbf24;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:12px;"><b>📅 Return Date:</b> ${snap.returnDate}${snap.returnNote&&snap.returnNote!=='—'?` — ${snap.returnNote}`:''}</div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;font-size:13px;">
+      <div><div style="border-top:1.5px solid #334155;padding-top:6px;margin-top:30px;"><b>${snap.dischargingDoctor}</b><br><span style="color:#64748b;">${snap.dischargingRole}</span></div><div style="font-size:11px;color:#94a3b8;margin-top:4px;">Signature &amp; Date</div></div>
+      <div><div style="border-top:1.5px solid #334155;padding-top:6px;margin-top:30px;">&nbsp;</div><div style="font-size:11px;color:#94a3b8;margin-top:4px;">Patient / Guardian Signature</div></div>
+    </div>
+  `;
+  window._lastSnapVid = snap.visitId;
+  oModal('discharge-snap-modal');
+}
+
+// ══ Smart Patient Registration Functions ══
+let _returningPatId = null;
+function smartPatientSearch(){
+  const term = (document.getElementById('smart-name-search')?.value||'').trim().toLowerCase();
+  const res = document.getElementById('smart-results');
+  if(!res)return;
+  if(term.length < 2){ res.style.display='none'; return; }
+  // Also populate the pName field as user types
+  const pNameEl=document.getElementById('pName');
+  if(pNameEl&&!_returningPatId) pNameEl.value=document.getElementById('smart-name-search').value;
+  const matches = patients.filter(p=>p.name.toLowerCase().includes(term)).slice(0,8);
+  if(!matches.length){ res.style.display='none'; return; }
+  res.style.display='block';
+  res.innerHTML = matches.map(p=>{
+    const pv=visits.filter(v=>v.patId===p.id);
+    const last=pv.length?pv[pv.length-1]:null;
+    const unpaid=pv.filter(v=>{const t=totalBill(v);return t>0&&v.totalPaid<t-0.001&&['DISCHARGED','ADMITTED'].includes(v.status);});
+    const debtAmt=unpaid.reduce((s,v)=>s+(totalBill(v)-v.totalPaid),0);
+    const debtTag=debtAmt>0?`<span style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;margin-left:4px;">⚠ Owes $${debtAmt.toFixed(2)}</span>`:'';
+    return`<div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <div>
+        <div style="font-weight:700;font-size:14px;">${p.name} ${debtTag}</div>
+        <div style="font-size:12px;color:var(--mu);">${p.ageVal} ${p.ageUnit} · ${p.gender} · ${p.phone||'No phone'} · ${pv.length} visit(s)</div>
+        ${last?`<div style="font-size:11px;color:#475569;">Last: ${last.date} — <span style="font-weight:600;">${last.status.replace(/_/g,' ')}</span></div>`:''}
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0;">
+        <button onclick="selectReturningPat('${p.id}')" style="background:#1e3a8a;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;">↩ Returning</button>
+        <button onclick="document.getElementById('smart-results').style.display='none'" style="background:#e2e8f0;color:#475569;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px;">New</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectReturningPat(pId){
+  const p=patients.find(x=>x.id===pId);if(!p)return;
+  _returningPatId=pId;
+  // Pre-fill demographics
+  const f=id=>document.getElementById(id);
+  if(f('pName'))f('pName').value=p.name;
+  if(f('smart-name-search'))f('smart-name-search').value=p.name;
+  if(f('pGender'))f('pGender').value=p.gender;
+  if(f('pAgeVal'))f('pAgeVal').value=p.ageVal;
+  if(f('pAgeUnit'))f('pAgeUnit').value=p.ageUnit||'years';
+  if(f('pPhone'))f('pPhone').value=p.phone||''
+  if(f('pAddress'))f('pAddress').value=p.address||''
+  if(f('pKinName'))f('pKinName').value=p.kinName||''
+  if(f('pKinPhone'))f('pKinPhone').value=p.kinPhone||''
+  // Show returning notice
+  const notice=document.getElementById('returning-pat-notice');
+  if(notice)notice.style.display='block';
+  const nameEl=document.getElementById('returning-pat-name');
+  if(nameEl)nameEl.textContent=p.name;
+  // Check for outstanding bills
+  const pv=visits.filter(v=>v.patId===pId);
+  const unpaid=pv.filter(v=>{const t=totalBill(v);return t>0&&v.totalPaid<t-0.001&&['DISCHARGED','ADMITTED'].includes(v.status);});
+  if(unpaid.length){
+    const debtAmt=unpaid.reduce((s,v)=>s+(totalBill(v)-v.totalPaid),0);
+    const lastUnpaid=unpaid[unpaid.length-1];
+    const banner=document.getElementById('outstanding-bill-banner');
+    const detail=document.getElementById('outstanding-bill-detail');
+    if(banner)banner.style.display='block';
+    if(detail)detail.innerHTML=`<b>Outstanding balance of $${debtAmt.toFixed(2)}</b> across ${unpaid.length} visit(s). Most recent unpaid visit: ${lastUnpaid.date}.<br>Please resolve before continuing registration. A director/supervisor override is required to proceed.`;
+    // Log the override attempt
+    lg({timeline:[]},'Outstanding debt alert shown',`${p.name} — $${debtAmt.toFixed(2)}`);
+  }
+  document.getElementById('smart-results').style.display='none';
+}
+
+function clearReturningPat(){
+  _returningPatId=null;
+  const f=id=>document.getElementById(id);
+  ['pName','pPhone','pAddress','pKinName','pKinPhone'].forEach(id=>{if(f(id))f(id).value='';});
+  if(f('pAgeVal'))f('pAgeVal').value='';
+  if(f('smart-name-search'))f('smart-name-search').value='';
+  const notice=document.getElementById('returning-pat-notice');if(notice)notice.style.display='none';
+  const banner=document.getElementById('outstanding-bill-banner');if(banner)banner.style.display='none';
+}
+
+function acknowledgeOutstanding(){
+  const banner=document.getElementById('outstanding-bill-banner');
+  if(banner){
+    banner.style.background='#fef3c7';banner.style.borderColor='#f59e0b';
+    banner.innerHTML=`<span style="font-weight:700;color:#92400e;">⚠️ Director Override Applied — Outstanding balance noted. Registration continuing.</span>`;
+  }
+}
 
 // ══════════════════════════════════════════════
 //  DAILY VERSE & MOTIVATIONAL QUOTE
