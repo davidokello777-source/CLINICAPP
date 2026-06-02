@@ -367,48 +367,149 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- DIRECTOR -->
     <section id="sec-director">
-      <!-- Stat Cards -->
-      <div class="g4" style="margin-bottom:12px;">
-        <div class="sc" style="background:var(--p)"><div style="font-size:11px;opacity:.8;">Today Revenue</div><h2 id="d-rev" style="margin:3px 0;">$0</h2></div>
-        <div class="sc" style="background:#dc2626"><div style="font-size:11px;opacity:.8;">Today Expenses</div><h2 id="d-exp" style="margin:3px 0;">$0</h2></div>
-        <div class="sc" style="background:var(--a)"><div style="font-size:11px;opacity:.8;">Today Patients</div><h2 id="d-pats" style="margin:3px 0;">0</h2></div>
-        <div class="sc" style="background:var(--w)"><div style="font-size:11px;opacity:.8;">Outstanding Debt</div><h2 id="d-debt" style="margin:3px 0;">$0</h2></div>
-        <div class="sc" style="background:var(--pu)"><div style="font-size:11px;opacity:.8;">Stock Value</div><h2 id="d-stock-val" style="margin:3px 0;">$0</h2></div>
-        <div class="sc" style="background:#0f766e"><div style="font-size:11px;opacity:.8;">Admitted</div><h2 id="d-adm" style="margin:3px 0;">0</h2></div>
-        <div class="sc" style="background:#b45309"><div style="font-size:11px;opacity:.8;">Lab Tests Today</div><h2 id="d-labs" style="margin:3px 0;">0</h2></div>
-        <div class="sc" style="background:#6d28d9"><div style="font-size:11px;opacity:.8;">Discharged Today</div><h2 id="d-disc" style="margin:3px 0;">0</h2></div>
-        <div class="sc" style="background:#c2410c"><div style="font-size:11px;opacity:.8;">Suppliers</div><h2 id="d-suppliers" style="margin:3px 0;">0</h2></div>
-        <div class="sc" style="background:#dc2626"><div style="font-size:11px;opacity:.8;">Supplier Debt</div><h2 id="d-sup-debt" style="margin:3px 0;">$0</h2></div>
+      <!-- ══ DIRECTOR KPI DASHBOARD ══ -->
+
+      <!-- Top bar: period selector + export -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:13px;font-weight:700;color:var(--p);">📊 KPI Dashboard</span>
+          <select id="kpi-period" onchange="renderDash()" style="margin:0;font-size:12px;padding:5px 10px;">
+            <option value="today">Today</option>
+            <option value="week">Last 7 Days</option>
+            <option value="month" selected>This Month</option>
+            <option value="quarter">This Quarter</option>
+            <option value="year">This Year</option>
+            <option value="custom">Custom Range</option>
+          </select>
+          <span id="kpi-custom-wrap" style="display:none;gap:6px;align-items:center;">
+            <input type="date" id="kpi-from" onchange="renderDash()" style="margin:0;font-size:12px;width:130px;">
+            <span style="font-size:12px;">→</span>
+            <input type="date" id="kpi-to" onchange="renderDash()" style="margin:0;font-size:12px;width:130px;">
+          </span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button onclick="kpiExportPDF()" class="bo" style="font-size:12px;">🖨 Print / PDF</button>
+          <button onclick="kpiExportCSV()" class="bo" style="font-size:12px;">⬇ Export CSV</button>
+          <button onclick="renderDash()" class="ba" style="font-size:12px;">↻ Refresh</button>
+        </div>
       </div>
-      <!-- Charts Row 1 -->
-      <div class="g2">
-        <div class="card"><h4 style="margin-bottom:8px;">📈 Revenue vs Expenses (Last 7 Days)</h4><div class="chart-box"><canvas id="ch-revexp"></canvas></div></div>
-        <div class="card"><h4 style="margin-bottom:8px;">👥 Patient Visits This Month</h4><div class="chart-box"><canvas id="ch-visits"></canvas></div></div>
+
+      <!-- ── ROW 1: PRIMARY KPI CARDS (6 cards) ── -->
+      <div id="kpi-cards-primary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:12px;"></div>
+
+      <!-- ── ROW 2: SECONDARY KPI CARDS (6 cards) ── -->
+      <div id="kpi-cards-secondary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:14px;"></div>
+
+      <!-- ── PROFIT & LOSS SUMMARY ── -->
+      <div class="card" style="margin-bottom:14px;padding:14px 18px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <h4 style="margin:0;color:var(--p);">📋 Profit & Loss Summary</h4>
+          <div id="pnl-net" style="font-size:18px;font-weight:800;"></div>
+        </div>
+        <div id="pnl-table-wrap"></div>
       </div>
-      <!-- Charts Row 2 -->
-      <div class="g2">
-        <div class="card"><h4 style="margin-bottom:8px;">💳 Debt Analysis</h4><div style="display:flex;align-items:center;gap:12px;"><div style="width:160px;height:160px;"><canvas id="ch-debt"></canvas></div><div id="debt-legend" style="font-size:12px;"></div></div></div>
-        <div class="card"><h4 style="margin-bottom:8px;">🔬 Top Lab Tests This Month</h4><div class="chart-box"><canvas id="ch-labs"></canvas></div></div>
+
+      <!-- ── CHARTS ROW 1 ── -->
+      <div class="g2" style="margin-bottom:14px;">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+            <h4 style="margin:0;">📈 Revenue vs Expenses</h4>
+            <select id="revexp-granularity" onchange="buildRevExpChart()" style="margin:0;font-size:11px;padding:3px 8px;">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          <div class="chart-box"><canvas id="ch-revexp"></canvas></div>
+        </div>
+        <div class="card">
+          <h4 style="margin-bottom:8px;">👥 Patient Volume Trend</h4>
+          <div class="chart-box"><canvas id="ch-visits"></canvas></div>
+          <div id="visit-trend-note" style="font-size:11px;color:var(--mu);margin-top:6px;text-align:center;"></div>
+        </div>
       </div>
-      <!-- Stock + Low stock -->
-      <div class="g2">
-        <div class="card"><h4 style="margin-bottom:8px;">📦 Stock Value by Category</h4><table id="d-stockval"></table></div>
-        <div class="card"><h4 style="margin-bottom:8px;">⚠ Low Stock Alerts</h4><table id="d-lowstock"></table></div>
-      </div>
-      <!-- Revenue by Department -->
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-          <h4 style="margin:0;">💹 Revenue by Department</h4>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <label style="margin:0;font-size:11px;">Month:</label>
+
+      <!-- ── CHARTS ROW 2 ── -->
+      <div class="g2" style="margin-bottom:14px;">
+        <div class="card">
+          <h4 style="margin-bottom:8px;">💹 Revenue by Department</h4>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
             <input type="month" id="dept-rev-month" style="width:auto;margin:0;font-size:12px;" onchange="buildDeptRevChart()">
           </div>
+          <div style="position:relative;height:200px;"><canvas id="ch-dept-rev"></canvas></div>
+          <table id="dept-rev-table" style="font-size:12px;margin-top:8px;"></table>
         </div>
-        <div class="g2">
-          <div style="position:relative;height:220px;"><canvas id="ch-dept-rev"></canvas></div>
-          <table id="dept-rev-table" style="font-size:13px;"></table>
+        <div class="card">
+          <h4 style="margin-bottom:8px;">💳 Collections & Debt Analysis</h4>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <div style="width:140px;height:140px;flex-shrink:0;"><canvas id="ch-debt"></canvas></div>
+            <div id="debt-legend" style="font-size:12px;flex:1;"></div>
+          </div>
+          <div id="debt-ageing-wrap"></div>
         </div>
       </div>
+
+      <!-- ── CHARTS ROW 3 ── -->
+      <div class="g2" style="margin-bottom:14px;">
+        <div class="card">
+          <h4 style="margin-bottom:8px;">🔬 Top Lab Tests This Month</h4>
+          <div class="chart-box"><canvas id="ch-lab-stats"></canvas></div>
+        </div>
+        <div class="card">
+          <h4 style="margin-bottom:8px;">🏷 Consult Type Breakdown</h4>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:160px;height:160px;flex-shrink:0;"><canvas id="ch-consult-types"></canvas></div>
+            <div id="consult-type-legend" style="font-size:12px;flex:1;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ROW 4: INVENTORY + STAFF ── -->
+      <div class="g2" style="margin-bottom:14px;">
+        <div class="card">
+          <h4 style="margin-bottom:8px;">📦 Stock Value by Category</h4>
+          <table id="d-stockval"></table>
+        </div>
+        <div class="card">
+          <h4 style="margin-bottom:8px;">⚠ Low Stock Alerts</h4>
+          <table id="d-lowstock"></table>
+        </div>
+      </div>
+
+      <!-- ── DEBT AGEING TABLE ── -->
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+          <h4 style="margin:0;color:#dc2626;">📅 Debt Ageing Report</h4>
+          <button onclick="kpiExportDebtCSV()" class="bo" style="font-size:12px;">⬇ Export Debt CSV</button>
+        </div>
+        <div id="debt-ageing-table-wrap" style="overflow-x:auto;"></div>
+      </div>
+
+      <!-- ── TOP PATIENTS BY REVENUE ── -->
+      <div class="g2" style="margin-bottom:14px;">
+        <div class="card">
+          <h4 style="margin-bottom:8px;">🏆 Top 10 Revenue Patients</h4>
+          <table id="d-top-patients" style="font-size:12px;"></table>
+        </div>
+        <div class="card">
+          <h4 style="margin-bottom:8px;">📊 Expense Breakdown</h4>
+          <div style="position:relative;height:200px;"><canvas id="ch-expenses-cat"></canvas></div>
+          <table id="d-expenses-table" style="font-size:12px;margin-top:8px;"></table>
+        </div>
+      </div>
+
+      <!-- ── MONTHLY PERFORMANCE TREND (12-month) ── -->
+      <div class="card" style="margin-bottom:14px;">
+        <h4 style="margin-bottom:8px;">📆 12-Month Performance Overview</h4>
+        <div class="chart-box" style="height:200px;"><canvas id="ch-12month"></canvas></div>
+      </div>
+
+      <!-- ── STAFF PRODUCTIVITY ── -->
+      <div class="card" style="margin-bottom:4px;">
+        <h4 style="margin-bottom:8px;">👨‍⚕️ Staff Productivity</h4>
+        <div id="staff-productivity-table" style="overflow-x:auto;"></div>
+      </div>
+
     </section>
 
     <!-- RECEPTION -->
@@ -2451,31 +2552,11 @@ function showSection(id){
 // ══════════════════════════════════════════════
 //  DIRECTOR DASHBOARD + CHARTS
 // ══════════════════════════════════════════════
-function renderDash(){
-  const today=new Date().toLocaleDateString();
-  const tv=visits.filter(v=>v.date===today);
-  const rev=tv.reduce((s,v)=>s+v.totalPaid,0);
-  const exp=expenses.filter(e=>e.date===today).reduce((s,e)=>s+e.amount,0);
-  const debt=visits.reduce((s,v)=>{const b=totalBill(v);return s+(b-v.totalPaid);},0);
-  const sval=inventory.reduce((s,i)=>s+(i.stock*i.price),0);
-  const labsToday=tv.reduce((s,v)=>s+(v.labs||[]).filter(l=>l.name).length,0);
-  const supOwed=suppliers.reduce((s,sup)=>s+(sup.pos||[]).reduce((a,p)=>a+(p.amount-p.paid),0),0);
-  document.getElementById('d-rev').innerText='$'+rev.toFixed(2);
-  document.getElementById('d-exp').innerText='$'+exp.toFixed(2);
-  document.getElementById('d-pats').innerText=tv.length;
-  document.getElementById('d-debt').innerText='$'+Math.max(0,debt).toFixed(2);
-  document.getElementById('d-stock-val').innerText='$'+sval.toFixed(2);
-  document.getElementById('d-adm').innerText=visits.filter(v=>v.status==='ADMITTED').length;
-  document.getElementById('d-labs').innerText=labsToday;
-  document.getElementById('d-disc').innerText=tv.filter(v=>v.status==='DISCHARGED').length;
-  // Supplier stats
-  const dSup=document.getElementById('d-suppliers');
-  const dSupDebt=document.getElementById('d-sup-debt');
-  if(dSup)dSup.innerText=suppliers.length;
-  if(dSupDebt)dSupDebt.innerText='$'+supOwed.toFixed(2);
-  buildRevExpChart();buildVisitsChart();buildDebtChart();buildLabChart();
-  buildStockValTable();buildLowStockTable();buildDeptRevChart();
-}
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  TALI HIMS — ADVANCED KPI FINANCIAL DASHBOARD                   ║
+// ║  Inspired by: Epic Hyperspace · Cerner PowerChart · Tableau     ║
+// ╚══════════════════════════════════════════════════════════════════╝
 
 function getLast7Days(){
   const days=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(d.toLocaleDateString());}return days;
@@ -2487,54 +2568,399 @@ function getThisMonth(){
 }
 function dChart(k){if(charts[k]){charts[k].destroy();delete charts[k];}}
 
+// ── Period helpers ────────────────────────────────────────────────
+function _kpiDates(){
+  const period=(document.getElementById('kpi-period')?.value)||'month';
+  const now=new Date();
+  let from,to;
+  const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const fromStr=s=>new Date(s);
+  if(period==='today'){from=to=new Date(now.getFullYear(),now.getMonth(),now.getDate());}
+  else if(period==='week'){to=new Date(now.getFullYear(),now.getMonth(),now.getDate());from=new Date(to);from.setDate(from.getDate()-6);}
+  else if(period==='month'){from=new Date(now.getFullYear(),now.getMonth(),1);to=new Date(now.getFullYear(),now.getMonth()+1,0);}
+  else if(period==='quarter'){const q=Math.floor(now.getMonth()/3);from=new Date(now.getFullYear(),q*3,1);to=new Date(now.getFullYear(),q*3+3,0);}
+  else if(period==='year'){from=new Date(now.getFullYear(),0,1);to=new Date(now.getFullYear(),11,31);}
+  else{
+    const f=document.getElementById('kpi-from')?.value;const t=document.getElementById('kpi-to')?.value;
+    from=f?new Date(f):new Date(now.getFullYear(),now.getMonth(),1);
+    to=t?new Date(t):now;
+  }
+  document.getElementById('kpi-custom-wrap').style.display=(period==='custom')?'flex':'none';
+  return{from,to};
+}
+function _inRange(dateStr,from,to){
+  const d=new Date(dateStr);return d>=from&&d<=to;
+}
+function _periodVisits(){
+  const{from,to}=_kpiDates();
+  return visits.filter(v=>_inRange(v.date,from,to));
+}
+function _periodExpenses(){
+  const{from,to}=_kpiDates();
+  return expenses.filter(e=>_inRange(e.date,from,to));
+}
+function _fmt(n){return'$'+(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function _fmtN(n){return(n||0).toLocaleString('en-US',{maximumFractionDigits:0});}
+
+// ── KPI Card renderer ─────────────────────────────────────────────
+function _kpiCard(id,label,value,sub,color,trend){
+  return`<div style="background:${color};color:#fff;border-radius:10px;padding:12px 14px;position:relative;overflow:hidden;">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;opacity:.8;letter-spacing:.05em;">${label}</div>
+    <div style="font-size:20px;font-weight:800;margin:4px 0 2px;">${value}</div>
+    ${sub?`<div style="font-size:10px;opacity:.75;">${sub}</div>`:''}
+    ${trend!==undefined?`<div style="font-size:11px;margin-top:4px;font-weight:700;">${trend>=0?'▲':'▼'} ${Math.abs(trend).toFixed(1)}% vs prev</div>`:''}
+  </div>`;
+}
+
+// ── MAIN RENDER ───────────────────────────────────────────────────
+function renderDash(){
+  const pv=_periodVisits();
+  const pe=_periodExpenses();
+  const today=new Date().toLocaleDateString();
+  const tv=visits.filter(v=>v.date===today);
+
+  // Core financials
+  const rev    =pv.reduce((s,v)=>s+v.totalPaid,0);
+  const billed =pv.reduce((s,v)=>s+totalBill(v),0);
+  const exp    =pe.reduce((s,e)=>s+e.amount,0);
+  const profit =rev-exp;
+  const debt   =visits.reduce((s,v)=>s+Math.max(0,totalBill(v)-v.totalPaid),0);
+  const sval   =inventory.reduce((s,i)=>s+(i.stock*i.price),0);
+  const supOwed=suppliers.reduce((s,sup)=>s+(sup.pos||[]).reduce((a,p)=>a+(p.amount-p.paid),0),0);
+  const margin =rev>0?((profit/rev)*100):0;
+  const collRate=billed>0?((rev/billed)*100):0;
+
+  // Clinical
+  const labsCnt=pv.reduce((s,v)=>s+(v.labs||[]).filter(l=>l.name).length,0);
+  const rxCnt  =pv.reduce((s,v)=>s+(v.prescriptions||[]).filter(r=>r.name).length,0);
+  const admitted=visits.filter(v=>v.status==='ADMITTED').length;
+  const avgRev =pv.length?rev/pv.length:0;
+
+  // Primary cards
+  const primary=[
+    {label:'Total Revenue',value:_fmt(rev),sub:`Billed: ${_fmt(billed)}`,color:'#1e3a8a'},
+    {label:'Total Expenses',value:_fmt(exp),sub:`${pe.length} entries`,color:'#dc2626'},
+    {label:'Net Profit',value:_fmt(profit),sub:`Margin: ${margin.toFixed(1)}%`,color:profit>=0?'#065f46':'#7f1d1d'},
+    {label:'Patient Visits',value:_fmtN(pv.length),sub:`Avg rev: ${_fmt(avgRev)}/visit`,color:'#0c4a6e'},
+    {label:'Outstanding Debt',value:_fmt(debt),sub:`Recovery: ${collRate.toFixed(1)}%`,color:'#92400e'},
+    {label:'Stock Value',value:_fmt(sval),sub:`Supplier debt: ${_fmt(supOwed)}`,color:'#4c1d95'},
+  ];
+  const secondary=[
+    {label:"Today's Revenue",value:_fmt(tv.reduce((s,v)=>s+v.totalPaid,0)),sub:`${tv.length} patients today`,color:'#0369a1'},
+    {label:'Lab Tests',value:_fmtN(labsCnt),sub:'This period',color:'#7c3aed'},
+    {label:'Prescriptions',value:_fmtN(rxCnt),sub:'This period',color:'#16a34a'},
+    {label:'Currently Admitted',value:_fmtN(admitted),sub:'Inpatients',color:'#0f766e'},
+    {label:'Inventory Items',value:_fmtN(inventory.length),sub:`${inventory.filter(i=>i.stock<=i.reorderLevel).length} low stock`,color:'#c2410c'},
+    {label:'Active Staff',value:_fmtN(staffList.filter(s=>s.accountStatus!=='Suspended').length),sub:`${suppliers.length} suppliers`,color:'#374151'},
+  ];
+
+  document.getElementById('kpi-cards-primary').innerHTML=primary.map(c=>_kpiCard('',c.label,c.value,c.sub,c.color)).join('');
+  document.getElementById('kpi-cards-secondary').innerHTML=secondary.map(c=>_kpiCard('',c.label,c.value,c.sub,c.color)).join('');
+
+  // P&L table
+  _buildPnL(rev,exp,profit,margin,billed,collRate,pv);
+
+  // Charts
+  buildRevExpChart();
+  buildVisitsChart();
+  buildDebtChart();
+  buildLabChart();
+  buildDeptRevChart();
+  _buildConsultTypeChart(pv);
+  _build12MonthChart();
+  _buildExpensesChart(pe);
+  _buildDebtAgeingTable();
+  _buildTopPatients();
+  _buildStaffProductivity(pv);
+  buildStockValTable();
+  buildLowStockTable();
+}
+
+// ── P&L Summary ──────────────────────────────────────────────────
+function _buildPnL(rev,exp,profit,margin,billed,collRate,pv){
+  const labRev=pv.reduce((s,v)=>s+(v.labs||[]).filter(l=>l.name).reduce((a,l)=>a+l.price,0),0);
+  const rxRev =pv.reduce((s,v)=>s+(v.prescriptions||[]).filter(r=>r.name).reduce((a,r)=>a+r.price*r.qty,0),0);
+  const radRev=pv.reduce((s,v)=>s+(v.radiology||[]).filter(r=>r.name).reduce((a,r)=>a+r.price,0),0);
+  const conRev=pv.reduce((s,v)=>s+(v.consultFee||0),0);
+  const procRev=pv.reduce((s,v)=>s+(v.procedures||[]).filter(p=>p.price).reduce((a,p)=>a+p.price,0),0);
+  const discTotal=pv.reduce((s,v)=>s+(v.discount||0),0);
+  const rows=[
+    {label:'Consultation fees',val:conRev,indent:1,type:'rev'},
+    {label:'Laboratory services',val:labRev,indent:1,type:'rev'},
+    {label:'Pharmacy / dispensing',val:rxRev,indent:1,type:'rev'},
+    {label:'Radiology / imaging',val:radRev,indent:1,type:'rev'},
+    {label:'Procedures',val:procRev,indent:1,type:'rev'},
+    {label:'GROSS REVENUE',val:conRev+labRev+rxRev+radRev+procRev,indent:0,type:'subtotal'},
+    {label:'Discounts granted',val:-discTotal,indent:1,type:'deduct'},
+    {label:'NET REVENUE COLLECTED',val:rev,indent:0,type:'subtotal'},
+    {label:'Total Expenses',val:-exp,indent:1,type:'deduct'},
+    {label:'NET PROFIT / (LOSS)',val:profit,indent:0,type:'total'},
+  ];
+  const pnlNet=document.getElementById('pnl-net');
+  if(pnlNet)pnlNet.innerHTML=`<span style="color:${profit>=0?'#065f46':'#dc2626'};">${profit>=0?'▲':'▼'} ${_fmt(profit)}</span>`;
+  let h=`<table style="font-size:13px;width:100%;"><tr><th>Item</th><th style="text-align:right;">Amount</th><th style="text-align:right;">% of Revenue</th></tr>`;
+  rows.forEach(r=>{
+    const pct=rev>0?(Math.abs(r.val)/rev*100).toFixed(1):'—';
+    const bold=r.indent===0?'font-weight:800;':'';
+    const bg=r.type==='total'?'background:#f0fdf4;':r.type==='subtotal'?'background:#f8fafc;':'';
+    const col=r.val<0?'color:#dc2626;':(r.type==='total'&&r.val>=0?'color:#065f46;':'');
+    h+=`<tr style="${bg}${bold}"><td style="padding-left:${r.indent?16:0}px;">${r.label}</td>
+      <td style="text-align:right;${col}${bold}">${_fmt(Math.abs(r.val))}${r.val<0?' (deduct)':''}</td>
+      <td style="text-align:right;color:var(--mu);font-size:12px;">${pct}%</td></tr>`;
+  });
+  h+=`<tr style="background:#eff6ff;"><td><b>Collection Rate</b></td><td style="text-align:right;font-weight:700;">${collRate.toFixed(1)}%</td><td></td></tr>`;
+  h+=`<tr style="background:#eff6ff;"><td><b>Profit Margin</b></td><td style="text-align:right;font-weight:700;color:${margin>=0?'#065f46':'#dc2626'};">${margin.toFixed(1)}%</td><td></td></tr>`;
+  h+='</table>';
+  const el=document.getElementById('pnl-table-wrap');if(el)el.innerHTML=h;
+}
+
+// ── Revenue vs Expenses chart ────────────────────────────────────
 function buildRevExpChart(){
   dChart('revexp');const ctx=document.getElementById('ch-revexp');if(!ctx)return;
-  const days=getLast7Days();
-  const revData=days.map(d=>visits.filter(v=>v.date===d).reduce((s,v)=>s+v.totalPaid,0));
-  const expData=days.map(d=>expenses.filter(e=>e.date===d).reduce((s,e)=>s+e.amount,0));
-  const labels=days.map(d=>{const p=d.split('/');return p[1]+'/'+p[0];});
-  charts.revexp=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Revenue',data:revData,backgroundColor:'rgba(16,185,129,.7)'},{label:'Expenses',data:expData,backgroundColor:'rgba(239,68,68,.7)'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
+  const gran=(document.getElementById('revexp-granularity')?.value)||'daily';
+  const{from,to}=_kpiDates();
+  let labels=[],revData=[],expData=[];
+  if(gran==='daily'){
+    const days=[];for(let d=new Date(from);d<=to;d.setDate(d.getDate()+1))days.push(new Date(d).toLocaleDateString());
+    labels=days.map(d=>{const p=d.split('/');return p[1]+'/'+p[0];});
+    revData=days.map(d=>visits.filter(v=>v.date===d).reduce((s,v)=>s+v.totalPaid,0));
+    expData=days.map(d=>expenses.filter(e=>e.date===d).reduce((s,e)=>s+e.amount,0));
+  } else if(gran==='weekly'){
+    const wk=new Date(from);
+    while(wk<=to){
+      const wend=new Date(wk);wend.setDate(wend.getDate()+6);
+      const ws=wk.toLocaleDateString(),we=wend.toLocaleDateString();
+      labels.push('W/e '+wend.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}));
+      revData.push(visits.filter(v=>_inRange(v.date,wk,wend)).reduce((s,v)=>s+v.totalPaid,0));
+      expData.push(expenses.filter(e=>_inRange(e.date,wk,wend)).reduce((s,e)=>s+e.amount,0));
+      wk.setDate(wk.getDate()+7);
+    }
+  } else {
+    for(let m=0;m<12;m++){
+      const mf=new Date(new Date().getFullYear(),m,1),mt=new Date(new Date().getFullYear(),m+1,0);
+      labels.push(mf.toLocaleString('default',{month:'short'}));
+      revData.push(visits.filter(v=>_inRange(v.date,mf,mt)).reduce((s,v)=>s+v.totalPaid,0));
+      expData.push(expenses.filter(e=>_inRange(e.date,mf,mt)).reduce((s,e)=>s+e.amount,0));
+    }
+  }
+  charts.revexp=new Chart(ctx,{type:'bar',data:{labels,datasets:[
+    {label:'Revenue',data:revData,backgroundColor:'rgba(16,185,129,.75)',borderRadius:4},
+    {label:'Expenses',data:expData,backgroundColor:'rgba(239,68,68,.65)',borderRadius:4},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'$'+v.toLocaleString()}}}}});
 }
 
 function buildVisitsChart(){
   dChart('visits');const ctx=document.getElementById('ch-visits');if(!ctx)return;
-  const days=getThisMonth();const counts=days.map(d=>visits.filter(v=>v.date===d).length);
-  const labels=days.map(d=>{const p=d.split('/');return p[1];});
-  charts.visits=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Patients',data:counts,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.1)',tension:.3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+  const{from,to}=_kpiDates();
+  const days=[];for(let d=new Date(from);d<=to;d.setDate(d.getDate()+1))days.push(new Date(d).toLocaleDateString());
+  const counts=days.map(d=>visits.filter(v=>v.date===d).length);
+  const labels=days.map(d=>{const p=d.split('/');return p[1]+'/'+p[0];});
+  const avg=counts.length?counts.reduce((a,b)=>a+b,0)/counts.length:0;
+  charts.visits=new Chart(ctx,{type:'line',data:{labels,datasets:[
+    {label:'Patients',data:counts,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',tension:.35,fill:true,pointRadius:2},
+    {label:'Daily Avg',data:counts.map(()=>avg),borderColor:'rgba(239,68,68,.5)',borderDash:[4,4],pointRadius:0,borderWidth:1.5},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+  const note=document.getElementById('visit-trend-note');
+  if(note&&counts.length>1){const first=counts.slice(0,Math.ceil(counts.length/2)).reduce((a,b)=>a+b,0);const sec=counts.slice(Math.ceil(counts.length/2)).reduce((a,b)=>a+b,0);const tr=first>0?((sec-first)/first*100):0;note.textContent=`Trend: ${tr>=0?'▲':'▼'} ${Math.abs(tr).toFixed(1)}% vs first half of period`;}
 }
 
 function buildDebtChart(){
   dChart('debt');const ctx=document.getElementById('ch-debt');if(!ctx)return;
   const total=visits.reduce((s,v)=>s+totalBill(v),0);
   const paid=visits.reduce((s,v)=>s+v.totalPaid,0);
-  const unpaid=Math.max(0,total-paid);
-  charts.debt=new Chart(ctx,{type:'doughnut',data:{labels:['Collected','Outstanding'],datasets:[{data:[paid,unpaid],backgroundColor:['#10b981','#ef4444'],borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
-  document.getElementById('debt-legend').innerHTML=`<div style="margin-bottom:6px;"><span style="display:inline-block;width:12px;height:12px;background:#10b981;border-radius:2px;margin-right:5px;"></span>Collected: <b>$${paid.toFixed(2)}</b></div><div><span style="display:inline-block;width:12px;height:12px;background:#ef4444;border-radius:2px;margin-right:5px;"></span>Outstanding: <b>$${unpaid.toFixed(2)}</b></div><hr style="margin:8px 0;"><div>Total Billed: <b>$${total.toFixed(2)}</b></div><div style="margin-top:4px;">Recovery Rate: <b>${total>0?((paid/total)*100).toFixed(1):0}%</b></div>`;
+  const partial=visits.filter(v=>billStatus(v)==='PARTIAL').reduce((s,v)=>s+(totalBill(v)-v.totalPaid),0);
+  const unpaidFull=visits.filter(v=>billStatus(v)==='PENDING').reduce((s,v)=>s+totalBill(v),0);
+  charts.debt=new Chart(ctx,{type:'doughnut',data:{labels:['Collected','Partial Unpaid','Fully Unpaid'],datasets:[{data:[paid,partial,unpaidFull],backgroundColor:['#10b981','#f59e0b','#ef4444'],borderWidth:2,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'65%'}});
+  const el=document.getElementById('debt-legend');
+  if(el)el.innerHTML=[
+    {c:'#10b981',l:'Collected',v:paid},
+    {c:'#f59e0b',l:'Partial',v:partial},
+    {c:'#ef4444',l:'Fully Unpaid',v:unpaidFull},
+  ].map(x=>`<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;"><span style="width:10px;height:10px;border-radius:2px;background:${x.c};flex-shrink:0;"></span><span>${x.l}:</span><b>${_fmt(x.v)}</b></div>`).join('')
+  +`<hr style="margin:8px 0 6px;"><div><b>Total billed:</b> ${_fmt(total)}</div><div style="margin-top:3px;"><b>Recovery rate:</b> ${total>0?((paid/total)*100).toFixed(1):0}%</div>`;
 }
 
 function buildLabChart(){
   dChart('labch');const ctx=document.getElementById('ch-lab-stats');if(!ctx)return;
-  const now=new Date();const m=now.getMonth();const y=now.getFullYear();
-  const monthVisits=visits.filter(v=>{const d=new Date(v.date);return d.getMonth()===m&&d.getFullYear()===y;});
-  const counts={};
-  monthVisits.forEach(v=>(v.labs||[]).filter(l=>l.name).forEach(l=>{counts[l.name]=(counts[l.name]||0)+1;}));
-  const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  if(!sorted.length)return;
-  charts.labch=new Chart(ctx,{type:'bar',data:{labels:sorted.map(x=>x[0]),datasets:[{label:'Requests',data:sorted.map(x=>x[1]),backgroundColor:'rgba(124,58,237,.7)'}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}});
+  const pv=_periodVisits();const counts={};
+  pv.forEach(v=>(v.labs||[]).filter(l=>l.name).forEach(l=>{counts[l.name]=(counts[l.name]||0)+1;}));
+  const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  if(!sorted.length){dChart('labch');return;}
+  charts.labch=new Chart(ctx,{type:'bar',data:{labels:sorted.map(x=>x[0]),datasets:[{label:'Requests',data:sorted.map(x=>x[1]),backgroundColor:'rgba(124,58,237,.75)',borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}});
 }
 
+function _buildConsultTypeChart(pv){
+  dChart('ctypes');const ctx=document.getElementById('ch-consult-types');if(!ctx)return;
+  const counts={};pv.forEach(v=>{const t=v.consultType||'GENERAL';counts[t]=(counts[t]||0)+1;});
+  const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if(!entries.length)return;
+  const cols=['#1e3a8a','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899'];
+  charts.ctypes=new Chart(ctx,{type:'doughnut',data:{labels:entries.map(x=>x[0]),datasets:[{data:entries.map(x=>x[1]),backgroundColor:cols,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'55%'}});
+  const leg=document.getElementById('consult-type-legend');
+  if(leg){const total=entries.reduce((s,x)=>s+x[1],0);leg.innerHTML=entries.map((x,i)=>`<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;"><span style="width:10px;height:10px;border-radius:50%;background:${cols[i]};flex-shrink:0;"></span><span style="flex:1;">${x[0]}</span><b>${x[1]}</b> <span style="color:var(--mu);font-size:11px;">(${(x[1]/total*100).toFixed(0)}%)</span></div>`).join('');}
+}
+
+function _build12MonthChart(){
+  dChart('12mo');const ctx=document.getElementById('ch-12month');if(!ctx)return;
+  const now=new Date();const labels=[],revArr=[],expArr=[],patArr=[];
+  for(let i=11;i>=0;i--){
+    const m=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const me=new Date(now.getFullYear(),now.getMonth()-i+1,0);
+    labels.push(m.toLocaleString('default',{month:'short',year:'2-digit'}));
+    revArr.push(visits.filter(v=>_inRange(v.date,m,me)).reduce((s,v)=>s+v.totalPaid,0));
+    expArr.push(expenses.filter(e=>_inRange(e.date,m,me)).reduce((s,e)=>s+e.amount,0));
+    patArr.push(visits.filter(v=>_inRange(v.date,m,me)).length);
+  }
+  charts['12mo']=new Chart(ctx,{type:'bar',data:{labels,datasets:[
+    {label:'Revenue',data:revArr,backgroundColor:'rgba(16,185,129,.7)',borderRadius:4,yAxisID:'y'},
+    {label:'Expenses',data:expArr,backgroundColor:'rgba(239,68,68,.55)',borderRadius:4,yAxisID:'y'},
+    {label:'Patients',data:patArr,type:'line',borderColor:'#3b82f6',backgroundColor:'transparent',tension:.4,pointRadius:3,yAxisID:'y1'},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,position:'left',ticks:{callback:v=>'$'+v.toLocaleString()}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},ticks:{stepSize:1}}}}});
+}
+
+function _buildExpensesChart(pe){
+  dChart('expcats');const ctx=document.getElementById('ch-expenses-cat');if(!ctx)return;
+  const cats={};pe.forEach(e=>{const c=e.category||'Other';cats[c]=(cats[c]||0)+e.amount;});
+  const entries=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+  const cols=['#dc2626','#f59e0b','#7c3aed','#0369a1','#065f46','#c2410c','#374151'];
+  if(entries.length){
+    charts.expcats=new Chart(ctx,{type:'pie',data:{labels:entries.map(x=>x[0]),datasets:[{data:entries.map(x=>x[1]),backgroundColor:cols,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}}}}});
+  }
+  const tbl=document.getElementById('d-expenses-table');
+  if(tbl){
+    const total=pe.reduce((s,e)=>s+e.amount,0);
+    let h='<tr><th>Category</th><th>Amount</th><th>%</th></tr>';
+    entries.forEach(([c,v],i)=>h+=`<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${cols[i]};margin-right:5px;"></span>${c}</td><td><b>${_fmt(v)}</b></td><td style="color:var(--mu);">${total>0?((v/total)*100).toFixed(1):0}%</td></tr>`);
+    h+=`<tr style="font-weight:700;background:var(--lt);"><td>Total</td><td>${_fmt(total)}</td><td>100%</td></tr>`;
+    tbl.innerHTML=h;
+  }
+}
+
+// ── Debt Ageing Report ───────────────────────────────────────────
+function _buildDebtAgeingTable(){
+  const today=new Date();
+  const debtors=visits.filter(v=>{const b=totalBill(v);return b>0&&v.totalPaid<b-0.001;});
+  const buckets={'0-30 days':[],'31-60 days':[],'61-90 days':[],'91-180 days':[],'>180 days':[]};
+  debtors.forEach(v=>{
+    const age=Math.floor((today-new Date(v.date))/(1000*60*60*24));
+    const p=patients.find(x=>x.id===v.patId);
+    const owed=totalBill(v)-v.totalPaid;
+    const rec={name:v.name||p?.name||'—',date:v.date,owed,age,vid:v.id};
+    if(age<=30)buckets['0-30 days'].push(rec);
+    else if(age<=60)buckets['31-60 days'].push(rec);
+    else if(age<=90)buckets['61-90 days'].push(rec);
+    else if(age<=180)buckets['91-180 days'].push(rec);
+    else buckets['>180 days'].push(rec);
+  });
+  const colors={'0-30 days':'#f0fdf4','31-60 days':'#fef9c3','61-90 days':'#fef3c7','91-180 days':'#fee2e2','>180 days':'#fecaca'};
+  const textCols={'0-30 days':'#065f46','31-60 days':'#78350f','61-90 days':'#92400e','91-180 days':'#991b1b','>180 days':'#7f1d1d'};
+  let h='<table style="font-size:12px;width:100%;"><tr><th>Bucket</th><th>Patients</th><th>Total Owed</th><th>Details</th></tr>';
+  Object.entries(buckets).forEach(([bkt,recs])=>{
+    const tot=recs.reduce((s,r)=>s+r.owed,0);
+    h+=`<tr style="background:${colors[bkt]};"><td style="font-weight:700;color:${textCols[bkt]};">${bkt}</td><td style="font-weight:700;">${recs.length}</td><td style="font-weight:700;">${_fmt(tot)}</td>
+      <td style="font-size:11px;">${recs.slice(0,3).map(r=>`${r.name} ${_fmt(r.owed)}`).join(' · ')}${recs.length>3?` +${recs.length-3} more`:''}</td></tr>`;
+  });
+  const grandTotal=debtors.reduce((s,v)=>s+totalBill(v)-v.totalPaid,0);
+  h+=`<tr style="font-weight:800;background:#f1f5f9;"><td>TOTAL DEBT</td><td>${debtors.length} patients</td><td>${_fmt(grandTotal)}</td><td></td></tr>`;
+  h+='</table>';
+  const el=document.getElementById('debt-ageing-table-wrap');if(el)el.innerHTML=h;
+}
+
+// ── Top Patients by Revenue ──────────────────────────────────────
+function _buildTopPatients(){
+  const pv=_periodVisits();
+  const pmap={};
+  pv.forEach(v=>{
+    const pid=v.patId||v.id;
+    if(!pmap[pid])pmap[pid]={name:v.name,visits:0,rev:0,billed:0};
+    pmap[pid].visits++;pmap[pid].rev+=v.totalPaid;pmap[pid].billed+=totalBill(v);
+  });
+  const sorted=Object.values(pmap).sort((a,b)=>b.rev-a.rev).slice(0,10);
+  const tbl=document.getElementById('d-top-patients');if(!tbl)return;
+  let h='<tr><th>#</th><th>Patient</th><th>Visits</th><th>Billed</th><th>Paid</th></tr>';
+  sorted.forEach((p,i)=>h+=`<tr><td style="color:var(--mu);">${i+1}</td><td><b>${p.name}</b></td><td>${p.visits}</td><td>${_fmt(p.billed)}</td><td style="color:#065f46;font-weight:700;">${_fmt(p.rev)}</td></tr>`);
+  if(!sorted.length)h+='<tr><td colspan="5" style="text-align:center;color:var(--mu);">No data for this period</td></tr>';
+  tbl.innerHTML=h;
+}
+
+// ── Staff Productivity ───────────────────────────────────────────
+function _buildStaffProductivity(pv){
+  const el=document.getElementById('staff-productivity-table');if(!el)return;
+  const docMap={};
+  pv.forEach(v=>{
+    const doc=v.attendingDoctor||v.clinical?.attendingDoctor||'Unassigned';
+    if(!docMap[doc])docMap[doc]={name:doc,patients:0,labs:0,rx:0,rev:0};
+    docMap[doc].patients++;
+    docMap[doc].labs+=(v.labs||[]).filter(l=>l.name).length;
+    docMap[doc].rx+=(v.prescriptions||[]).filter(r=>r.name).length;
+    docMap[doc].rev+=v.totalPaid;
+  });
+  const rows=Object.values(docMap).sort((a,b)=>b.patients-a.patients);
+  if(!rows.length){el.innerHTML='<div style="color:var(--mu);font-size:13px;padding:8px;">No visit data with doctor attribution this period. Ensure doctors are saving clinical notes.</div>';return;}
+  let h='<table style="font-size:12px;width:100%;"><tr><th>Doctor / Provider</th><th>Patients</th><th>Lab Orders</th><th>Prescriptions</th><th>Revenue</th><th>Avg Rev/Patient</th></tr>';
+  rows.forEach(r=>h+=`<tr><td><b>${r.name}</b></td><td>${r.patients}</td><td>${r.labs}</td><td>${r.rx}</td><td style="font-weight:700;">${_fmt(r.rev)}</td><td style="color:var(--mu);">${r.patients>0?_fmt(r.rev/r.patients):'—'}</td></tr>`);
+  h+='</table>';el.innerHTML=h;
+}
+
+// ── Stock tables (kept) ──────────────────────────────────────────
 function buildStockValTable(){
-  const cats={};
-  inventory.forEach(i=>{const c=i.drugClass||'Other';cats[c]=(cats[c]||0)+i.stock*i.price;});
-  let h=`<tr><th>Drug Class</th><th>Value ($)</th></tr>`;
-  Object.entries(cats).sort((a,b)=>b[1]-a[1]).forEach(([c,v])=>h+=`<tr><td>${c}</td><td><b>$${v.toFixed(2)}</b></td></tr>`);
+  const cats={};inventory.forEach(i=>{const c=i.drugClass||'Other';cats[c]=(cats[c]||0)+i.stock*i.price;});
+  let h='<tr><th>Category</th><th>Value ($)</th><th>% of Total</th></tr>';
+  const total=Object.values(cats).reduce((a,b)=>a+b,0);
+  Object.entries(cats).sort((a,b)=>b[1]-a[1]).forEach(([c,v])=>h+=`<tr><td>${c}</td><td><b>${_fmt(v)}</b></td><td style="color:var(--mu);">${total>0?((v/total)*100).toFixed(1):0}%</td></tr>`);
+  h+=`<tr style="font-weight:700;background:var(--lt);"><td>Total</td><td>${_fmt(total)}</td><td>100%</td></tr>`;
   document.getElementById('d-stockval').innerHTML=h;
 }
 function buildLowStockTable(){
-  const low=inventory.filter(i=>i.stock<=i.reorderLevel);
-  let h=`<tr><th>Item</th><th>Stock</th><th>Reorder</th></tr>`;
-  low.length?low.forEach(i=>h+=`<tr><td>${i.name} ${i.strength||''}</td><td style="color:var(--d);font-weight:700;">${i.stock}</td><td>${i.reorderLevel}</td></tr>`):h+=`<tr><td colspan="3" style="color:var(--a);text-align:center;">All stocked ✓</td></tr>`;
+  const low=inventory.filter(i=>i.stock<=i.reorderLevel).sort((a,b)=>a.stock-b.stock);
+  let h='<tr><th>Item</th><th>Stock</th><th>Reorder</th><th>Value at Risk</th></tr>';
+  low.length?low.forEach(i=>h+=`<tr><td>${i.name} ${i.strength||''}</td><td style="color:${i.stock<=0?'#dc2626':'#f59e0b'};font-weight:700;">${i.stock}</td><td>${i.reorderLevel}</td><td style="color:var(--mu);">${_fmt(i.reorderLevel*i.price)}</td></tr>`):h+='<tr><td colspan="4" style="color:var(--a);text-align:center;">All stocked ✓</td></tr>';
   document.getElementById('d-lowstock').innerHTML=h;
+}
+
+// ── Export functions ─────────────────────────────────────────────
+function kpiExportPDF(){window.print();}
+
+function kpiExportCSV(){
+  const pv=_periodVisits();const pe=_periodExpenses();
+  const rev=pv.reduce((s,v)=>s+v.totalPaid,0);
+  const exp=pe.reduce((s,e)=>s+e.amount,0);
+  const rows=[
+    ['KPI Report — Tali Medicals International'],
+    ['Period',document.getElementById('kpi-period')?.value||'month'],
+    ['Generated',new Date().toLocaleString()],
+    [],
+    ['METRIC','VALUE'],
+    ['Total Revenue Collected',rev.toFixed(2)],
+    ['Total Expenses',exp.toFixed(2)],
+    ['Net Profit',(rev-exp).toFixed(2)],
+    ['Profit Margin (%)',rev>0?(((rev-exp)/rev)*100).toFixed(1):'0'],
+    ['Patient Visits',pv.length],
+    ['Outstanding Patient Debt',visits.reduce((s,v)=>s+Math.max(0,totalBill(v)-v.totalPaid),0).toFixed(2)],
+    ['Stock Value',inventory.reduce((s,i)=>s+(i.stock*i.price),0).toFixed(2)],
+    [],
+    ['REVENUE BY DEPARTMENT'],
+    ['Consultation',pv.reduce((s,v)=>s+(v.consultFee||0),0).toFixed(2)],
+    ['Laboratory',pv.reduce((s,v)=>s+(v.labs||[]).filter(l=>l.name).reduce((a,l)=>a+l.price,0),0).toFixed(2)],
+    ['Pharmacy',pv.reduce((s,v)=>s+(v.prescriptions||[]).filter(r=>r.name).reduce((a,r)=>a+r.price*r.qty,0),0).toFixed(2)],
+    ['Radiology',pv.reduce((s,v)=>s+(v.radiology||[]).filter(r=>r.name).reduce((a,r)=>a+r.price,0),0).toFixed(2)],
+  ];
+  const csv=rows.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='tali_kpi_report_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+
+function kpiExportDebtCSV(){
+  const today=new Date();
+  const debtors=visits.filter(v=>{const b=totalBill(v);return b>0&&v.totalPaid<b-0.001;});
+  const rows=[['Patient Name','Visit Date','Days Outstanding','Total Billed','Paid','Balance','Status']];
+  debtors.sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(v=>{
+    const age=Math.floor((today-new Date(v.date))/(1000*60*60*24));
+    rows.push([v.name,v.date,age,totalBill(v).toFixed(2),v.totalPaid.toFixed(2),(totalBill(v)-v.totalPaid).toFixed(2),billStatus(v)]);
+  });
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='tali_debt_ageing_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
 
 // ══════════════════════════════════════════════
@@ -7413,15 +7839,8 @@ function speak(text){
   _broadcastAlertAll(text);
 }
 
-function _speakLocal(text){
-  if(!voiceEnabled || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'en-US'; u.rate = 0.92; u.pitch = 1;
-  const voices = window.speechSynthesis.getVoices();
-  const eng = voices.find(v => v.lang.startsWith('en') && !v.name.includes('Google'));
-  if(eng) u.voice = eng;
-  window.speechSynthesis.speak(u);
+function _speakLocal(text, priority='normal'){
+  _speakQueued(text, priority);
 }
 
 function _broadcastAlertAll(text){
@@ -8030,36 +8449,25 @@ function buildDeptRevChart(){
   const sel=monthEl?.value||`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   if(monthEl&&!monthEl.value)monthEl.value=sel;
   const [yr,mo]=sel.split('-').map(Number);
-  const mvs=visits.filter(v=>{
-    const d=new Date(v.date);return d.getFullYear()===yr&&d.getMonth()+1===mo;
-  });
+  const mvs=visits.filter(v=>{const d=new Date(v.date);return d.getFullYear()===yr&&d.getMonth()+1===mo;});
   const depts={
     Consultation:mvs.reduce((s,v)=>s+(v.consultFee||0),0),
     Laboratory:mvs.reduce((s,v)=>s+(v.labs||[]).filter(l=>l.name).reduce((a,l)=>a+l.price,0),0),
     Pharmacy:mvs.reduce((s,v)=>s+(v.prescriptions||[]).filter(r=>r.name).reduce((a,r)=>a+r.price*r.qty,0),0),
     Radiology:mvs.reduce((s,v)=>s+(v.radiology||[]).filter(r=>r.name).reduce((a,r)=>a+r.price,0),0),
+    Procedures:mvs.reduce((s,v)=>s+(v.procedures||[]).filter(p=>p.price).reduce((a,p)=>a+p.price,0),0),
   };
-  const labels=Object.keys(depts);
-  const data=Object.values(depts);
+  const labels=Object.keys(depts);const data=Object.values(depts);
   const total=data.reduce((a,b)=>a+b,0);
-  const colors=['#1e3a8a','#10b981','#f59e0b','#8b5cf6'];
-  const ctx=document.getElementById('ch-dept-rev');
-  if(!ctx)return;
+  const colors=['#1e3a8a','#10b981','#f59e0b','#8b5cf6','#ef4444'];
+  const ctx=document.getElementById('ch-dept-rev');if(!ctx)return;
   if(charts['dept-rev'])charts['dept-rev'].destroy();
-  charts['dept-rev']=new Chart(ctx,{
-    type:'bar',
-    data:{labels,datasets:[{label:'Revenue ($)',data,backgroundColor:colors,borderRadius:5}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
-  });
-  // Table
-  const tbl=document.getElementById('dept-rev-table');
-  if(!tbl)return;
-  let h=`<tr><th>Department</th><th>Revenue</th><th>% of Total</th></tr>`;
-  labels.forEach((l,i)=>{
-    const pct=total>0?((data[i]/total)*100).toFixed(1):0;
-    h+=`<tr><td><span style="display:inline-block;width:10px;height:10px;background:${colors[i]};border-radius:2px;margin-right:6px;"></span>${l}</td><td><b>$${data[i].toFixed(2)}</b></td><td>${pct}%</td></tr>`;
-  });
-  h+=`<tr style="font-weight:700;background:var(--lt);"><td>Total</td><td>$${total.toFixed(2)}</td><td>100%</td></tr>`;
+  charts['dept-rev']=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Revenue ($)',data,backgroundColor:colors,borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'$'+v.toLocaleString()}}}}});
+  const tbl=document.getElementById('dept-rev-table');if(!tbl)return;
+  let h='<tr><th>Department</th><th>Revenue</th><th>%</th><th>Visits</th></tr>';
+  const deptVisits={Consultation:mvs.filter(v=>v.consultFee).length,Laboratory:mvs.filter(v=>(v.labs||[]).some(l=>l.name)).length,Pharmacy:mvs.filter(v=>(v.prescriptions||[]).some(r=>r.name)).length,Radiology:mvs.filter(v=>(v.radiology||[]).some(r=>r.name)).length,Procedures:mvs.filter(v=>(v.procedures||[]).some(p=>p.price)).length};
+  labels.forEach((l,i)=>{const pct=total>0?((data[i]/total)*100).toFixed(1):0;h+=`<tr><td><span style="display:inline-block;width:8px;height:8px;background:${colors[i]};border-radius:2px;margin-right:5px;"></span>${l}</td><td><b>${_fmt(data[i])}</b></td><td style="color:var(--mu);">${pct}%</td><td style="color:var(--mu);">${deptVisits[l]||0}</td></tr>`;});
+  h+=`<tr style="font-weight:700;background:var(--lt);"><td>Total</td><td>${_fmt(total)}</td><td>100%</td><td>${mvs.length}</td></tr>`;
   tbl.innerHTML=h;
 }
 
@@ -10160,51 +10568,254 @@ window.selectDrug=function(eName,eStr,eForm,price,eDrugClass){
 // ══════════════════════════════════════════════
 //  ALERT SOUND — DROP/NOTIFICATION TONE
 // ══════════════════════════════════════════════
-function playDropSound(){
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  TALI HIMS — WORLD-CLASS HOSPITAL ALERT SYSTEM                  ║
+// ║  Inspired by: Epic Systems · Philips IntelliVue · Vocera        ║
+// ║  GE Muse · Hillrom · Cerner · WHO Emergency Standards           ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+// ── Shared AudioContext (reused — avoids browser limits) ──────────
+let _AC = null;
+function _getAC(){
+  if(!_AC || _AC.state==='closed'){
+    _AC = new (window.AudioContext||window.webkitAudioContext)();
+  }
+  if(_AC.state==='suspended') _AC.resume();
+  return _AC;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  TONE PRIMITIVES
+// ─────────────────────────────────────────────────────────────────
+function _tone(freq, dur, type='sine', vol=0.38, t0=null){
   try{
-    const ctx=new(window.AudioContext||window.webkitAudioContext)();
-    // Create a pleasant "drop" notification sound
-    const osc=ctx.createOscillator();
-    const gain=ctx.createGain();
-    osc.connect(gain);gain.connect(ctx.destination);
-    osc.type='sine';
-    osc.frequency.setValueAtTime(880,ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(440,ctx.currentTime+0.12);
-    osc.frequency.exponentialRampToValueAtTime(660,ctx.currentTime+0.22);
-    gain.gain.setValueAtTime(0.4,ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.35);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime+0.35);
+    const ctx=_getAC(); const now=t0??ctx.currentTime;
+    const osc=ctx.createOscillator(), g=ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.type=type; osc.frequency.value=freq;
+    g.gain.setValueAtTime(0,now);
+    g.gain.linearRampToValueAtTime(vol, now+0.008);
+    g.gain.setValueAtTime(vol, now+dur-0.04);
+    g.gain.linearRampToValueAtTime(0, now+dur);
+    osc.start(now); osc.stop(now+dur);
   }catch(e){}
 }
-// Override old speak alert trigger — also play drop sound
+
+function _toneSeq(notes, gap=0){
+  // notes: [{f,d,t,v}]  t=type v=vol
+  try{
+    const ctx=_getAC(); let t=ctx.currentTime;
+    notes.forEach(n=>{
+      _tone(n.f, n.d, n.t||'sine', n.v||0.35, t);
+      t += n.d + (n.gap??gap);
+    });
+  }catch(e){}
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  NAMED HOSPITAL TONES
+//  Each mimics a real clinical audio standard
+// ─────────────────────────────────────────────────────────────────
+
+// 1. REGISTRATION CHIME  — two rising musical tones (think: Vocera "patient arrived")
+function _chimeRegistration(){
+  _toneSeq([
+    {f:784, d:0.10, t:'sine',   v:0.32},   // G5
+    {f:1047,d:0.10, t:'sine',   v:0.35},   // C6
+    {f:1319,d:0.18, t:'sine',   v:0.30},   // E6 — sustain
+  ], 0.025);
+}
+
+// 2. NURSE CALL CHIME  — classic two-ding Westminster sub-set (Hillrom nurse-call DNA)
+function _chimeNurseCall(){
+  _toneSeq([
+    {f:1047,d:0.13, t:'sine', v:0.33},    // C6
+    {f:784, d:0.20, t:'sine', v:0.28},    // G5
+  ], 0.04);
+}
+
+// 3. DOCTOR QUEUE TONE  — warm triple descending (Epic "new order" style)
+function _chimeDoctorQueue(){
+  _toneSeq([
+    {f:1175,d:0.09, t:'sine', v:0.30},    // D6
+    {f:988, d:0.09, t:'sine', v:0.28},    // B5
+    {f:784, d:0.18, t:'sine', v:0.26},    // G5
+  ], 0.03);
+}
+
+// 4. PHARMACY READY  — bright upward pair (think: dispenser ready beep)
+function _chimePharmacy(){
+  _toneSeq([
+    {f:880, d:0.08, t:'sine', v:0.28},    // A5
+    {f:1174,d:0.14, t:'sine', v:0.32},    // D6
+  ], 0.03);
+}
+
+// 5. LAB RESULT READY  — clean single mid-tone with a resonant tail
+function _chimeLab(){
+  _toneSeq([
+    {f:932, d:0.08, t:'sine', v:0.30},
+    {f:1109,d:0.22, t:'sine', v:0.25},
+  ], 0.02);
+}
+
+// 6. DISCHARGE CHIME  — four-note ascending (departure; think: airport gate tone)
+function _chimeDischarge(){
+  _toneSeq([
+    {f:523, d:0.09, t:'sine', v:0.28},    // C5
+    {f:659, d:0.09, t:'sine', v:0.28},    // E5
+    {f:784, d:0.09, t:'sine', v:0.28},    // G5
+    {f:1047,d:0.22, t:'sine', v:0.26},    // C6
+  ], 0.025);
+}
+
+// 7. GENERAL NOTIFICATION  — single soft ding (standard UI alert, Cerner style)
+function _chimeSoft(){
+  _toneSeq([
+    {f:1047,d:0.06, t:'sine', v:0.25},
+    {f:1319,d:0.18, t:'sine', v:0.22},
+  ], 0.02);
+}
+
+// 8. EMERGENCY ALERT  — loud fast ALARM (ISO 60601-1-8 "medium priority" model)
+//    Three rapid pulses of a 520 Hz square wave — universally recognised
+function _alarmEmergency(){
+  try{
+    const ctx=_getAC(); let t=ctx.currentTime;
+    // 3 rapid pulsed bursts, each 2 alternating tones (like a real code alarm)
+    for(let pulse=0; pulse<3; pulse++){
+      _tone(697, 0.14, 'square', 0.38, t);       // F5 square — cuts through noise
+      _tone(932, 0.14, 'square', 0.38, t+0.16);  // A#5
+      t += 0.38;
+    }
+    // Then a falling sweep to signal "attend now"
+    const osc=ctx.createOscillator(), g=ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.type='sawtooth';
+    osc.frequency.setValueAtTime(1200, t);
+    osc.frequency.exponentialRampToValueAtTime(400, t+0.4);
+    g.gain.setValueAtTime(0.30,t);
+    g.gain.linearRampToValueAtTime(0,t+0.4);
+    osc.start(t); osc.stop(t+0.4);
+  }catch(e){}
+}
+
+// 9. CODE BLUE  — high-priority ISO pattern: 5 rapid double-beeps
+function _alarmCodeBlue(){
+  try{
+    const ctx=_getAC(); let t=ctx.currentTime;
+    for(let i=0;i<5;i++){
+      _tone(880, 0.08, 'square', 0.42, t);
+      _tone(880, 0.08, 'square', 0.42, t+0.12);
+      t += 0.32;
+    }
+  }catch(e){}
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  VOICE ENGINE — hospital-grade TTS
+//  Priority queue prevents interruptions; emergency cancels all
+// ─────────────────────────────────────────────────────────────────
+const _voiceQ = [];
+let _voiceBusy = false;
+let _selectedVoice = null;
+
+function _initVoice(){
+  if(!window.speechSynthesis) return;
+  const load=()=>{
+    const voices=window.speechSynthesis.getVoices();
+    // Priority: UK/AU female > US female > any English
+    _selectedVoice =
+      voices.find(v=>/en-GB/i.test(v.lang) && /female|zira|hazel|kate|serena/i.test(v.name)) ||
+      voices.find(v=>/en-AU/i.test(v.lang)) ||
+      voices.find(v=>/en-US/i.test(v.lang) && /female|zira|cortana|karen/i.test(v.name)) ||
+      voices.find(v=>/en/i.test(v.lang) && !v.name.includes('Google')) ||
+      voices.find(v=>/en/i.test(v.lang)) ||
+      null;
+  };
+  load();
+  window.speechSynthesis.onvoiceschanged=load;
+}
+_initVoice();
+
+function _speakQueued(text, priority='normal'){
+  if(!voiceEnabled||!window.speechSynthesis) return;
+  if(priority==='emergency'){
+    window.speechSynthesis.cancel();
+    _voiceQ.length=0;
+    _voiceBusy=false;
+  }
+  _voiceQ.push({text,priority});
+  _drainVoiceQ();
+}
+
+function _drainVoiceQ(){
+  if(_voiceBusy||!_voiceQ.length) return;
+  _voiceBusy=true;
+  const {text,priority}=_voiceQ.shift();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='en-US';
+  u.rate= priority==='emergency'?0.82 : priority==='urgent'?0.86 : 0.90;
+  u.pitch= priority==='emergency'?1.05 : 1.0;
+  u.volume=1.0;
+  if(_selectedVoice) u.voice=_selectedVoice;
+  u.onend=()=>{ _voiceBusy=false; setTimeout(_drainVoiceQ,180); };
+  u.onerror=()=>{ _voiceBusy=false; setTimeout(_drainVoiceQ,180); };
+  window.speechSynthesis.speak(u);
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  PUBLIC INTERFACE — playDropSound (legacy compat) + speak override
+// ─────────────────────────────────────────────────────────────────
+function playDropSound(){ _chimeSoft(); }
+
+// Enrich every speak() call with the correct chime for its content
 const _origSpeak=window.speak;
 window.speak=function(text){
-  playDropSound();
-  if(_origSpeak)_origSpeak(text);
+  const t=(text||'').toLowerCase();
+  if(t.includes('discharg'))          _chimeDischarge();
+  else if(t.includes('emergency'))    { _alarmEmergency(); }
+  else if(t.includes('code blue'))    { _alarmCodeBlue(); }
+  else if(t.includes('pharmacy')||t.includes('dispensed'))  _chimePharmacy();
+  else if(t.includes('lab')||t.includes('result'))          _chimeLab();
+  else if(t.includes('doctor')||t.includes('consultation')) _chimeDoctorQueue();
+  else if(t.includes('triage')||t.includes('nurse'))        _chimeNurseCall();
+  else if(t.includes('register')||t.includes('arrived'))    _chimeRegistration();
+  else                                                       _chimeSoft();
+  if(_origSpeak) _origSpeak(text);
 };
 
-// ══ IMPROVEMENT 4: Enhanced Voice Alerts ══════
+// ─────────────────────────────────────────────────────────────────
+//  REGISTRATION ALERT  — world-class patient arrival announcement
+//  Mirrors Vocera + Rauland Responder 5 PA announcement pattern
+// ─────────────────────────────────────────────────────────────────
 function _speakRegistrationAlert(name, consultType, dest){
-  const isEmergency = consultType === 'EMERGENCY';
-  // Play drop sound (2x for emergency)
-  playDropSound();
-  if(isEmergency) setTimeout(()=>playDropSound(), 400);
-  // Speak name twice with destination
-  const msg = isEmergency
-    ? `EMERGENCY. ${name}. EMERGENCY. ${name}. Please attend immediately.`
-    : `${name}. ${name}. Please proceed to ${dest}.`;
-  if(voiceEnabled && window.speechSynthesis){
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(msg);
-    u.lang='en-US'; u.rate=isEmergency?0.78:0.88; u.pitch=isEmergency?1.1:1;
-    const voices=window.speechSynthesis.getVoices();
-    const eng=voices.find(v=>v.lang.startsWith('en')&&!v.name.includes('Google'));
-    if(eng)u.voice=eng;
-    window.speechSynthesis.speak(u);
+  const isEmergency = (consultType==='EMERGENCY');
+  const isUrgent    = (consultType==='URGENT');
+
+  if(isEmergency){
+    // ISO 60601-1-8 high-priority: alarm first, then twice-spoken name
+    _alarmEmergency();
+    setTimeout(()=>_alarmEmergency(), 1400);
+    setTimeout(()=>{
+      _speakQueued(`ATTENTION ALL STAFF. EMERGENCY PATIENT. ${name}. ${name}. Please attend immediately.`,'emergency');
+    }, 2200);
+  } else if(isUrgent){
+    _chimeNurseCall();
+    setTimeout(()=>_chimeNurseCall(), 600);
+    setTimeout(()=>{
+      _speakQueued(`Attention. Urgent patient. ${name}. ${name}. Please proceed to ${dest} immediately.`,'urgent');
+    }, 900);
+  } else {
+    _chimeRegistration();
+    setTimeout(()=>{
+      _speakQueued(`${name}. ${name}. Please proceed to ${dest}.`,'normal');
+    }, 700);
   }
-  // Also broadcast cross-device
-  _broadcastAlertAll(msg);
+  _broadcastAlertAll(isEmergency
+    ? `EMERGENCY — ${name} — please attend immediately`
+    : `${name} — please proceed to ${dest}`);
 }
 
 // ══ Login Queue Reminder Toast ══
@@ -10235,9 +10846,17 @@ function _showLoginQueueReminder(staffMember){
     if(radQ>0) toasts.push({msg:`🔔 ${radQ} imaging order${radQ>1?'s':''} pending results`, color:'#5b21b6'});
   }
   if(!toasts.length) return;
-  // Play drop sound (capped at 3)
-  const tones = Math.min(toasts.length, 3);
-  for(let i=0;i<tones;i++) setTimeout(()=>playDropSound(), i*350);
+  // Play role-appropriate chime for each queue item (capped at 3)
+  const chimeFns = toasts.slice(0,3).map(t=>{
+    const m=t.msg.toLowerCase();
+    if(m.includes('triage')||m.includes('nurse')) return _chimeNurseCall;
+    if(m.includes('consultation')||m.includes('doctor')) return _chimeDoctorQueue;
+    if(m.includes('lab')) return _chimeLab;
+    if(m.includes('prescription')||m.includes('dispensing')) return _chimePharmacy;
+    if(m.includes('imaging')) return _chimeLab;
+    return _chimeSoft;
+  });
+  chimeFns.forEach((fn,i)=>setTimeout(fn, i*480));
   // Show stacked toasts
   toasts.forEach((t,i)=>{
     setTimeout(()=>_showToast(t.msg, t.color), i*600+400);
