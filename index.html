@@ -763,11 +763,13 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- NURSE -->
     <section id="sec-nurse">
-      <div class="stabs">
+      <div class="stabs" style="flex-wrap:wrap;">
         <button class="st active" onclick="swNurse('triage',this)">🩺 Triage Queue</button>
         <button class="st" onclick="swNurse('nursequeue',this)">💉 Nurse Queue</button>
         <button class="st" onclick="swNurse('treatment',this)">📋 Treatment Chart</button>
         <button class="st" onclick="swNurse('procedures',this)">🔪 Procedures</button>
+        <button class="st" onclick="swNurse('ward',this)">🛏 Ward & Beds</button>
+        <button class="st" onclick="swNurse('roster',this)">📅 Duty Roster</button>
         <button class="st" onclick="swNurse('reg',this)">➕ Register Patient</button>
         <button class="st" onclick="swNurse('nurseguide',this)">📗 Nursing Guide</button>
       </div>
@@ -841,6 +843,74 @@ document.addEventListener("DOMContentLoaded", function(){
         </div>
       </div>
 
+      <!-- ══ WARD & BED MANAGEMENT ══ -->
+      <div id="nurse-ward" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+          <h3 style="margin:0;color:var(--p);">🛏 Ward & Bed Management</h3>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button onclick="oBedModal(null)" class="bp">+ Add Bed</button>
+            <button onclick="oWardModal(null)" class="ba">+ Add Ward</button>
+          </div>
+        </div>
+        <!-- Occupancy summary -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:12px;" id="ward-summary-cards"></div>
+        <!-- Ward map -->
+        <div id="ward-map-wrap"></div>
+      </div>
+
+      <!-- ══ DUTY ROSTER & SHIFT PLANNER ══ -->
+      <div id="nurse-roster" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <h3 style="margin:0;color:var(--p);">📅 Duty Roster & Shift Planner</h3>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <input type="week" id="roster-week" onchange="renderRoster()" style="margin:0;font-size:12px;width:auto;">
+            <button onclick="oShiftModal(null)" class="bp">+ Add Shift</button>
+            <button onclick="exportRosterPDF()" class="bo" style="font-size:12px;">🖨 Print Roster</button>
+          </div>
+        </div>
+        <!-- Handover notes -->
+        <div class="card" style="margin-bottom:12px;padding:12px 16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+            <h4 style="margin:0;">📝 Shift Handover Notes</h4>
+            <button onclick="saveHandover()" class="ba" style="font-size:12px;">💾 Save Handover</button>
+          </div>
+          <div class="g2">
+            <div>
+              <label>Outgoing Shift</label>
+              <select id="handover-from-shift" style="margin-bottom:6px;">
+                <option>Morning (07:00-15:00)</option>
+                <option>Afternoon (15:00-23:00)</option>
+                <option>Night (23:00-07:00)</option>
+              </select>
+              <label>Outgoing Nurse</label>
+              <input id="handover-from-nurse" placeholder="Name of outgoing nurse">
+            </div>
+            <div>
+              <label>Incoming Shift</label>
+              <select id="handover-to-shift" style="margin-bottom:6px;">
+                <option>Morning (07:00-15:00)</option>
+                <option>Afternoon (15:00-23:00)</option>
+                <option>Night (23:00-07:00)</option>
+              </select>
+              <label>Incoming Nurse</label>
+              <input id="handover-to-nurse" placeholder="Name of incoming nurse">
+            </div>
+          </div>
+          <label style="margin-top:6px;">Handover Notes (active patients, pending tasks, concerns)</label>
+          <textarea id="handover-notes" rows="4" placeholder="e.g. Bed 3 — John Doe awaiting lab results. IV fluids running at 80ml/hr. Bed 7 — post-op, check wound dressing at 22:00. Ward stock: paracetamol infusion running low..."></textarea>
+          <div id="handover-list" style="margin-top:8px;"></div>
+        </div>
+        <!-- Weekly roster grid -->
+        <div class="card" style="overflow-x:auto;padding:10px;">
+          <div id="roster-grid"></div>
+        </div>
+        <!-- Shift list -->
+        <div class="card" style="margin-top:10px;">
+          <h4 style="margin-bottom:8px;">All Shifts This Week</h4>
+          <table id="roster-table" style="font-size:12px;"></table>
+        </div>
+      </div>
+
       <!-- PROCEDURES PANEL -->
       <div id="nurse-procedures" style="display:none;">
         <div class="card" style="margin-bottom:10px;">
@@ -859,10 +929,12 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- DOCTOR -->
     <section id="sec-doctor">
-      <div class="stabs">
+      <div class="stabs" style="flex-wrap:wrap;">
         <button class="st active" onclick="swDoc('queue',this)">📋 Queue</button>
         <button class="st" onclick="swDoc('appointments',this)">📅 My Schedule</button>
         <button class="st" onclick="swDoc('allpats',this)">📁 All Patients</button>
+        <button class="st" onclick="swDoc('consent',this)">✍ Consent Forms</button>
+        <button class="st" onclick="swDoc('referral',this)">📤 Referrals</button>
         <button class="st" onclick="swDoc('reg',this)">➕ Register</button>
         <button class="st" onclick="swDoc('dxguide',this)">📖 Dx Guide</button>
         <button class="st" onclick="swDoc('oxhandbook',this)">📕 Oxford Ref</button>
@@ -1102,6 +1174,41 @@ document.addEventListener("DOMContentLoaded", function(){
           </div>
           <table id="table-doc-appointments" style="font-size:13px;"></table>
         </div>
+      </div>
+      <!-- ══ CONSENT FORMS ══ -->
+      <div id="doc-consent" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div><h3 style="margin:0;color:var(--p);">✍ Patient Consent Forms</h3>
+          <p style="font-size:12px;color:var(--mu);margin:3px 0 0;">Informed consent — legally required before any procedure, surgery, anaesthetic, or investigation.</p></div>
+          <button onclick="oConsentModal(null)" class="bp">+ New Consent Form</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+          <input id="consent-search" placeholder="🔍 Search by patient or procedure..." oninput="renderConsents()" style="flex:1;min-width:200px;margin:0;font-size:13px;">
+          <select id="consent-status-filter" onchange="renderConsents()" style="margin:0;font-size:13px;">
+            <option value="">All Status</option>
+            <option>Pending Signature</option>
+            <option>Signed</option>
+            <option>Declined</option>
+            <option>Withdrawn</option>
+          </select>
+        </div>
+        <div class="card" style="padding:8px;overflow-x:auto;"><table id="table-consents" style="font-size:12px;"></table></div>
+      </div>
+      <!-- ══ REFERRALS ══ -->
+      <div id="doc-referral" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div><h3 style="margin:0;color:var(--p);">📤 Referrals & Patient Transfers</h3>
+          <p style="font-size:12px;color:var(--mu);margin:3px 0 0;">Generate referral letters and track patient transfers to other facilities.</p></div>
+          <button onclick="oReferralModal(null)" class="bp">+ New Referral</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+          <input id="referral-search" placeholder="🔍 Search referrals..." oninput="renderReferrals()" style="flex:1;min-width:200px;margin:0;font-size:13px;">
+          <select id="referral-status-filter" onchange="renderReferrals()" style="margin:0;font-size:13px;">
+            <option value="">All Status</option>
+            <option>Pending</option><option>Accepted</option><option>Transferred</option><option>Returned</option><option>Declined</option>
+          </select>
+        </div>
+        <div class="card" style="padding:8px;overflow-x:auto;"><table id="table-referrals" style="font-size:12px;"></table></div>
       </div>
     </section>
 
@@ -3158,17 +3265,19 @@ function openChart(pId){
 // ══════════════════════════════════════════════
 function swNurse(tab,btn){
   document.querySelectorAll('#sec-nurse .st').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
-  document.getElementById('nurse-triage').style.display=tab==='triage'?'block':'none';
-  document.getElementById('nurse-nursequeue').style.display=tab==='nursequeue'?'block':'none';
-  document.getElementById('nurse-treatment').style.display=tab==='treatment'?'block':'none';
-  document.getElementById('nurse-procedures').style.display=tab==='procedures'?'block':'none';
-  document.getElementById('nurse-reg').style.display=tab==='reg'?'block':'none';
-  document.getElementById('nurse-nurseguide').style.display=tab==='nurseguide'?'block':'none';
+  const nursePanels=['triage','nursequeue','treatment','procedures','reg','nurseguide','ward','roster'];
+  nursePanels.forEach(p=>{const el=document.getElementById('nurse-'+p);if(el)el.style.display=tab===p?'block':'none';});
   if(tab==='reg')injectReg('nurse-reg');
   if(tab==='treatment')renderTreatList();
   if(tab==='procedures')renderProcPatients();
   if(tab==='nursequeue')renderNurseQueue();
   if(tab==='nurseguide')renderNurseGuide();
+  if(tab==='ward'){renderWardMap();renderWardSummary();}
+  if(tab==='roster'){renderRoster();
+    const rw=document.getElementById('roster-week');
+    if(rw&&!rw.value){const n=new Date();const yr=n.getFullYear();const wk=String(getWeekNumber(n)).padStart(2,'0');rw.value=`${yr}-W${wk}`;}
+    renderRoster();renderHandoverList();
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -3780,12 +3889,14 @@ function addTreatEntry(){
 // ══════════════════════════════════════════════
 function swDoc(tab,btn){
   document.querySelectorAll('#sec-doctor .st').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
-  const panels=['queue','allpats','reg','dxguide','appointments','oxhandbook'];
+  const panels=['queue','allpats','reg','dxguide','appointments','oxhandbook','consent','referral'];
   panels.forEach(p=>{const el=document.getElementById('doc-'+p);if(el)el.style.display=tab===p?'block':'none';});
   if(tab==='reg')injectReg('doc-reg');
   if(tab==='allpats')renderAllPats();
   if(tab==='dxguide')renderDxGuide();
   if(tab==='oxhandbook')renderOxHandbook();
+  if(tab==='consent')renderConsents();
+  if(tab==='referral')renderReferrals();
   if(tab==='appointments'){
     const el=document.getElementById('doc-appt-date');
     if(el&&!el.value)el.value=new Date().toISOString().split('T')[0];
@@ -11981,6 +12092,642 @@ window.save=function(){
 };
 // Load assets on boot
 try{const d=localStorage.getItem('tali_assets');if(d)window.assets=JSON.parse(d);}catch(e){}
+
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  MODULE A — BED & WARD MANAGEMENT                               ║
+// ╚══════════════════════════════════════════════════════════════════╝
+if(!window.wards)window.wards=[];
+if(!window.beds)window.beds=[];
+
+const WARD_COLORS={
+  'General':'#1e3a8a','Maternity':'#db2777','Paediatrics':'#f59e0b',
+  'Surgical':'#dc2626','ICU':'#7c3aed','Private':'#065f46','Isolation':'#374151'
+};
+
+function renderWardSummary(){
+  const el=document.getElementById('ward-summary-cards');if(!el)return;
+  const totalBeds=beds.length;
+  const occupied=beds.filter(b=>b.patientId).length;
+  const available=totalBeds-occupied;
+  const maintenance=beds.filter(b=>b.status==='Maintenance').length;
+  const cards=[
+    {label:'Total Beds',val:totalBeds,color:'#1e3a8a'},
+    {label:'Occupied',val:occupied,color:'#dc2626'},
+    {label:'Available',val:available,color:'#065f46'},
+    {label:'Maintenance',val:maintenance,color:'#f59e0b'},
+  ];
+  el.innerHTML=cards.map(c=>`<div style="background:${c.color};color:#fff;border-radius:9px;padding:11px 14px;">
+    <div style="font-size:10px;font-weight:700;opacity:.8;text-transform:uppercase;">${c.label}</div>
+    <div style="font-size:24px;font-weight:800;margin-top:3px;">${c.val}</div>
+  </div>`).join('');
+}
+
+function renderWardMap(){
+  const el=document.getElementById('ward-map-wrap');if(!el)return;
+  const wardNames=[...new Set(beds.map(b=>b.ward||'General'))];
+  if(!wardNames.length&&!wards.length){
+    el.innerHTML=`<div class="card" style="text-align:center;padding:28px;color:var(--mu);">No wards or beds configured yet.<br>Click <b>+ Add Ward</b> and <b>+ Add Bed</b> to set up your ward map.</div>`;
+    return;
+  }
+  const allWards=[...new Set([...wards.map(w=>w.name),...beds.map(b=>b.ward||'General')])];
+  el.innerHTML=allWards.map(wName=>{
+    const wBeds=beds.filter(b=>(b.ward||'General')===wName);
+    const wColor=WARD_COLORS[wName]||'#374151';
+    return`<div class="card" style="margin-bottom:10px;padding:12px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:12px;height:12px;border-radius:3px;background:${wColor};"></div>
+          <h4 style="margin:0;color:${wColor};">${wName} Ward</h4>
+          <span style="font-size:11px;color:var(--mu);">${wBeds.filter(b=>b.patientId).length}/${wBeds.length} occupied</span>
+        </div>
+        <div style="display:flex;gap:5px;">
+          <button onclick="oBedModal(null,'${wName}')" class="bsm ba" style="font-size:11px;">+ Bed</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${wBeds.length?wBeds.map(b=>{
+          const pat=b.patientId?visits.find(v=>v.patId===b.patientId||v.id===b.patientId):null;
+          const patName=pat?pat.name:'';
+          const isOcc=!!b.patientId;
+          const isMaint=b.status==='Maintenance';
+          const bgCol=isMaint?'#fef9c3':isOcc?'#fee2e2':'#f0fdf4';
+          const borderCol=isMaint?'#f59e0b':isOcc?'#ef4444':'#10b981';
+          return`<div style="width:90px;background:${bgCol};border:2px solid ${borderCol};border-radius:8px;padding:8px;cursor:pointer;text-align:center;position:relative;" onclick="oBedModal('${b.id}')">
+            <div style="font-size:18px;">${isMaint?'🔧':isOcc?'🛏':'✅'}</div>
+            <div style="font-size:12px;font-weight:700;color:#1e293b;">${b.number||b.id}</div>
+            <div style="font-size:10px;color:${isOcc?'#dc2626':'#065f46'};font-weight:600;margin-top:2px;">${isMaint?'Maintenance':isOcc?'Occupied':'Available'}</div>
+            ${patName?`<div style="font-size:10px;color:#475569;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${patName}</div>`:''}
+          </div>`;
+        }).join(''):'<div style="font-size:12px;color:var(--mu);padding:8px;">No beds in this ward yet.</div>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function oBedModal(id, defaultWard=''){
+  const b=id?beds.find(x=>x.id===id):{};
+  let mo=document.getElementById('bed-modal');
+  if(!mo){
+    mo=document.createElement('div');mo.id='bed-modal';mo.className='mo';
+    mo.innerHTML=`<div class="mb" style="max-width:500px;">
+      <button class="mc" onclick="cModal('bed-modal')">✕</button>
+      <h3 id="bed-modal-title" style="color:var(--p);margin-bottom:14px;">Add Bed</h3>
+      <input type="hidden" id="bed-id">
+      <div class="g2">
+        <div><label>Bed Number *</label><input id="bed-number" placeholder="e.g. A-01, ICU-3"></div>
+        <div><label>Ward *</label><select id="bed-ward"><option>General</option><option>Maternity</option><option>Paediatrics</option><option>Surgical</option><option>ICU</option><option>Private</option><option>Isolation</option></select></div>
+      </div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Bed Type</label><select id="bed-type"><option>Standard</option><option>ICU</option><option>High Dependency</option><option>Isolation</option><option>Maternity</option><option>Paediatric</option><option>Private</option></select></div>
+        <div><label>Status</label><select id="bed-status"><option>Available</option><option>Occupied</option><option>Maintenance</option><option>Reserved</option></select></div>
+      </div>
+      <div style="margin-top:6px;">
+        <label>Assigned Patient (Visit ID or leave blank)</label>
+        <input id="bed-patient-id" placeholder="Search patient name..." oninput="bedPatSearch(this.value)" list="bed-pat-datalist" autocomplete="off">
+        <datalist id="bed-pat-datalist"></datalist>
+        <input type="hidden" id="bed-patient-hidden">
+      </div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Admission Date</label><input type="date" id="bed-admit-date"></div>
+        <div><label>Expected Discharge</label><input type="date" id="bed-discharge-date"></div>
+      </div>
+      <div style="margin-top:6px;"><label>Notes</label><textarea id="bed-notes" rows="2" placeholder="Special requirements, isolation precautions..."></textarea></div>
+      <div class="ab">
+        <button onclick="saveBed()" class="bp">💾 Save Bed</button>
+        ${id?`<button onclick="dischargeBed('${id}')" style="background:#dc2626;color:#fff;border:none;border-radius:7px;padding:7px 14px;cursor:pointer;font-weight:600;">Discharge Patient</button>`:''}
+        <button onclick="cModal('bed-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button>
+      </div>
+    </div>`;
+    document.body.appendChild(mo);
+  }
+  document.getElementById('bed-modal-title').textContent=id?'Edit Bed':'Add Bed';
+  document.getElementById('bed-id').value=id||'';
+  document.getElementById('bed-number').value=b.number||'';
+  document.getElementById('bed-ward').value=b.ward||defaultWard||'General';
+  document.getElementById('bed-type').value=b.type||'Standard';
+  document.getElementById('bed-status').value=b.status||'Available';
+  document.getElementById('bed-patient-id').value=b.patientName||'';
+  document.getElementById('bed-patient-hidden').value=b.patientId||'';
+  document.getElementById('bed-admit-date').value=b.admitDate||'';
+  document.getElementById('bed-discharge-date').value=b.dischargeDate||'';
+  document.getElementById('bed-notes').value=b.notes||'';
+  oModal('bed-modal');
+}
+
+function bedPatSearch(q){
+  const dl=document.getElementById('bed-pat-datalist');if(!dl)return;
+  const matches=visits.filter(v=>v.name&&v.name.toLowerCase().includes(q.toLowerCase())&&v.status==='ADMITTED').slice(0,8);
+  dl.innerHTML=matches.map(v=>`<option value="${v.name}" data-id="${v.patId||v.id}">${v.name} — ${v.date}</option>`).join('');
+}
+
+function saveBed(){
+  const number=document.getElementById('bed-number').value.trim();
+  const ward=document.getElementById('bed-ward').value;
+  if(!number)return alert('Bed number is required.');
+  const id=document.getElementById('bed-id').value||'BED-'+Date.now().toString().slice(-6);
+  const existing=beds.find(b=>b.id===id);
+  const patName=document.getElementById('bed-patient-id').value;
+  const patVisit=visits.find(v=>v.name===patName&&v.status==='ADMITTED');
+  const rec={id,number,ward,type:document.getElementById('bed-type').value,status:document.getElementById('bed-status').value,
+    patientId:patVisit?patVisit.patId||patVisit.id:'',patientName:patName||'',
+    admitDate:document.getElementById('bed-admit-date').value,dischargeDate:document.getElementById('bed-discharge-date').value,
+    notes:document.getElementById('bed-notes').value};
+  if(existing){Object.assign(existing,rec);}else{beds.push(rec);}
+  save();cModal('bed-modal');renderWardMap();renderWardSummary();
+}
+
+function dischargeBed(id){
+  const b=beds.find(x=>x.id===id);if(!b)return;
+  b.patientId='';b.patientName='';b.status='Available';b.admitDate='';b.dischargeDate='';
+  save();cModal('bed-modal');renderWardMap();renderWardSummary();
+}
+
+function oWardModal(id){
+  const name=prompt('Ward name (e.g. General, ICU, Maternity):');
+  if(!name)return;
+  if(!wards.find(w=>w.name===name))wards.push({id:'W-'+Date.now(),name,capacity:0});
+  save();renderWardMap();renderWardSummary();
+}
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  MODULE B — DUTY ROSTER & SHIFT PLANNER                         ║
+// ╚══════════════════════════════════════════════════════════════════╝
+if(!window.shifts)window.shifts=[];
+if(!window.handovers)window.handovers=[];
+
+function getWeekNumber(d){
+  const date=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  date.setUTCDate(date.getUTCDate()+4-(date.getUTCDay()||7));
+  const yearStart=new Date(Date.UTC(date.getUTCFullYear(),0,1));
+  return Math.ceil((((date-yearStart)/86400000)+1)/7);
+}
+
+function getWeekDates(weekStr){
+  if(!weekStr)return[];
+  const [yr,wk]=weekStr.split('-W').map(Number);
+  const simple=new Date(yr,0,1+((wk-1)*7));
+  const dow=simple.getDay();
+  const mon=new Date(simple);mon.setDate(simple.getDate()-(dow<=4?dow-1:dow-8));
+  return Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d;});
+}
+
+function renderRoster(){
+  const weekEl=document.getElementById('roster-week');
+  const weekStr=weekEl?.value;
+  const weekDates=weekStr?getWeekDates(weekStr):[];
+  const dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const shiftTypes=['Morning (07-15)','Afternoon (15-23)','Night (23-07)','On-Call'];
+  const shiftColors={'Morning (07-15)':'#eff6ff','Afternoon (15-23)':'#fef9c3','Night (23-07)':'#f3f4f6','On-Call':'#fce7f3'};
+  const shiftTextColors={'Morning (07-15)':'#1e3a8a','Afternoon (15-23)':'#78350f','Night (23-07)':'#1f2937','On-Call':'#9d174d'};
+
+  // Grid
+  const grid=document.getElementById('roster-grid');
+  if(grid&&weekDates.length){
+    let h=`<table style="width:100%;font-size:12px;border-collapse:collapse;">
+      <tr><th style="padding:6px;background:#f8fafc;border:1px solid #e2e8f0;font-size:11px;">Shift</th>`;
+    weekDates.forEach((d,i)=>{
+      const ds=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+      const isToday=d.toLocaleDateString()===new Date().toLocaleDateString();
+      h+=`<th style="padding:6px 8px;background:${isToday?'#eff6ff':'#f8fafc'};border:1px solid #e2e8f0;font-size:11px;color:${isToday?'var(--p)':'#475569'};font-weight:${isToday?'800':'600'};">${dayNames[i]}<br>${ds}</th>`;
+    });
+    h+='</tr>';
+    shiftTypes.forEach(st=>{
+      h+=`<tr><td style="padding:7px 8px;background:${shiftColors[st]};border:1px solid #e2e8f0;font-weight:700;color:${shiftTextColors[st]};font-size:11px;white-space:nowrap;">${st}</td>`;
+      weekDates.forEach(d=>{
+        const dateStr=d.toLocaleDateString();
+        const dayShifts=shifts.filter(s=>s.date===dateStr&&s.shiftType===st);
+        h+=`<td style="padding:5px 6px;border:1px solid #e2e8f0;vertical-align:top;min-width:90px;cursor:pointer;" onclick="oShiftModal(null,'${dateStr}','${st}')">`;
+        if(dayShifts.length){h+=dayShifts.map(s=>`<div style="background:${shiftColors[st]};border-left:3px solid ${shiftTextColors[st]};border-radius:4px;padding:2px 5px;margin-bottom:3px;font-size:11px;font-weight:600;">${s.staffName}</div>`).join('');}
+        else{h+=`<div style="color:#cbd5e1;font-size:11px;text-align:center;padding:4px;">+</div>`;}
+        h+='</td>';
+      });
+      h+='</tr>';
+    });
+    h+='</table>';
+    grid.innerHTML=h;
+  }
+
+  // Table list
+  const tbl=document.getElementById('roster-table');if(!tbl)return;
+  const weekShifts=weekDates.length?shifts.filter(s=>weekDates.some(d=>d.toLocaleDateString()===s.date)):shifts.slice(-30);
+  if(!weekShifts.length){tbl.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--mu);padding:16px;">No shifts scheduled. Click + Add Shift or click any cell in the grid above.</td></tr>';return;}
+  let h2='<tr><th>Staff</th><th>Role</th><th>Date</th><th>Shift</th><th>Department</th><th>Action</th></tr>';
+  weekShifts.forEach(s=>h2+=`<tr>
+    <td><b>${s.staffName}</b></td><td style="color:var(--mu);">${s.role||'—'}</td>
+    <td>${s.date}</td>
+    <td><span style="background:${shiftColors[s.shiftType]||'#f8fafc'};color:${shiftTextColors[s.shiftType]||'#374151'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${s.shiftType}</span></td>
+    <td>${s.department||'—'}</td>
+    <td><button class="bsm bo" onclick="deleteShift('${s.id}')" style="color:#dc2626;border-color:#dc2626;">🗑</button></td>
+  </tr>`);
+  tbl.innerHTML=h2;
+}
+
+function oShiftModal(id, prefDate='', prefShift=''){
+  let mo=document.getElementById('shift-modal');
+  if(!mo){
+    mo=document.createElement('div');mo.id='shift-modal';mo.className='mo';
+    mo.innerHTML=`<div class="mb" style="max-width:480px;">
+      <button class="mc" onclick="cModal('shift-modal')">✕</button>
+      <h3 style="color:var(--p);margin-bottom:14px;">Schedule Shift</h3>
+      <input type="hidden" id="shift-id">
+      <div class="g2">
+        <div><label>Staff Member *</label>
+          <select id="shift-staff"><option value="">-- Select staff --</option></select>
+        </div>
+        <div><label>Department</label><input id="shift-dept" placeholder="e.g. Nursing, Lab, Pharmacy"></div>
+      </div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Date *</label><input type="date" id="shift-date"></div>
+        <div><label>Shift Type *</label>
+          <select id="shift-type">
+            <option>Morning (07-15)</option><option>Afternoon (15-23)</option><option>Night (23-07)</option><option>On-Call</option><option>Custom</option>
+          </select>
+        </div>
+      </div>
+      <div class="g2" style="margin-top:6px;" id="shift-custom-times">
+        <div><label>Start Time</label><input type="time" id="shift-start"></div>
+        <div><label>End Time</label><input type="time" id="shift-end"></div>
+      </div>
+      <div style="margin-top:6px;"><label>Notes</label><textarea id="shift-notes" rows="2" placeholder="Special instructions, cover for, etc."></textarea></div>
+      <div class="ab"><button onclick="saveShift()" class="bp">💾 Save Shift</button><button onclick="cModal('shift-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button></div>
+    </div>`;
+    document.body.appendChild(mo);
+  }
+  // Populate staff dropdown
+  const sel=document.getElementById('shift-staff');
+  sel.innerHTML='<option value="">-- Select staff --</option>'+staffList.filter(s=>s.accountStatus!=='Suspended').map(s=>`<option value="${s.id}" data-name="${s.name}" data-role="${s.role||''}">${s.name} (${s.role||s.sections?.join(',')||'Staff'})</option>`).join('');
+  const s=id?shifts.find(x=>x.id===id):{};
+  document.getElementById('shift-id').value=id||'';
+  document.getElementById('shift-date').value=s.date||prefDate||new Date().toISOString().split('T')[0];
+  document.getElementById('shift-type').value=s.shiftType||prefShift||'Morning (07-15)';
+  document.getElementById('shift-dept').value=s.department||'';
+  document.getElementById('shift-start').value=s.startTime||'';
+  document.getElementById('shift-end').value=s.endTime||'';
+  document.getElementById('shift-notes').value=s.notes||'';
+  if(s.staffId)document.getElementById('shift-staff').value=s.staffId;
+  oModal('shift-modal');
+}
+
+function saveShift(){
+  const staffSel=document.getElementById('shift-staff');
+  const staffId=staffSel.value;
+  const staffName=staffSel.options[staffSel.selectedIndex]?.dataset.name||staffSel.options[staffSel.selectedIndex]?.text||'';
+  const role=staffSel.options[staffSel.selectedIndex]?.dataset.role||'';
+  const date=document.getElementById('shift-date').value;
+  const shiftType=document.getElementById('shift-type').value;
+  if(!staffId||!date||!shiftType)return alert('Staff, date and shift type are required.');
+  const id=document.getElementById('shift-id').value||'SHF-'+Date.now().toString().slice(-7);
+  const existing=shifts.find(s=>s.id===id);
+  const rec={id,staffId,staffName,role,date,shiftType,department:document.getElementById('shift-dept').value,startTime:document.getElementById('shift-start').value,endTime:document.getElementById('shift-end').value,notes:document.getElementById('shift-notes').value};
+  if(existing){Object.assign(existing,rec);}else{shifts.push(rec);}
+  save();cModal('shift-modal');renderRoster();
+}
+
+function deleteShift(id){
+  if(!confirm('Remove this shift?'))return;
+  window.shifts=shifts.filter(s=>s.id!==id);
+  save();renderRoster();
+}
+
+function saveHandover(){
+  const fromShift=document.getElementById('handover-from-shift')?.value||'';
+  const toShift=document.getElementById('handover-to-shift')?.value||'';
+  const fromNurse=document.getElementById('handover-from-nurse')?.value.trim()||'';
+  const toNurse=document.getElementById('handover-to-nurse')?.value.trim()||'';
+  const notes=document.getElementById('handover-notes')?.value.trim()||'';
+  if(!notes)return alert('Please enter handover notes.');
+  handovers.push({id:'HO-'+Date.now(),date:new Date().toLocaleDateString(),time:new Date().toLocaleTimeString(),fromShift,toShift,fromNurse,toNurse,notes,by:currentUser?.name||'—'});
+  save();document.getElementById('handover-notes').value='';
+  renderHandoverList();alert('Handover saved successfully.');
+}
+
+function renderHandoverList(){
+  const el=document.getElementById('handover-list');if(!el)return;
+  const recent=handovers.slice(-5).reverse();
+  if(!recent.length){el.innerHTML='<div style="font-size:12px;color:var(--mu);margin-top:6px;">No handover notes yet.</div>';return;}
+  el.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--mu);margin-top:10px;margin-bottom:6px;">RECENT HANDOVER NOTES</div>'+recent.map(h=>`<div style="border-left:3px solid var(--p);background:#f8fafc;border-radius:5px;padding:8px 12px;margin-bottom:6px;font-size:12px;">
+    <div style="font-weight:700;color:var(--p);">${h.date} ${h.time} — ${h.fromShift||'—'} → ${h.toShift||'—'}</div>
+    <div style="color:#475569;margin-top:3px;">${h.fromNurse||'—'} → ${h.toNurse||'—'}</div>
+    <div style="margin-top:5px;color:#1e293b;">${h.notes}</div>
+  </div>`).join('');
+}
+
+function exportRosterPDF(){window.print();}
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  MODULE C — CONSENT FORMS                                        ║
+// ╚══════════════════════════════════════════════════════════════════╝
+if(!window.consentForms)window.consentForms=[];
+
+const CONSENT_TYPES=[
+  'General Treatment Consent','Surgical Procedure Consent','Anaesthesia Consent',
+  'Blood Transfusion Consent','HIV Testing Consent','Invasive Procedure Consent',
+  'Photography / Research Consent','Refusal of Treatment','Discharge Against Medical Advice (DAMA)',
+  'Maternity / Delivery Consent','Minor / Guardian Consent','Chemotherapy Consent',
+];
+
+function renderConsents(){
+  const search=(document.getElementById('consent-search')?.value||'').toLowerCase();
+  const statusF=document.getElementById('consent-status-filter')?.value||'';
+  const list=consentForms.filter(c=>{
+    const ms=!search||(c.patientName||'').toLowerCase().includes(search)||(c.procedure||'').toLowerCase().includes(search);
+    const mst=!statusF||c.status===statusF;
+    return ms&&mst;
+  });
+  const tbl=document.getElementById('table-consents');if(!tbl)return;
+  if(!list.length){tbl.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--mu);padding:20px;">No consent forms yet. Click "+ New Consent Form" to create one.</td></tr>';return;}
+  const statusColors={'Signed':'#f0fdf4','Pending Signature':'#fef9c3','Declined':'#fee2e2','Withdrawn':'#f3f4f6'};
+  const statusText={'Signed':'#065f46','Pending Signature':'#78350f','Declined':'#991b1b','Withdrawn':'#374151'};
+  let h='<tr><th>Date</th><th>Patient</th><th>Consent Type</th><th>Procedure</th><th>Clinician</th><th>Status</th><th>Action</th></tr>';
+  list.slice().reverse().forEach(c=>h+=`<tr>
+    <td style="color:var(--mu);">${c.date}</td>
+    <td><b>${c.patientName}</b></td>
+    <td style="font-size:11px;">${c.consentType}</td>
+    <td>${c.procedure||'—'}</td>
+    <td>${c.clinician||'—'}</td>
+    <td><span style="background:${statusColors[c.status]||'#f3f4f6'};color:${statusText[c.status]||'#374151'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${c.status}</span></td>
+    <td style="white-space:nowrap;">
+      <button class="bsm" style="background:var(--p);color:#fff;" onclick="oConsentModal('${c.id}')">✏</button>
+      <button class="bsm bo" onclick="printConsent('${c.id}')">🖨</button>
+      <button class="bsm bo" onclick="deleteConsent('${c.id}')" style="color:#dc2626;border-color:#dc2626;">🗑</button>
+    </td>
+  </tr>`);
+  tbl.innerHTML=h;
+}
+
+function oConsentModal(id){
+  const c=id?consentForms.find(x=>x.id===id):{};
+  let mo=document.getElementById('consent-modal');
+  if(!mo){
+    mo=document.createElement('div');mo.id='consent-modal';mo.className='mo';
+    mo.innerHTML=`<div class="mb" style="max-width:620px;max-height:90vh;overflow-y:auto;">
+      <button class="mc" onclick="cModal('consent-modal')">✕</button>
+      <h3 id="consent-modal-title" style="color:var(--p);margin-bottom:14px;">New Consent Form</h3>
+      <input type="hidden" id="consent-id">
+      <div class="g2">
+        <div><label>Patient Name *</label>
+          <input id="consent-patient" list="consent-pat-dl" placeholder="Type to search patient..." oninput="consentPatSearch(this.value)" autocomplete="off">
+          <datalist id="consent-pat-dl"></datalist>
+        </div>
+        <div><label>Consent Type *</label>
+          <select id="consent-type">${CONSENT_TYPES.map(t=>`<option>${t}</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Procedure / Treatment</label><input id="consent-procedure" placeholder="e.g. Appendectomy, IV cannulation"></div>
+        <div><label>Clinician / Doctor</label><input id="consent-clinician" placeholder="Name of consenting clinician"></div>
+      </div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Date</label><input type="date" id="consent-date"></div>
+        <div><label>Status</label>
+          <select id="consent-status"><option>Pending Signature</option><option>Signed</option><option>Declined</option><option>Withdrawn</option></select>
+        </div>
+      </div>
+      <div style="margin-top:8px;background:#eff6ff;border-left:4px solid var(--p);border-radius:6px;padding:11px 14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--p);margin-bottom:6px;">CONSENT STATEMENT</div>
+        <textarea id="consent-body" rows="6" placeholder="I, [Patient Name], hereby give my informed consent to the above procedure. I have been informed of the nature of the procedure, its benefits, risks, alternatives, and consequences of refusal. I have had the opportunity to ask questions and all my questions have been answered to my satisfaction..." style="font-size:12px;"></textarea>
+      </div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Patient / Guardian Signature</label><input id="consent-pat-sig" placeholder="Full name (acts as signature record)"></div>
+        <div><label>Witness</label><input id="consent-witness" placeholder="Witness name"></div>
+      </div>
+      <div style="margin-top:6px;"><label>Additional Notes / Remarks</label><textarea id="consent-notes" rows="2" placeholder="Interpreter used, capacity assessment, guardian relationship..."></textarea></div>
+      <div class="ab">
+        <button onclick="saveConsent()" class="bp">💾 Save Consent</button>
+        <button onclick="printConsent(document.getElementById('consent-id').value)" class="bo">🖨 Print</button>
+        <button onclick="cModal('consent-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button>
+      </div>
+    </div>`;
+    document.body.appendChild(mo);
+  }
+  document.getElementById('consent-modal-title').textContent=id?'Edit Consent Form':'New Consent Form';
+  document.getElementById('consent-id').value=id||'';
+  document.getElementById('consent-patient').value=c.patientName||'';
+  document.getElementById('consent-type').value=c.consentType||CONSENT_TYPES[0];
+  document.getElementById('consent-procedure').value=c.procedure||'';
+  document.getElementById('consent-clinician').value=c.clinician||currentUser?.name||'';
+  document.getElementById('consent-date').value=c.date||new Date().toISOString().split('T')[0];
+  document.getElementById('consent-status').value=c.status||'Pending Signature';
+  document.getElementById('consent-body').value=c.body||`I, ${c.patientName||'[Patient Name]'}, hereby give my informed consent to the procedure described above.\n\nI confirm that:\n1. The nature, purpose, benefits, and risks of the procedure have been explained to me.\n2. I have been informed of the available alternatives.\n3. I have had the opportunity to ask questions, which have been answered satisfactorily.\n4. I understand I may withdraw consent at any time before the procedure commences.\n5. I consent to the administration of any anaesthetic or sedation deemed necessary.`;
+  document.getElementById('consent-pat-sig').value=c.patSig||'';
+  document.getElementById('consent-witness').value=c.witness||'';
+  document.getElementById('consent-notes').value=c.notes||'';
+  oModal('consent-modal');
+}
+
+function consentPatSearch(q){
+  const dl=document.getElementById('consent-pat-dl');if(!dl)return;
+  const matches=patients.filter(p=>p.name&&p.name.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+  dl.innerHTML=matches.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
+}
+
+function saveConsent(){
+  const patientName=document.getElementById('consent-patient').value.trim();
+  const consentType=document.getElementById('consent-type').value;
+  if(!patientName)return alert('Patient name is required.');
+  const id=document.getElementById('consent-id').value||'CON-'+Date.now().toString().slice(-7);
+  const existing=consentForms.find(c=>c.id===id);
+  const rec={id,patientName,consentType,procedure:document.getElementById('consent-procedure').value,clinician:document.getElementById('consent-clinician').value,date:document.getElementById('consent-date').value,status:document.getElementById('consent-status').value,body:document.getElementById('consent-body').value,patSig:document.getElementById('consent-pat-sig').value,witness:document.getElementById('consent-witness').value,notes:document.getElementById('consent-notes').value,savedBy:currentUser?.name||'—',savedAt:new Date().toLocaleString()};
+  if(existing){Object.assign(existing,rec);}else{consentForms.push(rec);}
+  save();cModal('consent-modal');renderConsents();
+}
+
+function deleteConsent(id){if(!confirm('Delete this consent form?'))return;window.consentForms=consentForms.filter(c=>c.id!==id);save();renderConsents();}
+
+function printConsent(id){
+  const c=consentForms.find(x=>x.id===id);if(!c)return;
+  const fac=_getFacilitySettings();
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Consent Form</title><style>body{font-family:Arial,sans-serif;max-width:700px;margin:30px auto;color:#1e293b;font-size:13px;}h1{font-size:18px;text-align:center;margin-bottom:4px;}p{margin:4px 0;text-align:center;font-size:12px;color:#64748b;}.section{margin:16px 0;border:1px solid #e2e8f0;border-radius:6px;padding:12px 16px;}.label{font-weight:700;font-size:11px;text-transform:uppercase;color:#64748b;margin-bottom:3px;}.value{font-size:13px;color:#1e293b;}.sig-line{border-top:1.5px solid #334155;margin-top:40px;padding-top:6px;font-size:12px;font-weight:700;}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}.stamp{background:#fee2e2;border:1.5px solid #ef4444;border-radius:6px;padding:10px;text-align:center;font-weight:800;font-size:14px;color:#dc2626;}@media print{body{margin:10px;}}</style></head><body>
+    <h1>${fac.name||'TALI MEDICALS INTERNATIONAL'}</h1>
+    <p>${fac.address||''} | ${fac.phone||''}</p>
+    <h2 style="text-align:center;margin:14px 0 4px;font-size:16px;border-bottom:2px solid #1e3a8a;padding-bottom:6px;">${c.consentType.toUpperCase()}</h2>
+    <div class="section"><div class="grid">
+      <div><div class="label">Patient Name</div><div class="value"><b>${c.patientName}</b></div></div>
+      <div><div class="label">Date</div><div class="value">${c.date}</div></div>
+      <div><div class="label">Procedure / Treatment</div><div class="value">${c.procedure||'—'}</div></div>
+      <div><div class="label">Clinician</div><div class="value">${c.clinician||'—'}</div></div>
+    </div></div>
+    <div class="section"><div class="label">CONSENT STATEMENT</div><div style="margin-top:8px;line-height:1.7;white-space:pre-wrap;">${c.body}</div></div>
+    ${c.notes?`<div class="section"><div class="label">Additional Notes</div><div style="margin-top:4px;">${c.notes}</div></div>`:''}
+    <div class="section"><div class="grid">
+      <div><div class="sig-line">${c.patSig||''}</div><div style="font-size:11px;color:#64748b;margin-top:3px;">Patient / Guardian Signature</div></div>
+      <div><div class="sig-line">${c.witness||''}</div><div style="font-size:11px;color:#64748b;margin-top:3px;">Witness Name & Signature</div></div>
+      <div style="margin-top:16px;"><div class="sig-line"></div><div style="font-size:11px;color:#64748b;margin-top:3px;">Clinician Signature</div></div>
+      <div style="margin-top:16px;"><div class="sig-line"></div><div style="font-size:11px;color:#64748b;margin-top:3px;">Date & Time</div></div>
+    </div></div>
+    <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:16px;">Generated by TALI HIMS · ${new Date().toLocaleString()} · Form ID: ${c.id}</div>
+  </body></html>`);
+  w.document.close();setTimeout(()=>w.print(),400);
+}
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  MODULE D — REFERRALS & TRANSFERS                                ║
+// ╚══════════════════════════════════════════════════════════════════╝
+if(!window.referrals)window.referrals=[];
+
+function renderReferrals(){
+  const search=(document.getElementById('referral-search')?.value||'').toLowerCase();
+  const statusF=document.getElementById('referral-status-filter')?.value||'';
+  const list=referrals.filter(r=>{
+    const ms=!search||(r.patientName||'').toLowerCase().includes(search)||(r.toFacility||'').toLowerCase().includes(search);
+    const mst=!statusF||r.status===statusF;
+    return ms&&mst;
+  });
+  const tbl=document.getElementById('table-referrals');if(!tbl)return;
+  if(!list.length){tbl.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--mu);padding:20px;">No referrals yet. Click "+ New Referral" to create one.</td></tr>';return;}
+  const statusColors={Pending:'#fef9c3',Accepted:'#f0fdf4',Transferred:'#eff6ff',Returned:'#ede9fe',Declined:'#fee2e2'};
+  const statusText={Pending:'#78350f',Accepted:'#065f46',Transferred:'#1e3a8a',Returned:'#5b21b6',Declined:'#991b1b'};
+  let h='<tr><th>Date</th><th>Patient</th><th>Referring Doctor</th><th>Referred To</th><th>Reason</th><th>Urgency</th><th>Status</th><th>Action</th></tr>';
+  list.slice().reverse().forEach(r=>h+=`<tr>
+    <td style="color:var(--mu);">${r.date}</td>
+    <td><b>${r.patientName}</b></td>
+    <td>${r.referringDoctor||'—'}</td>
+    <td><b>${r.toFacility}</b>${r.toDept?`<br><span style="font-size:11px;color:var(--mu);">${r.toDept}</span>`:''}</td>
+    <td style="max-width:160px;font-size:11px;">${r.reason||'—'}</td>
+    <td><span style="background:${r.urgency==='EMERGENCY'?'#fee2e2':r.urgency==='URGENT'?'#fef3c7':'#f0fdf4'};color:${r.urgency==='EMERGENCY'?'#991b1b':r.urgency==='URGENT'?'#92400e':'#065f46'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${r.urgency||'Routine'}</span></td>
+    <td><span style="background:${statusColors[r.status]||'#f8fafc'};color:${statusText[r.status]||'#374151'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${r.status}</span></td>
+    <td style="white-space:nowrap;">
+      <button class="bsm" style="background:var(--p);color:#fff;" onclick="oReferralModal('${r.id}')">✏</button>
+      <button class="bsm bo" onclick="printReferral('${r.id}')">🖨 Letter</button>
+    </td>
+  </tr>`);
+  tbl.innerHTML=h;
+}
+
+function oReferralModal(id){
+  const r=id?referrals.find(x=>x.id===id):{};
+  let mo=document.getElementById('referral-modal');
+  if(!mo){
+    mo=document.createElement('div');mo.id='referral-modal';mo.className='mo';
+    mo.innerHTML=`<div class="mb" style="max-width:640px;max-height:90vh;overflow-y:auto;">
+      <button class="mc" onclick="cModal('referral-modal')">✕</button>
+      <h3 id="ref-modal-title" style="color:var(--p);margin-bottom:14px;">New Referral</h3>
+      <input type="hidden" id="ref-id">
+      <div class="g2">
+        <div><label>Patient *</label><input id="ref-patient" list="ref-pat-dl" placeholder="Search patient..." oninput="refPatSearch(this.value)" autocomplete="off"><datalist id="ref-pat-dl"></datalist></div>
+        <div><label>Referring Doctor</label><input id="ref-doctor" placeholder="Your name"></div>
+      </div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Referred To (Facility) *</label><input id="ref-to-facility" placeholder="e.g. Juba Teaching Hospital"></div>
+        <div><label>Department / Specialist</label><input id="ref-to-dept" placeholder="e.g. Cardiology, Neurosurgery"></div>
+      </div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Urgency</label><select id="ref-urgency"><option>Routine</option><option>URGENT</option><option>EMERGENCY</option></select></div>
+        <div><label>Date</label><input type="date" id="ref-date"></div>
+      </div>
+      <div style="margin-top:6px;"><label>Reason for Referral / Clinical Summary *</label><textarea id="ref-reason" rows="4" placeholder="Brief clinical history, presenting complaint, investigations done, reason for referral..."></textarea></div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Current Medications</label><textarea id="ref-meds" rows="2" placeholder="List medications and doses..."></textarea></div>
+        <div><label>Allergies</label><input id="ref-allergies" placeholder="Drug allergies or None known"><label style="margin-top:6px;">Diagnosis</label><input id="ref-diagnosis" placeholder="Working or confirmed diagnosis"></div>
+      </div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Status</label><select id="ref-status"><option>Pending</option><option>Accepted</option><option>Transferred</option><option>Returned</option><option>Declined</option></select></div>
+        <div><label>Follow-up Notes</label><input id="ref-followup" placeholder="Response from receiving facility..."></div>
+      </div>
+      <div class="ab">
+        <button onclick="saveReferral()" class="bp">💾 Save Referral</button>
+        <button onclick="printReferral(document.getElementById('ref-id').value)" class="bo">🖨 Print Letter</button>
+        <button onclick="cModal('referral-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button>
+      </div>
+    </div>`;
+    document.body.appendChild(mo);
+  }
+  document.getElementById('ref-modal-title').textContent=id?'Edit Referral':'New Referral';
+  document.getElementById('ref-id').value=id||'';
+  document.getElementById('ref-patient').value=r.patientName||'';
+  document.getElementById('ref-doctor').value=r.referringDoctor||currentUser?.name||'';
+  document.getElementById('ref-to-facility').value=r.toFacility||'';
+  document.getElementById('ref-to-dept').value=r.toDept||'';
+  document.getElementById('ref-urgency').value=r.urgency||'Routine';
+  document.getElementById('ref-date').value=r.date||new Date().toISOString().split('T')[0];
+  document.getElementById('ref-reason').value=r.reason||'';
+  document.getElementById('ref-meds').value=r.medications||'';
+  document.getElementById('ref-allergies').value=r.allergies||'';
+  document.getElementById('ref-diagnosis').value=r.diagnosis||'';
+  document.getElementById('ref-status').value=r.status||'Pending';
+  document.getElementById('ref-followup').value=r.followup||'';
+  oModal('referral-modal');
+}
+
+function refPatSearch(q){
+  const dl=document.getElementById('ref-pat-dl');if(!dl)return;
+  dl.innerHTML=patients.filter(p=>p.name&&p.name.toLowerCase().includes(q.toLowerCase())).slice(0,8).map(p=>`<option value="${p.name}">${p.name} — ${p.ageVal} ${p.ageUnit}</option>`).join('');
+}
+
+function saveReferral(){
+  const patientName=document.getElementById('ref-patient').value.trim();
+  const toFacility=document.getElementById('ref-to-facility').value.trim();
+  if(!patientName||!toFacility)return alert('Patient and receiving facility are required.');
+  const id=document.getElementById('ref-id').value||'REF-'+Date.now().toString().slice(-7);
+  const existing=referrals.find(r=>r.id===id);
+  const rec={id,patientName,referringDoctor:document.getElementById('ref-doctor').value,toFacility,toDept:document.getElementById('ref-to-dept').value,urgency:document.getElementById('ref-urgency').value,date:document.getElementById('ref-date').value,reason:document.getElementById('ref-reason').value,medications:document.getElementById('ref-meds').value,allergies:document.getElementById('ref-allergies').value,diagnosis:document.getElementById('ref-diagnosis').value,status:document.getElementById('ref-status').value,followup:document.getElementById('ref-followup').value,by:currentUser?.name||'—',createdAt:existing?.createdAt||new Date().toLocaleString()};
+  if(existing){Object.assign(existing,rec);}else{referrals.push(rec);}
+  save();cModal('referral-modal');renderReferrals();
+}
+
+function printReferral(id){
+  const r=referrals.find(x=>x.id===id);if(!r)return;
+  const fac=_getFacilitySettings();
+  // Get patient demographics
+  const pat=patients.find(p=>p.name===r.patientName);
+  const lastV=visits.filter(v=>v.name===r.patientName).slice(-1)[0];
+  const w=window.open('','_blank');
+  const urgencyColor=r.urgency==='EMERGENCY'?'#dc2626':r.urgency==='URGENT'?'#f59e0b':'#1e3a8a';
+  w.document.write(`<!DOCTYPE html><html><head><title>Referral Letter</title><style>body{font-family:Arial,sans-serif;max-width:720px;margin:30px auto;color:#1e293b;font-size:13px;line-height:1.6;}h1{font-size:17px;text-align:center;margin-bottom:2px;}p.sub{text-align:center;font-size:11px;color:#64748b;margin:2px 0;}.header-bar{background:#1e3a8a;color:#fff;padding:10px 18px;border-radius:6px;margin:14px 0;display:flex;justify-content:space-between;align-items:center;}.urgency{background:${urgencyColor};color:#fff;padding:4px 14px;border-radius:20px;font-weight:800;font-size:13px;}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0;}.label{font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:2px;}.value{font-size:13px;}.section{border-left:3px solid #1e3a8a;padding:8px 14px;margin:10px 0;background:#f8fafc;border-radius:0 6px 6px 0;}.sig{border-top:1.5px solid #334155;margin-top:36px;padding-top:5px;font-size:12px;font-weight:700;}@media print{body{margin:8px;}}</style></head><body>
+    <h1>${fac.name||'TALI MEDICALS INTERNATIONAL'}</h1>
+    <p class="sub">${fac.address||''}</p><p class="sub">Tel: ${fac.phone||''} | ${fac.email||''}</p>
+    <div class="header-bar">
+      <span style="font-weight:800;font-size:15px;">REFERRAL LETTER</span>
+      <span class="urgency">${r.urgency||'ROUTINE'}</span>
+    </div>
+    <div style="text-align:right;font-size:12px;color:#64748b;margin-bottom:10px;">Date: <b>${r.date}</b> &nbsp; Ref No: <b>${r.id}</b></div>
+    <p>To: <b>The Attending Physician / Specialist</b><br>${r.toDept||''}<br><b>${r.toFacility}</b></p>
+    <p>Dear Colleague,</p>
+    <p>We are referring the following patient for your expert assessment and management:</p>
+    <div class="grid">
+      <div><div class="label">Patient Name</div><div class="value"><b>${r.patientName}</b></div></div>
+      <div><div class="label">Age / Gender</div><div class="value">${pat?pat.ageVal+' '+pat.ageUnit+' / '+pat.gender:'—'}</div></div>
+      <div><div class="label">Phone</div><div class="value">${pat?.phone||'—'}</div></div>
+      <div><div class="label">Working Diagnosis</div><div class="value"><b>${r.diagnosis||'—'}</b></div></div>
+    </div>
+    <div class="section"><div class="label">Reason for Referral / Clinical Summary</div><div style="margin-top:5px;white-space:pre-wrap;">${r.reason||'—'}</div></div>
+    ${r.medications?`<div class="section"><div class="label">Current Medications</div><div style="margin-top:5px;white-space:pre-wrap;">${r.medications}</div></div>`:''}
+    ${r.allergies?`<div class="section"><div class="label">Known Allergies</div><div style="margin-top:5px;">${r.allergies}</div></div>`:''}
+    <p style="margin-top:14px;">Please do not hesitate to contact us should you require any further information. We look forward to your feedback and management plan.</p>
+    <p>Yours sincerely,</p>
+    <div class="grid" style="margin-top:20px;">
+      <div><div class="sig">${r.referringDoctor||''}</div><div style="font-size:11px;color:#64748b;margin-top:3px;">Referring Clinician</div><div style="font-size:11px;color:#64748b;">${fac.name||'Tali Medicals International'}</div></div>
+      <div><div style="border:1px solid #e2e8f0;border-radius:5px;padding:10px;min-height:50px;"><div style="font-size:11px;color:#64748b;">Official Stamp</div></div></div>
+    </div>
+    <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:18px;border-top:1px solid #e2e8f0;padding-top:8px;">Generated by TALI HIMS · ${new Date().toLocaleString()} · Ref ID: ${r.id}</div>
+  </body></html>`);
+  w.document.close();setTimeout(()=>w.print(),400);
+}
+
+// ── Persist new data in save() ────────────────────────────────
+const _origSave2=window.save;
+window.save=function(){
+  if(_origSave2)_origSave2();
+  try{
+    localStorage.setItem('tali_beds',JSON.stringify(window.beds||[]));
+    localStorage.setItem('tali_wards',JSON.stringify(window.wards||[]));
+    localStorage.setItem('tali_shifts',JSON.stringify(window.shifts||[]));
+    localStorage.setItem('tali_handovers',JSON.stringify(window.handovers||[]));
+    localStorage.setItem('tali_consents',JSON.stringify(window.consentForms||[]));
+    localStorage.setItem('tali_referrals',JSON.stringify(window.referrals||[]));
+  }catch(e){}
+};
+// Load on boot
+try{
+  const lb=localStorage.getItem('tali_beds');if(lb)window.beds=JSON.parse(lb);
+  const lw=localStorage.getItem('tali_wards');if(lw)window.wards=JSON.parse(lw);
+  const ls=localStorage.getItem('tali_shifts');if(ls)window.shifts=JSON.parse(ls);
+  const lh=localStorage.getItem('tali_handovers');if(lh)window.handovers=JSON.parse(lh);
+  const lc=localStorage.getItem('tali_consents');if(lc)window.consentForms=JSON.parse(lc);
+  const lr=localStorage.getItem('tali_referrals');if(lr)window.referrals=JSON.parse(lr);
+}catch(e){}
 
 </script>
 
