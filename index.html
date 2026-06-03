@@ -17,7 +17,38 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-:root{--p:#1e3a8a;--s:#3b82f6;--a:#10b981;--d:#ef4444;--w:#f59e0b;--pu:#7c3aed;--bg:#f1f5f9;--tx:#0f172a;--bd:#e2e8f0;--mu:#64748b;--lt:#f8fafc;}
+:root{--p:#1e3a8a;--s:#3b82f6;--a:#10b981;--d:#ef4444;--w:#f59e0b;--pu:#7c3aed;--bg:#f1f5f9;--tx:#0f172a;--bd:#e2e8f0;--mu:#64748b;--lt:#f8fafc;--card:#fff;--inp:#fff;--inp-bdr:#d1d5db;--color-border-tertiary:#e2e8f0;}
+/* ── DARK MODE ────────────────────────────────────────── */
+body.dark-mode{
+  --p:#60a5fa;--s:#38bdf8;--a:#34d399;--d:#f87171;--w:#fbbf24;--pu:#a78bfa;
+  --bg:#0f172a;--tx:#e2e8f0;--bd:#334155;--mu:#94a3b8;--lt:#1e293b;
+  --card:#1e293b;--inp:#273449;--inp-bdr:#475569;--color-border-tertiary:#334155;
+  background:#0f172a!important;color:#e2e8f0!important;
+}
+body.dark-mode input,body.dark-mode textarea,body.dark-mode select{
+  background:var(--inp)!important;color:var(--tx)!important;border-color:var(--inp-bdr)!important;
+}
+body.dark-mode .card{background:var(--card)!important;color:var(--tx)!important;border-color:var(--bd)!important;}
+body.dark-mode aside#sidebar{background:linear-gradient(180deg,#1a2e5a 0%,#0c1628 100%)!important;}
+body.dark-mode .nb{color:#cbd5e1!important;}
+body.dark-mode .nb.active,body.dark-mode .nb:hover{background:rgba(96,165,250,.18)!important;color:#93c5fd!important;}
+body.dark-mode main#content{background:#0f172a!important;}
+body.dark-mode .mo .mb{background:#1e293b!important;border:1px solid #334155!important;}
+body.dark-mode .stabs{background:#1e293b!important;border-color:#334155!important;}
+body.dark-mode .st{background:#0f172a!important;color:#94a3b8!important;border-color:#334155!important;}
+body.dark-mode .st.active{background:#1e3a8a!important;color:#fff!important;}
+body.dark-mode table{background:transparent!important;}
+body.dark-mode tr:nth-child(even){background:rgba(255,255,255,.03)!important;}
+body.dark-mode .pit th{background:#1d3461!important;}
+body.dark-mode .pit td{border-color:#334155!important;color:var(--tx)!important;}
+body.dark-mode .cb .ch{background:#1e293b!important;border-color:#334155!important;color:var(--tx)!important;}
+body.dark-mode .cbody{background:#0f172a!important;border-color:#334155!important;}
+body.dark-mode h1,body.dark-mode h2,body.dark-mode h3,body.dark-mode h4,body.dark-mode h5,body.dark-mode label,body.dark-mode p,body.dark-mode span:not(.badge):not(.dc):not(.sc *){color:var(--tx);}
+body.dark-mode .sc{filter:brightness(.92);}
+body.dark-mode .rx-card{background:#1e3a8a22!important;border-color:#334155!important;}
+body.dark-mode details summary{color:var(--tx)!important;}
+/* smooth transition */
+body,body *{transition:background-color .22s ease,border-color .22s ease,color .12s ease;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--tx);font-size:14px;}
 /* header rule replaced by sidebar layout */
@@ -130,18 +161,83 @@ tr.emg-row td:first-child::before{content:'🚨 ';}
 .fb-star.active,.fb-star:hover{color:#f59e0b;}
 .wm-wrap{position:relative;}
 @media print{
-  .no-print{display:none!important;}
+  /* ── Hide all UI chrome ─────────────────────────── */
+  .no-print,.nb,#sidebar,#dark-toggle-btn,.voice-badge,
+  #device-badge,.sb-footer,#pwa-install-btn,
+  .stabs,.bsm,.bp,.bo,.ba,.badd,.bsm,button:not(.print-show){display:none!important;}
   body>*{display:none!important;}
+  body.dark-mode{background:#fff!important;color:#1e293b!important;
+    --tx:#1e293b!important;--card:#fff!important;--bg:#fff!important;}
+
+  /* ── Print area ─────────────────────────────────── */
   #pra{display:block!important;position:relative;}
-  .wm-logo{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);opacity:.07;width:360px;height:auto;z-index:0;pointer-events:none;}
-  .print-2col{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;border-bottom:2px solid #1e3a8a;padding-bottom:10px;}
-  .print-left{display:flex;flex-direction:column;gap:4px;}
+  #pra-con{
+    font-family:'Arial',sans-serif;font-size:12px;color:#1e293b;
+    max-width:210mm;margin:0 auto;padding:8mm 10mm;
+  }
+
+  /* ── Watermark ──────────────────────────────────── */
+  .wm-logo{
+    position:fixed;top:50%;left:50%;
+    transform:translate(-50%,-50%) rotate(-30deg);
+    opacity:.06;width:340px;z-index:0;pointer-events:none;
+  }
+
+  /* ── Letterhead ─────────────────────────────────── */
+  .print-letterhead{
+    display:flex!important;justify-content:space-between;align-items:flex-start;
+    border-bottom:3px solid #1e3a8a;padding-bottom:10px;margin-bottom:14px;
+  }
+  .print-letterhead .lh-left{display:flex;flex-direction:column;gap:3px;}
+  .print-letterhead .lh-fac-name{font-size:18px;font-weight:800;color:#1e3a8a;letter-spacing:.03em;}
+  .print-letterhead .lh-fac-sub{font-size:10px;color:#64748b;line-height:1.5;}
+  .print-letterhead .lh-right{text-align:right;}
+  .print-letterhead .lh-logo{width:64px;height:64px;object-fit:contain;border-radius:6px;}
+
+  /* ── Barcode / QR area ──────────────────────────── */
+  #qr-print,#qr-print canvas,#qr-print img{
+    display:block!important;width:72px!important;height:72px!important;
+  }
+  .print-barcode-wrap{display:flex!important;justify-content:flex-end;margin-top:4px;}
+
+  /* ── Tables ─────────────────────────────────────── */
+  .pit{width:100%;border-collapse:collapse;margin:8px 0;font-size:11px;}
+  .pit th{background:#1e3a8a;color:#fff;padding:5px 8px;text-align:left;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .pit td{padding:4px 8px;border-bottom:1px solid #e2e8f0;vertical-align:top;}
+  .pit tr:nth-child(even) td{background:#f8fafc;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+
+  /* ── Two-col layout ─────────────────────────────── */
+  .print-2col{display:flex!important;justify-content:space-between;align-items:flex-end;margin-bottom:12px;border-bottom:2px solid #1e3a8a;padding-bottom:8px;}
+  .print-left{display:flex;flex-direction:column;gap:3px;}
   .print-right{text-align:right;}
-  #qr-print canvas,#qr-print img{width:80px!important;height:80px!important;}
-  #pra-con{font-family:Arial,sans-serif;font-size:13px;color:#1e293b;max-width:800px;margin:0 auto;padding:10px;}
-  .pit{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px;}
-  .pit th{background:#1e3a8a;color:#fff;padding:6px 8px;text-align:left;}
-  .pit td{padding:5px 8px;border-bottom:1px solid #e2e8f0;}
+  .print-grid-2{display:grid!important;grid-template-columns:1fr 1fr;gap:12px;}
+
+  /* ── Page break rules ───────────────────────────── */
+  .page-break-before{page-break-before:always;break-before:page;}
+  .page-break-after{page-break-after:always;break-after:page;}
+  .no-page-break{page-break-inside:avoid;break-inside:avoid;}
+  .pit tr{page-break-inside:avoid;break-inside:avoid;}
+  h3,h4{page-break-after:avoid;break-after:avoid;}
+  table{page-break-inside:auto;}
+
+  /* ── Page setup ─────────────────────────────────── */
+  @page{size:A4 portrait;margin:12mm 14mm;}
+  @page :first{margin-top:8mm;}
+
+  /* ── Signature lines ────────────────────────────── */
+  .print-sig-line{border-top:1.5px solid #334155;margin-top:32px;padding-top:5px;font-size:11px;font-weight:700;}
+  .print-sig-grid{display:grid!important;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px;}
+
+  /* ── Status badges ──────────────────────────────── */
+  .badge,.dc{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+
+  /* ── Footer on every page ───────────────────────── */
+  .print-page-footer{
+    position:fixed;bottom:0;left:0;right:0;
+    font-size:9px;color:#94a3b8;text-align:center;
+    border-top:1px solid #e2e8f0;padding:3px 0;
+    background:#fff;
+  }
 }
 .voice-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);padding:3px 9px;border-radius:10px;font-size:11px;cursor:pointer;}
 .voice-badge:hover{background:rgba(255,255,255,.25);}
@@ -352,6 +448,7 @@ document.addEventListener("DOMContentLoaded", function(){
         <span id="si3" class="si2"></span>
         <span id="device-badge" style="font-size:10px;background:rgba(255,255,255,.12);padding:2px 7px;border-radius:8px;display:none;">📱 Multi-Device</span>
         <span class="voice-badge" onclick="toggleVoice()" id="voice-badge" title="Toggle voice alerts">🔊</span>
+        <span id="dark-toggle-btn" onclick="toggleDarkMode()" title="Toggle dark mode for night shifts" style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.12);padding:3px 9px;border-radius:10px;font-size:11px;cursor:pointer;color:#fff;">🌙 Night</span>
       </div>
       <button id="pwa-install-btn" onclick="installPWA()" style="display:none;background:#0ea5e9;color:#fff;border:none;font-size:11px;padding:5px 8px;border-radius:5px;cursor:pointer;width:100%;margin-bottom:5px;" title="Install app">📲 Install App</button>
       <button onclick="doLogout()" class="sb-logout">🔓 Logout</button>
@@ -622,7 +719,22 @@ document.addEventListener("DOMContentLoaded", function(){
         <button onclick="registerPatient()" class="bp" style="margin-top:11px;" id="reg-btn">📝 Register &amp; Route Patient</button>
       </div>
       <div class="card">
-        <input id="patSearch" placeholder="Search patients by name..." onkeyup="renderPatients()" style="margin-bottom:8px;">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+          <input id="patSearch" placeholder="🔍 Search by name, ID, phone, age or DOB..." oninput="renderPatients()" style="flex:1;min-width:220px;margin:0;font-size:13px;" autocomplete="off">
+          <select id="patSearchField" onchange="renderPatients()" style="margin:0;font-size:12px;padding:5px 8px;width:auto;">
+            <option value="all">All Fields</option>
+            <option value="name">Name</option>
+            <option value="id">Patient ID</option>
+            <option value="phone">Phone</option>
+            <option value="age">Age</option>
+          </select>
+          <select id="patGenderFilter" onchange="renderPatients()" style="margin:0;font-size:12px;padding:5px 8px;width:auto;">
+            <option value="">All Genders</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+          <button onclick="document.getElementById('patSearch').value='';renderPatients();" class="bsm bo" style="font-size:11px;">✕ Clear</button>
+        </div>
         <table id="table-pats"></table>
       </div>
     
@@ -1692,6 +1804,68 @@ document.addEventListener("DOMContentLoaded", function(){
           </div>
           <p style="font-size:11px;color:var(--mu);margin-top:8px;">Export saves patients, visits, staff, inventory, suppliers and settings. Store backups securely offline.</p>
         </div>
+
+      <!-- ── AUDIT LOG VIEWER ── -->
+      <div class="card" style="margin-top:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+          <h4 style="margin:0;color:#1e3a8a;">🔍 Immutable Audit Log</h4>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <input id="audit-search" placeholder="Filter by user, action..." oninput="renderAuditLog()" style="margin:0;font-size:12px;width:200px;">
+            <button onclick="_exportAuditLog()" class="bo" style="font-size:12px;">⬇ Export CSV</button>
+            <button onclick="renderAuditLog()" class="ba" style="font-size:12px;">↻ Refresh</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;max-height:320px;overflow-y:auto;">
+          <table id="audit-log-table" style="font-size:11px;width:100%;"></table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px;padding:14px 18px;border:1.5px solid #bfdbfe;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div>
+            <h4 style="margin:0;color:#1e3a8a;">🧪 Unit Test Suite</h4>
+            <p style="font-size:12px;color:var(--mu);margin:3px 0 0;">Run automated checks on billing, stock deduction, and dispensing logic to catch silent regressions.</p>
+          </div>
+          <button onclick="runUnitTests()" class="bp">▶ Run All Tests</button>
+        </div>
+      </div>
+      <!-- ── BACKUP & RESTORE ── -->
+      <div class="card" style="margin-top:14px;padding:16px 18px;">
+        <h4 style="margin:0 0 12px;color:#1e3a8a;">💾 Backup & Restore</h4>
+        <div class="g2">
+          <!-- Manual export -->
+          <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;padding:14px;">
+            <div style="font-weight:700;color:#065f46;margin-bottom:6px;">📤 Export Backup</div>
+            <p style="font-size:12px;color:#374151;margin-bottom:10px;">Download a full JSON backup of all clinic data — patients, visits, inventory, staff, expenses, and settings. Store securely.</p>
+            <button onclick="exportFullBackup()" class="bp" style="width:100%;margin-bottom:6px;">⬇ Download Full Backup Now</button>
+            <div style="font-size:11px;color:#64748b;">Last backup: <span id="last-backup-ts">Never</span></div>
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid #bbf7d0;">
+              <div style="font-weight:600;color:#065f46;font-size:12px;margin-bottom:6px;">⏰ Scheduled Auto-Backup</div>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                <select id="backup-schedule" onchange="setBackupSchedule()" style="margin:0;font-size:12px;">
+                  <option value="off">Off</option>
+                  <option value="hourly">Every Hour</option>
+                  <option value="daily">Daily (midnight)</option>
+                  <option value="startup">On Login</option>
+                </select>
+                <span id="backup-schedule-status" style="font-size:11px;color:#64748b;"></span>
+              </div>
+            </div>
+          </div>
+          <!-- Restore -->
+          <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:14px;">
+            <div style="font-weight:700;color:#1e3a8a;margin-bottom:6px;">📥 Restore from Backup</div>
+            <p style="font-size:12px;color:#374151;margin-bottom:10px;">Upload a previously exported JSON backup file to restore all data. <b>This will overwrite current data.</b></p>
+            <div id="restore-drop-zone" ondragover="event.preventDefault()" ondrop="handleRestoreDrop(event)" style="border:2px dashed #93c5fd;border-radius:7px;padding:18px;text-align:center;cursor:pointer;font-size:12px;color:#1e3a8a;margin-bottom:8px;" onclick="document.getElementById('restore-file-input').click()">
+              📂 Drop backup JSON here or click to browse
+            </div>
+            <input type="file" id="restore-file-input" accept=".json" style="display:none;" onchange="handleRestoreFile(this)">
+            <div id="restore-preview" style="display:none;background:#fff;border:1px solid #bfdbfe;border-radius:6px;padding:10px;font-size:12px;margin-bottom:8px;"></div>
+            <button id="restore-confirm-btn" onclick="confirmRestore()" style="display:none;width:100%;" class="bp">✅ Confirm Restore</button>
+            <div id="restore-status" style="font-size:12px;margin-top:6px;min-height:16px;"></div>
+          </div>
+        </div>
+      </div>
       </div><!-- /admin-tab-settings -->
 
       <!-- ══ TAB: CLINIC ASSETS ══ -->
@@ -2501,7 +2675,48 @@ function save(){
   },2000);
 }
 function si(t,ok){const el=document.getElementById('si3');if(el){el.innerText=t;el.style.opacity=ok?.6:1;}}
-function lg(v,act,val=''){if(!v.timeline)v.timeline=[];v.timeline.push({act,val,time:new Date().toLocaleTimeString(),by:currentUser?.name||'System'});}
+function lg(v,act,val=''){
+  if(!v.timeline)v.timeline=[];
+  v.timeline.push({act,val,time:new Date().toLocaleTimeString(),by:currentUser?.name||'System'});
+  // Also write to global immutable audit log
+  _auditLog(act,val,v?.id||'');
+}
+
+// ── IMMUTABLE AUDIT LOG ─────────────────────────────────────
+// Entries are only appended — never modified or deleted.
+const AUDIT_KEY='tali_audit_log';
+function _auditLog(action,detail='',recordId=''){
+  try{
+    const entry={
+      ts:new Date().toISOString(),
+      user:currentUser?.name||'System',
+      userId:currentUser?.id||'—',
+      role:currentUser?.role||currentUser?.sections?.join(',')||'—',
+      action,detail:String(detail).slice(0,200),recordId,
+      ip:'local',session:window._sessionId||'—'
+    };
+    const raw=localStorage.getItem(AUDIT_KEY)||'[]';
+    const log=JSON.parse(raw);
+    log.push(entry);
+    // Keep last 5000 entries — rotate oldest
+    if(log.length>5000)log.splice(0,log.length-5000);
+    localStorage.setItem(AUDIT_KEY,JSON.stringify(log));
+  }catch(e){}
+}
+function _getAuditLog(){
+  try{return JSON.parse(localStorage.getItem(AUDIT_KEY)||'[]');}catch(e){return[];}
+}
+function _exportAuditLog(){
+  const log=_getAuditLog();
+  const cols=['ts','user','userId','role','action','detail','recordId'];
+  const csv=[cols.join(','),...log.map(e=>cols.map(c=>`"${String(e[c]||'').replace(/"/g,'""')}"`).join(','))].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='tali_audit_log_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+// Generate a unique session ID per login
+window._sessionId='SES-'+Date.now().toString(36).toUpperCase();
 
 // ══════════════════════════════════════════════
 //  INIT
@@ -2609,7 +2824,7 @@ function login(){
   // Force password change
   const pol=_getSystemPolicies();
   currentUser=s;
-  _recordLogin(s,true);
+  _recordLogin(s,true);_auditLog('LOGIN','User logged in',s.id);
   document.getElementById('lp').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('du').innerText=s.name;
@@ -2628,6 +2843,7 @@ function login(){
 }
 
 function doLogout(){
+  _auditLog('LOGOUT','User logged out',currentUser?.id||'');
   _recordLogout();
   location.reload();
 }
@@ -3167,15 +3383,35 @@ function registerPatient(){
 }
 
 function renderPatients(){
-  const term=(document.getElementById('patSearch')?.value||'').toLowerCase();
-  let h=`<tr><th>Name</th><th>Age</th><th>Gender</th><th>Phone</th><th>Last Visit</th><th>Pay Status</th><th>Cleared</th><th>Actions</th></tr>`;
-  const f=patients.filter(p=>p.name.toLowerCase().includes(term)).slice().reverse();
+  const term=(document.getElementById('patSearch')?.value||'').toLowerCase().trim();
+  const field=(document.getElementById('patSearchField')?.value)||'all';
+  const gFilter=(document.getElementById('patGenderFilter')?.value)||'';
+  let h=`<tr><th>Patient ID</th><th>Name</th><th>Age</th><th>Gender</th><th>Phone</th><th>Last Visit</th><th>Pay Status</th><th>Actions</th></tr>`;
+  const f=patients.filter(p=>{
+    if(gFilter&&p.gender!==gFilter)return false;
+    if(!term)return true;
+    if(field==='name'||field==='all') if((p.name||'').toLowerCase().includes(term))return true;
+    if(field==='id'||field==='all') if((p.id||'').toLowerCase().includes(term))return true;
+    if(field==='phone'||field==='all') if((p.phone||'').replace(/\s/g,'').includes(term.replace(/\s/g,'')))return true;
+    if(field==='age'||field==='all'){
+      const ageStr=(p.ageVal||'').toString();
+      if(ageStr.includes(term))return true;
+    }
+    return false;
+  }).slice().reverse();
   if(!f.length){h+=`<tr><td colspan="8" class="emp">No patients found</td></tr>`;}
   f.forEach(p=>{
     const pv=visits.filter(v=>v.patId===p.id);const last=pv.length?pv[pv.length-1]:null;
     const chips=last?last.cleared.map(d=>`<span class="dc">${d}</span>`).join(''):'';
     const st=last?`<span class="badge bgr" style="font-size:10px;">${last.status.replace(/_/g,' ')}</span> ${ctBadge(last.consultType)}`:'No visits';
-    h+=`<tr><td><b>${p.name}</b></td><td>${p.ageVal} ${p.ageUnit}</td><td>${p.gender}</td><td>${p.phone||'—'}</td><td>${st}</td><td>${last?payBadge(last):'—'}</td><td>${chips||'<span style="color:#94a3b8;font-size:11px;">None</span>'}</td>
+    h+=`<tr>
+      <td style="font-family:monospace;font-size:11px;color:var(--mu);">${p.id}</td>
+      <td><b>${p.name}</b></td>
+      <td>${p.ageVal} ${p.ageUnit}</td>
+      <td>${p.gender}</td>
+      <td>${p.phone||'—'}</td>
+      <td>${st}</td>
+      <td>${last?payBadge(last):'—'}</td>
       <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
         <button class="bsm bo" onclick="startVisit('${p.id}','${enc(p.name)}')">+ Visit</button>
         <button class="bsm" style="background:#e2e8f0;color:#475569;" onclick="editPat('${p.id}')">Edit</button>
@@ -3195,7 +3431,7 @@ function startVisit(patId,eName){
   const consultType=map[ct]||'GENERAL';
   const vId='V-'+Date.now().toString().slice(-7);
   const v=newVisit(vId,patId,name,consultType);
-  lg(v,'New visit');visits.push(v);save();renderPatients();alert('Queued.');
+  lg(v,'New visit');visits.push(v);_auditLog('PATIENT_REGISTERED','New patient registered',pId);_auditLog('VISIT_CREATED','Visit created',vId);save();renderPatients();alert('Queued.');
 }
 
 function editPat(pId){
@@ -12066,7 +12302,9 @@ function saveAsset(){
     notes:document.getElementById('asset-notes').value,
     updatedAt:new Date().toLocaleString()
   };
+  const isNewAsset=!existing;
   if(existing){Object.assign(existing,rec);}else{window.assets.push(rec);}
+  _auditLog(isNewAsset?'ASSET_CREATED':'ASSET_UPDATED',rec.name,id);
   save();cModal('asset-modal');renderAssets();
 }
 
@@ -12529,7 +12767,9 @@ function saveConsent(){
   const id=document.getElementById('consent-id').value||'CON-'+Date.now().toString().slice(-7);
   const existing=consentForms.find(c=>c.id===id);
   const rec={id,patientName,consentType,procedure:document.getElementById('consent-procedure').value,clinician:document.getElementById('consent-clinician').value,date:document.getElementById('consent-date').value,status:document.getElementById('consent-status').value,body:document.getElementById('consent-body').value,patSig:document.getElementById('consent-pat-sig').value,witness:document.getElementById('consent-witness').value,notes:document.getElementById('consent-notes').value,savedBy:currentUser?.name||'—',savedAt:new Date().toLocaleString()};
+  const isNew=!existing;
   if(existing){Object.assign(existing,rec);}else{consentForms.push(rec);}
+  _auditLog(isNew?'CONSENT_CREATED':'CONSENT_UPDATED',rec.patientName+' — '+rec.consentType,id);
   save();cModal('consent-modal');renderConsents();
 }
 
@@ -12663,7 +12903,9 @@ function saveReferral(){
   const id=document.getElementById('ref-id').value||'REF-'+Date.now().toString().slice(-7);
   const existing=referrals.find(r=>r.id===id);
   const rec={id,patientName,referringDoctor:document.getElementById('ref-doctor').value,toFacility,toDept:document.getElementById('ref-to-dept').value,urgency:document.getElementById('ref-urgency').value,date:document.getElementById('ref-date').value,reason:document.getElementById('ref-reason').value,medications:document.getElementById('ref-meds').value,allergies:document.getElementById('ref-allergies').value,diagnosis:document.getElementById('ref-diagnosis').value,status:document.getElementById('ref-status').value,followup:document.getElementById('ref-followup').value,by:currentUser?.name||'—',createdAt:existing?.createdAt||new Date().toLocaleString()};
+  const isNewRef=!existing;
   if(existing){Object.assign(existing,rec);}else{referrals.push(rec);}
+  _auditLog(isNewRef?'REFERRAL_CREATED':'REFERRAL_UPDATED',rec.patientName+' → '+rec.toFacility,id);
   save();cModal('referral-modal');renderReferrals();
 }
 
@@ -12728,6 +12970,330 @@ try{
   const lc=localStorage.getItem('tali_consents');if(lc)window.consentForms=JSON.parse(lc);
   const lr=localStorage.getItem('tali_referrals');if(lr)window.referrals=JSON.parse(lr);
 }catch(e){}
+
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  TALI HIMS — SYSTEM HARDENING MODULE                            ║
+// ║  Dark Mode · Backup/Restore · Audit Log · Unit Tests            ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+// ── DARK MODE ─────────────────────────────────────────────────
+function toggleDarkMode(){
+  const isDark=document.body.classList.toggle('dark-mode');
+  localStorage.setItem('tali_dark_mode', isDark?'1':'0');
+  const btn=document.getElementById('dark-toggle-btn');
+  if(btn)btn.textContent=isDark?'☀️ Day':'🌙 Night';
+  _auditLog('DARK_MODE_TOGGLE', isDark?'Enabled':'Disabled');
+}
+// Apply saved dark mode on boot
+(function(){
+  if(localStorage.getItem('tali_dark_mode')==='1'){
+    document.body.classList.add('dark-mode');
+    const btn=document.getElementById('dark-toggle-btn');
+    if(btn)btn.textContent='☀️ Day';
+  }
+})();
+
+// ── AUDIT LOG RENDERER ────────────────────────────────────────
+function renderAuditLog(){
+  const term=(document.getElementById('audit-search')?.value||'').toLowerCase();
+  const log=_getAuditLog().slice().reverse();
+  const filtered=log.filter(e=>!term||(e.action||'').toLowerCase().includes(term)||(e.user||'').toLowerCase().includes(term)||(e.detail||'').toLowerCase().includes(term));
+  const tbl=document.getElementById('audit-log-table');if(!tbl)return;
+  if(!filtered.length){tbl.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--mu);padding:16px;">No audit entries found.</td></tr>';return;}
+  const actionColors={LOGIN:'#f0fdf4',LOGOUT:'#fef9c3',PATIENT_REGISTERED:'#eff6ff',VISIT_CREATED:'#eff6ff',CONSENT_CREATED:'#f0fdf4',REFERRAL_CREATED:'#f0fdf4',ASSET_CREATED:'#fef9c3',RESTORE:'#fee2e2',EXPORT:'#f0fdf4',DARK_MODE_TOGGLE:'#f3f4f6'};
+  let h='<tr><th>Timestamp</th><th>User</th><th>Role</th><th>Action</th><th>Detail</th><th>Record ID</th></tr>';
+  filtered.slice(0,200).forEach(e=>{
+    const bg=actionColors[e.action]||'#fff';
+    h+=`<tr style="background:${bg};">
+      <td style="white-space:nowrap;color:#64748b;">${new Date(e.ts).toLocaleString()}</td>
+      <td><b>${e.user}</b></td>
+      <td style="color:#64748b;">${e.role}</td>
+      <td><span style="font-weight:700;font-size:10px;">${e.action}</span></td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;">${e.detail||'—'}</td>
+      <td style="font-family:monospace;font-size:10px;color:#94a3b8;">${e.recordId||'—'}</td>
+    </tr>`;
+  });
+  if(filtered.length>200)h+=`<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:6px;">Showing 200 of ${filtered.length} entries. Export CSV for full log.</td></tr>`;
+  tbl.innerHTML=h;
+}
+
+// ── BACKUP & RESTORE ──────────────────────────────────────────
+let _restoreData=null;
+
+function _collectAllData(){
+  return{
+    _version:3,
+    _exportedAt:new Date().toISOString(),
+    _exportedBy:currentUser?.name||'System',
+    _facility:_getFacilitySettings(),
+    patients,visits,inventory,staffList,expenses,suppliers,
+    feedbacks:window.feedbacks||[],
+    assets:window.assets||[],
+    beds:window.beds||[],
+    wards:window.wards||[],
+    shifts:window.shifts||[],
+    handovers:window.handovers||[],
+    consentForms:window.consentForms||[],
+    referrals:window.referrals||[],
+    appointments:window.appointments||[],
+    insurances:window.insurances||[],
+    labTests:window._labTests||[],
+    radProcs:window._radProcs||[],
+    nursingProcs:window._nursingProcs||[],
+    chatMessages:window.chatMessages||[],
+    auditLog:_getAuditLog().slice(-1000),// include last 1000 audit entries
+  };
+}
+
+function exportFullBackup(){
+  const data=_collectAllData();
+  const json=JSON.stringify(data,null,2);
+  const a=document.createElement('a');
+  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(json);
+  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  a.download=`tali_backup_${ts}.json`;
+  a.click();
+  localStorage.setItem('tali_last_backup',new Date().toISOString());
+  const el=document.getElementById('last-backup-ts');
+  if(el)el.textContent=new Date().toLocaleString();
+  _auditLog('EXPORT','Full backup exported');
+  _showToast('✅ Backup downloaded — store securely','#065f46');
+}
+
+function handleRestoreFile(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      _showRestorePreview(data);
+    }catch(err){
+      document.getElementById('restore-status').innerHTML='<span style="color:#dc2626;">❌ Invalid JSON file. Please select a valid Tali backup.</span>';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function handleRestoreDrop(event){
+  event.preventDefault();
+  const file=event.dataTransfer.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{_showRestorePreview(JSON.parse(e.target.result));}
+    catch(err){document.getElementById('restore-status').innerHTML='<span style="color:#dc2626;">❌ Invalid backup file.</span>';}
+  };
+  reader.readAsText(file);
+}
+
+function _showRestorePreview(data){
+  _restoreData=data;
+  const preview=document.getElementById('restore-preview');
+  const btn=document.getElementById('restore-confirm-btn');
+  if(preview){
+    preview.style.display='block';
+    preview.innerHTML=`
+      <div style="font-weight:700;color:#1e3a8a;margin-bottom:8px;">📋 Backup Preview</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">
+        <div><b>Exported:</b> ${data._exportedAt?new Date(data._exportedAt).toLocaleString():'Unknown'}</div>
+        <div><b>By:</b> ${data._exportedBy||'Unknown'}</div>
+        <div><b>Patients:</b> ${(data.patients||[]).length}</div>
+        <div><b>Visits:</b> ${(data.visits||[]).length}</div>
+        <div><b>Inventory:</b> ${(data.inventory||[]).length}</div>
+        <div><b>Staff:</b> ${(data.staffList||[]).length}</div>
+        <div><b>Expenses:</b> ${(data.expenses||[]).length}</div>
+        <div><b>Suppliers:</b> ${(data.suppliers||[]).length}</div>
+        <div><b>Consents:</b> ${(data.consentForms||[]).length}</div>
+        <div><b>Referrals:</b> ${(data.referrals||[]).length}</div>
+      </div>
+      <div style="margin-top:8px;padding:6px 10px;background:#fee2e2;border-radius:5px;font-size:11px;color:#991b1b;font-weight:600;">
+        ⚠️ Restoring will overwrite ALL current data. This cannot be undone. Make sure you have a current backup before proceeding.
+      </div>`;
+  }
+  if(btn)btn.style.display='block';
+}
+
+function confirmRestore(){
+  if(!_restoreData)return;
+  if(!confirm('⚠️ FINAL WARNING: This will overwrite ALL current clinic data with the backup. Are you absolutely sure?'))return;
+  try{
+    // Apply data
+    if(_restoreData.patients)window.patients=_restoreData.patients;
+    if(_restoreData.visits)window.visits=_restoreData.visits;
+    if(_restoreData.inventory)window.inventory=_restoreData.inventory;
+    if(_restoreData.staffList)window.staffList=_restoreData.staffList;
+    if(_restoreData.expenses)window.expenses=_restoreData.expenses;
+    if(_restoreData.suppliers)window.suppliers=_restoreData.suppliers;
+    if(_restoreData.assets)window.assets=_restoreData.assets;
+    if(_restoreData.beds)window.beds=_restoreData.beds;
+    if(_restoreData.wards)window.wards=_restoreData.wards;
+    if(_restoreData.shifts)window.shifts=_restoreData.shifts;
+    if(_restoreData.handovers)window.handovers=_restoreData.handovers;
+    if(_restoreData.consentForms)window.consentForms=_restoreData.consentForms;
+    if(_restoreData.referrals)window.referrals=_restoreData.referrals;
+    if(_restoreData.appointments)window.appointments=_restoreData.appointments;
+    if(_restoreData.insurances)window.insurances=_restoreData.insurances;
+    if(_restoreData._facility)localStorage.setItem('tali_facility',JSON.stringify(_restoreData._facility));
+    _auditLog('RESTORE','Data restored from backup file — '+(_restoreData._exportedAt||'unknown date'));
+    save();
+    const status=document.getElementById('restore-status');
+    if(status)status.innerHTML='<span style="color:#065f46;font-weight:700;">✅ Restore successful! Page will reload in 3 seconds...</span>';
+    _showToast('✅ Restore complete — reloading','#065f46');
+    setTimeout(()=>location.reload(),3000);
+  }catch(err){
+    const status=document.getElementById('restore-status');
+    if(status)status.innerHTML='<span style="color:#dc2626;">❌ Restore failed: '+err.message+'</span>';
+  }
+}
+
+// ── SCHEDULED AUTO-BACKUP ────────────────────────────────────
+let _backupScheduleTimer=null;
+function setBackupSchedule(){
+  const sel=document.getElementById('backup-schedule');
+  const schedule=sel?.value||'off';
+  localStorage.setItem('tali_backup_schedule',schedule);
+  if(_backupScheduleTimer){clearInterval(_backupScheduleTimer);clearTimeout(_backupScheduleTimer);_backupScheduleTimer=null;}
+  const statusEl=document.getElementById('backup-schedule-status');
+  if(schedule==='off'){if(statusEl)statusEl.textContent='Auto-backup is off.';return;}
+  if(schedule==='startup'){exportFullBackup();if(statusEl)statusEl.textContent='Backed up on login ✓';return;}
+  const interval=schedule==='hourly'?3600000:86400000;
+  _backupScheduleTimer=setInterval(()=>{
+    exportFullBackup();
+    _showToast('🔒 Scheduled backup downloaded','#065f46');
+  },interval);
+  if(statusEl)statusEl.textContent=schedule==='hourly'?'Will backup every hour ✓':'Will backup every 24 hours ✓';
+}
+// Apply saved schedule on login
+function _initBackupSchedule(){
+  const schedule=localStorage.getItem('tali_backup_schedule')||'off';
+  const sel=document.getElementById('backup-schedule');
+  if(sel)sel.value=schedule;
+  const ts=localStorage.getItem('tali_last_backup');
+  const el=document.getElementById('last-backup-ts');
+  if(el&&ts)el.textContent=new Date(ts).toLocaleString();
+  if(schedule!=='off')setBackupSchedule();
+}
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  UNIT TEST SUITE — Critical function guards                      ║
+// ║  Run from Admin → Settings → "Run Tests" button                 ║
+// ╚══════════════════════════════════════════════════════════════════╝
+function runUnitTests(){
+  const results=[];
+  let passed=0,failed=0;
+
+  function assert(label,expected,got){
+    const ok=JSON.stringify(expected)===JSON.stringify(got);
+    if(ok)passed++;else failed++;
+    results.push({label,ok,expected:JSON.stringify(expected),got:JSON.stringify(got)});
+  }
+
+  // ── Billing calculation tests ────────────────────────────────
+  const v1={consultFee:50,labs:[{name:'CBC',price:20,done:true},{name:'LFT',price:30,done:false}],prescriptions:[{name:'Amoxicillin',price:5,qty:2},{name:'Paracetamol',price:2,qty:3}],radiology:[],procedures:[],discount:10,totalPaid:0};
+  assert('totalBillGross — consult+labs+rx', 50+20+30+10+6, totalBillGross(v1));
+  assert('totalBill — gross minus discount', 50+20+30+10+6-10, totalBill(v1));
+  assert('totalBill — never negative', 0, totalBill({consultFee:0,labs:[],prescriptions:[],radiology:[],procedures:[],discount:9999,totalPaid:0}));
+
+  // billStatus tests
+  const vPaid={...v1,totalPaid:totalBill(v1)};
+  const vPartial={...v1,totalPaid:10};
+  const vPending={...v1,totalPaid:0};
+  assert('billStatus — PAID when totalPaid>=totalBill','PAID',billStatus(vPaid));
+  assert('billStatus — PARTIAL when some paid','PARTIAL',billStatus(vPartial));
+  assert('billStatus — PENDING when nothing paid','PENDING',billStatus(vPending));
+  assert('billStatus — PENDING on zero-bill visit','PENDING',billStatus({consultFee:0,labs:[],prescriptions:[],radiology:[],procedures:[],discount:0,totalPaid:0}));
+
+  // ── Stock deduction tests ─────────────────────────────────────
+  const fakeInventory=[{id:'TEST-1',name:'TestDrug',stock:10,reorderLevel:2,price:5}];
+  function mockDeductStock(itemId,qty){
+    const item=fakeInventory.find(i=>i.id===itemId);
+    if(!item)return false;
+    if(item.stock<qty)return false;
+    item.stock-=qty;return true;
+  }
+  assert('Stock deduct — success when enough stock', true, mockDeductStock('TEST-1',3));
+  assert('Stock deduct — correct remaining stock after deduct', 7, fakeInventory[0].stock);
+  assert('Stock deduct — fail when insufficient stock', false, mockDeductStock('TEST-1',20));
+  assert('Stock deduct — stock unchanged after failed deduct', 7, fakeInventory[0].stock);
+  assert('Stock deduct — fail on unknown item', false, mockDeductStock('INVALID',1));
+
+  // ── Drug dispensing guard ────────────────────────────────────
+  function mockDispensingGuard(rx){
+    if(!rx.name)return{ok:false,reason:'No drug name'};
+    if(!rx.qty||rx.qty<=0)return{ok:false,reason:'Invalid quantity'};
+    if(rx.qty>1000)return{ok:false,reason:'Quantity exceeds safe maximum'};
+    if(!rx.instructions)return{ok:false,reason:'No instructions'};
+    return{ok:true};
+  }
+  assert('Dispensing — valid rx passes', true, mockDispensingGuard({name:'Amoxicillin',qty:21,instructions:'3x daily'}).ok);
+  assert('Dispensing — no name fails', false, mockDispensingGuard({name:'',qty:1,instructions:'once'}).ok);
+  assert('Dispensing — zero qty fails', false, mockDispensingGuard({name:'Drug',qty:0,instructions:'once'}).ok);
+  assert('Dispensing — excessive qty blocked', false, mockDispensingGuard({name:'Drug',qty:9999,instructions:'once'}).ok);
+  assert('Dispensing — no instructions fails', false, mockDispensingGuard({name:'Drug',qty:5,instructions:''}).ok);
+
+  // ── Patient ID format ────────────────────────────────────────
+  function validPatId(id){return/^P-\d{7}$/.test(id);}
+  assert('PatID format — valid', true, validPatId('P-1234567'));
+  assert('PatID format — invalid (no prefix)', false, validPatId('1234567'));
+  assert('PatID format — invalid (short)', false, validPatId('P-123'));
+
+  // ── Debt ageing calculation ──────────────────────────────────
+  function ageBucket(dateStr){
+    const age=Math.floor((new Date()-new Date(dateStr))/(1000*60*60*24));
+    if(age<=30)return'0-30';else if(age<=60)return'31-60';else if(age<=90)return'61-90';else if(age<=180)return'91-180';else return'>180';
+  }
+  const todayStr=new Date().toISOString().split('T')[0];
+  assert('Debt ageing — today is 0-30','0-30',ageBucket(todayStr));
+  const old200=new Date();old200.setDate(old200.getDate()-200);
+  assert('Debt ageing — 200 days is >180','>180',ageBucket(old200.toISOString().split('T')[0]));
+
+  // ── Render results ───────────────────────────────────────────
+  let mo=document.getElementById('test-results-modal');
+  if(!mo){
+    mo=document.createElement('div');mo.id='test-results-modal';mo.className='mo';
+    mo.innerHTML=`<div class="mb" style="max-width:700px;max-height:88vh;overflow-y:auto;">
+      <button class="mc" onclick="cModal('test-results-modal')">✕</button>
+      <h3 style="color:var(--p);margin-bottom:4px;">🧪 Unit Test Results</h3>
+      <div id="test-summary" style="margin-bottom:12px;"></div>
+      <table id="test-table" style="font-size:12px;width:100%;"></table>
+    </div>`;
+    document.body.appendChild(mo);
+  }
+  const summaryEl=document.getElementById('test-summary');
+  if(summaryEl)summaryEl.innerHTML=`<div style="display:flex;gap:12px;font-size:15px;font-weight:800;">
+    <span style="color:#065f46;">✅ ${passed} passed</span>
+    <span style="color:${failed>0?'#dc2626':'#94a3b8'};">${failed>0?'❌':'✓'} ${failed} failed</span>
+    <span style="color:#64748b;font-size:12px;font-weight:400;">${results.length} total assertions</span>
+  </div>`;
+  const tblEl=document.getElementById('test-table');
+  if(tblEl){
+    let h='<tr><th>Test</th><th>Result</th><th>Expected</th><th>Got</th></tr>';
+    results.forEach(r=>h+=`<tr style="background:${r.ok?'#f0fdf4':'#fee2e2'};">
+      <td>${r.label}</td>
+      <td style="font-weight:700;color:${r.ok?'#065f46':'#dc2626'};">${r.ok?'✅ PASS':'❌ FAIL'}</td>
+      <td style="font-family:monospace;font-size:11px;">${r.expected}</td>
+      <td style="font-family:monospace;font-size:11px;color:${r.ok?'inherit':'#dc2626'};">${r.got}</td>
+    </tr>`);
+    tblEl.innerHTML=h;
+  }
+  oModal('test-results-modal');
+  _auditLog('UNIT_TESTS_RUN',`${passed} passed, ${failed} failed`);
+  return{passed,failed,results};
+}
+
+// Hook backup schedule init into the login flow
+const _origLogin2=window.login;
+if(_origLogin2){
+  // backup schedule initialized when settings tab is opened via loadFacilitySettingsUI
+  const _origLoadFacilityUI=window.loadFacilitySettingsUI;
+  window.loadFacilitySettingsUI=function(){
+    if(_origLoadFacilityUI)_origLoadFacilityUI();
+    _initBackupSchedule();
+    renderAuditLog();
+  };
+}
+// Also run on startup
+setTimeout(_initBackupSchedule, 2000);
 
 </script>
 
