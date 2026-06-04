@@ -161,83 +161,18 @@ tr.emg-row td:first-child::before{content:'🚨 ';}
 .fb-star.active,.fb-star:hover{color:#f59e0b;}
 .wm-wrap{position:relative;}
 @media print{
-  /* ── Hide all UI chrome ─────────────────────────── */
-  .no-print,.nb,#sidebar,#dark-toggle-btn,.voice-badge,
-  #device-badge,.sb-footer,#pwa-install-btn,
-  .stabs,.bsm,.bp,.bo,.ba,.badd,.bsm,button:not(.print-show){display:none!important;}
+  .no-print{display:none!important;}
   body>*{display:none!important;}
-  body.dark-mode{background:#fff!important;color:#1e293b!important;
-    --tx:#1e293b!important;--card:#fff!important;--bg:#fff!important;}
-
-  /* ── Print area ─────────────────────────────────── */
   #pra{display:block!important;position:relative;}
-  #pra-con{
-    font-family:'Arial',sans-serif;font-size:12px;color:#1e293b;
-    max-width:210mm;margin:0 auto;padding:8mm 10mm;
-  }
-
-  /* ── Watermark ──────────────────────────────────── */
-  .wm-logo{
-    position:fixed;top:50%;left:50%;
-    transform:translate(-50%,-50%) rotate(-30deg);
-    opacity:.06;width:340px;z-index:0;pointer-events:none;
-  }
-
-  /* ── Letterhead ─────────────────────────────────── */
-  .print-letterhead{
-    display:flex!important;justify-content:space-between;align-items:flex-start;
-    border-bottom:3px solid #1e3a8a;padding-bottom:10px;margin-bottom:14px;
-  }
-  .print-letterhead .lh-left{display:flex;flex-direction:column;gap:3px;}
-  .print-letterhead .lh-fac-name{font-size:18px;font-weight:800;color:#1e3a8a;letter-spacing:.03em;}
-  .print-letterhead .lh-fac-sub{font-size:10px;color:#64748b;line-height:1.5;}
-  .print-letterhead .lh-right{text-align:right;}
-  .print-letterhead .lh-logo{width:64px;height:64px;object-fit:contain;border-radius:6px;}
-
-  /* ── Barcode / QR area ──────────────────────────── */
-  #qr-print,#qr-print canvas,#qr-print img{
-    display:block!important;width:72px!important;height:72px!important;
-  }
-  .print-barcode-wrap{display:flex!important;justify-content:flex-end;margin-top:4px;}
-
-  /* ── Tables ─────────────────────────────────────── */
-  .pit{width:100%;border-collapse:collapse;margin:8px 0;font-size:11px;}
-  .pit th{background:#1e3a8a;color:#fff;padding:5px 8px;text-align:left;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  .pit td{padding:4px 8px;border-bottom:1px solid #e2e8f0;vertical-align:top;}
-  .pit tr:nth-child(even) td{background:#f8fafc;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-
-  /* ── Two-col layout ─────────────────────────────── */
-  .print-2col{display:flex!important;justify-content:space-between;align-items:flex-end;margin-bottom:12px;border-bottom:2px solid #1e3a8a;padding-bottom:8px;}
-  .print-left{display:flex;flex-direction:column;gap:3px;}
+  .wm-logo{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);opacity:.07;width:360px;height:auto;z-index:0;pointer-events:none;}
+  .print-2col{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;border-bottom:2px solid #1e3a8a;padding-bottom:10px;}
+  .print-left{display:flex;flex-direction:column;gap:4px;}
   .print-right{text-align:right;}
-  .print-grid-2{display:grid!important;grid-template-columns:1fr 1fr;gap:12px;}
-
-  /* ── Page break rules ───────────────────────────── */
-  .page-break-before{page-break-before:always;break-before:page;}
-  .page-break-after{page-break-after:always;break-after:page;}
-  .no-page-break{page-break-inside:avoid;break-inside:avoid;}
-  .pit tr{page-break-inside:avoid;break-inside:avoid;}
-  h3,h4{page-break-after:avoid;break-after:avoid;}
-  table{page-break-inside:auto;}
-
-  /* ── Page setup ─────────────────────────────────── */
-  @page{size:A4 portrait;margin:12mm 14mm;}
-  @page :first{margin-top:8mm;}
-
-  /* ── Signature lines ────────────────────────────── */
-  .print-sig-line{border-top:1.5px solid #334155;margin-top:32px;padding-top:5px;font-size:11px;font-weight:700;}
-  .print-sig-grid{display:grid!important;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px;}
-
-  /* ── Status badges ──────────────────────────────── */
-  .badge,.dc{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-
-  /* ── Footer on every page ───────────────────────── */
-  .print-page-footer{
-    position:fixed;bottom:0;left:0;right:0;
-    font-size:9px;color:#94a3b8;text-align:center;
-    border-top:1px solid #e2e8f0;padding:3px 0;
-    background:#fff;
-  }
+  #qr-print canvas,#qr-print img{width:80px!important;height:80px!important;}
+  #pra-con{font-family:Arial,sans-serif;font-size:13px;color:#1e293b;max-width:800px;margin:0 auto;padding:10px;}
+  .pit{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px;}
+  .pit th{background:#1e3a8a;color:#fff;padding:6px 8px;text-align:left;}
+  .pit td{padding:5px 8px;border-bottom:1px solid #e2e8f0;}
 }
 .voice-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);padding:3px 9px;border-radius:10px;font-size:11px;cursor:pointer;}
 .voice-badge:hover{background:rgba(255,255,255,.25);}
@@ -1584,14 +1519,13 @@ document.addEventListener("DOMContentLoaded", function(){
       <div class="stabs" style="margin-bottom:14px;flex-wrap:wrap;">
         <button class="st active" onclick="swAdmin('staff',this)">👥 Staff</button>
         <button class="st" onclick="swAdmin('activity',this)">🕐 Activity</button>
-        <button class="st" onclick="swAdmin('suppliers',this)">🏪 Suppliers</button>
+        <button class="st" onclick="swAdmin(this)">🏪 Suppliers</button>
         <button class="st" onclick="swAdmin('insurance',this)">🏥 Insurance</button>
         <button class="st" onclick="swAdmin('hrguide',this)">👔 HR Guide</button>
         <button class="st" onclick="swAdmin('patients',this)">🧾 Patients</button>
         <button class="st" onclick="swAdmin('import',this)">📥 Import</button>
         <button class="st" onclick="swAdmin('services',this)">🔬 Services</button>
         <button class="st" onclick="swAdmin('assets',this)">🏷 Assets</button>
-        <button class="st" onclick="swAdmin('rmmanual',this)">📘 RM Manual</button>
         <button class="st" onclick="swAdmin('settings',this)">⚙️ Settings</button>
       </div>
 
@@ -1910,313 +1844,7 @@ document.addEventListener("DOMContentLoaded", function(){
         <div class="card" style="padding:9px;overflow-x:auto;"><table id="table-assets" style="font-size:12px;"></table></div>
       </div><!-- /admin-tab-assets -->
 
-      <!-- ══ TAB: RM MANUAL ══ -->
-      <div id="admin-tab-rmmanual" style="display:none;">
-        <div class="card" style="padding:14px 18px;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
-            <div>
-              <h3 style="margin:0;color:#0c4a6e;">📘 International Risk Management Manual</h3>
-              <p style="font-size:12px;color:var(--mu);margin:3px 0 0;">Based on ISO 31000:2018 · IEC 62304 · JCI Standards · WHO Patient Safety Framework</p>
-            </div>
-            <div style="display:flex;gap:6px;">
-              <button onclick="window.print()" class="bo" style="font-size:12px;">🖨 Print Manual</button>
-            </div>
-          </div>
-          <!-- RM Manual Accordion Sections -->
-          <div id="rm-manual-body">
 
-            <!-- Section 1 -->
-            <div class="cb" style="margin-bottom:8px;border:1px solid #bfdbfe;border-radius:8px;">
-              <div class="ch" onclick="tClin(this)" style="background:#eff6ff;border-radius:8px;padding:12px 16px;font-weight:700;color:#1e3a8a;display:flex;justify-content:space-between;">
-                <span>1. Purpose & Scope</span><span class="cr">▼</span>
-              </div>
-              <div class="cbody" style="padding:14px 18px;font-size:13px;line-height:1.8;color:#1e293b;">
-                <p>This Risk Management Manual establishes the framework for identifying, assessing, controlling, and monitoring risks across all departments of the facility. It applies to all clinical, administrative, and support staff.</p>
-                <p><b>Objectives:</b></p>
-                <ul style="padding-left:18px;">
-                  <li>Protect patients, staff, and visitors from preventable harm</li>
-                  <li>Ensure regulatory and accreditation compliance</li>
-                  <li>Preserve the organization's financial and reputational integrity</li>
-                  <li>Support continuous quality improvement</li>
-                </ul>
-                <p><b>Regulatory Basis:</b> ISO 31000:2018 — Risk Management Guidelines, WHO Patient Safety Curriculum, Joint Commission International (JCI) Standards.</p>
-              </div>
-            </div>
-
-            <!-- Section 2 -->
-            <div class="cb" style="margin-bottom:8px;border:1px solid #bfdbfe;border-radius:8px;">
-              <div class="ch" onclick="tClin(this)" style="background:#eff6ff;border-radius:8px;padding:12px 16px;font-weight:700;color:#1e3a8a;display:flex;justify-content:space-between;">
-                <span>2. Risk Classification Matrix</span><span class="cr">▼</span>
-              </div>
-              <div class="cbody" style="padding:14px 18px;font-size:13px;">
-                <p style="margin-bottom:8px;">All risks are scored using <b>Likelihood × Impact</b>. Scores determine the required response:</p>
-                <table class="pit" style="font-size:12px;margin-bottom:12px;">
-                  <tr><th>Risk Level</th><th>Score</th><th>Colour</th><th>Required Action</th><th>Owner</th></tr>
-                  <tr><td><b>Critical</b></td><td>15–25</td><td style="background:#fee2e2;">🔴 Red</td><td>Immediate escalation to Director. Stop activity if needed.</td><td>Director / CEO</td></tr>
-                  <tr><td><b>High</b></td><td>8–14</td><td style="background:#fef3c7;">🟠 Orange</td><td>Action plan within 24 hours. Dept head notified.</td><td>Dept Head</td></tr>
-                  <tr><td><b>Medium</b></td><td>4–7</td><td style="background:#fef9c3;">🟡 Yellow</td><td>Action plan within 1 week. Monitor monthly.</td><td>Supervisor</td></tr>
-                  <tr><td><b>Low</b></td><td>1–3</td><td style="background:#f0fdf4;">🟢 Green</td><td>Accept and review quarterly. Document only.</td><td>Staff</td></tr>
-                </table>
-                <p><b>Likelihood Scale:</b> 1=Rare · 2=Unlikely · 3=Possible · 4=Likely · 5=Almost Certain</p>
-                <p><b>Impact Scale:</b> 1=Negligible · 2=Minor · 3=Moderate · 4=Major · 5=Catastrophic</p>
-              </div>
-            </div>
-
-            <!-- Section 3 -->
-            <div class="cb" style="margin-bottom:8px;border:1px solid #bfdbfe;border-radius:8px;">
-              <div class="ch" onclick="tClin(this)" style="background:#eff6ff;border-radius:8px;padding:12px 16px;font-weight:700;color:#1e3a8a;display:flex;justify-content:space-between;">
-                <span>3. Clinical Risk Management</span><span class="cr">▼</span>
-              </div>
-              <div class="cbody" style="padding:14px 18px;font-size:13px;line-height:1.8;">
-                <div class="g2">
-                  <div>
-                    <p><b>3.1 Medication Safety</b></p>
-                    <ul style="padding-left:16px;">
-                      <li>Verify 5 Rights before every medication administration (Right Patient, Drug, Dose, Route, Time)</li>
-                      <li>High-alert medications require double-check by two clinicians</li>
-                      <li>All allergy information must be recorded and visible before prescribing</li>
-                      <li>Automated drug interaction alerts must not be overridden without senior approval</li>
-                    </ul>
-                    <p><b>3.2 Surgical / Procedure Safety</b></p>
-                    <ul style="padding-left:16px;">
-                      <li>WHO Surgical Safety Checklist must be completed before every invasive procedure</li>
-                      <li>Site marking required for all lateralized procedures</li>
-                      <li>Informed written consent mandatory before all procedures</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p><b>3.3 Patient Identification</b></p>
-                    <ul style="padding-left:16px;">
-                      <li>At least 2 patient identifiers must be confirmed before any clinical act</li>
-                      <li>Wristbands required for all inpatients</li>
-                      <li>ID must be re-verified at every handover</li>
-                    </ul>
-                    <p><b>3.4 Falls Prevention</b></p>
-                    <ul style="padding-left:16px;">
-                      <li>Morse Fall Scale assessed on admission and after any fall</li>
-                      <li>High-risk patients require bed rails, non-slip footwear, call-bell within reach</li>
-                      <li>All falls documented and reviewed within 24 hours</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Section 4 -->
-            <div class="cb" style="margin-bottom:8px;border:1px solid #bfdbfe;border-radius:8px;">
-              <div class="ch" onclick="tClin(this)" style="background:#eff6ff;border-radius:8px;padding:12px 16px;font-weight:700;color:#1e3a8a;display:flex;justify-content:space-between;">
-                <span>4. Infection Prevention & Control (IPC)</span><span class="cr">▼</span>
-              </div>
-              <div class="cbody" style="padding:14px 18px;font-size:13px;line-height:1.8;">
-                <div class="g2">
-                  <div>
-                    <p><b>Standard Precautions</b> — apply to ALL patients, at ALL times:</p>
-                    <ul style="padding-left:16px;">
-                      <li>Hand hygiene before and after every patient contact (WHO 5 Moments)</li>
-                      <li>PPE appropriate to risk level (gloves, mask, apron, eye protection)</li>
-                      <li>Safe sharps disposal — never recap needles</li>
-                      <li>Respiratory hygiene / cough etiquette</li>
-                      <li>Safe injection practices — sterile single-use equipment</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p><b>Isolation Precautions</b></p>
-                    <ul style="padding-left:16px;">
-                      <li><b>Contact:</b> gloves + apron for all room entry</li>
-                      <li><b>Droplet:</b> surgical mask within 1 metre</li>
-                      <li><b>Airborne:</b> N95 respirator, negative-pressure room</li>
-                    </ul>
-                    <p><b>Healthcare Associated Infection (HAI) Surveillance</b></p>
-                    <ul style="padding-left:16px;">
-                      <li>Monthly HAI reporting to IPC committee</li>
-                      <li>Mandatory outbreak notification within 24 hours</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Section 5 -->
-            <div class="cb" style="margin-bottom:8px;border:1px solid #bfdbfe;border-radius:8px;">
-              <div class="ch" onclick="tClin(this)" style="background:#eff6ff;border-radius:8px;padding:12px 16px;font-weight:700;color:#1e3a8a;display:flex;justify-content:space-between;">
-                <span>5. Incident Reporting & Investigation</span><span class="cr">▼</span>
-              </div>
-              <div class="cbody" style="padding:14px 18px;font-size:13px;line-height:1.8;">
-                <p>All adverse events, near misses, and sentinel events must be reported. <b>Reporting is blameless — the goal is system improvement, not individual punishment.</b></p>
-                <div class="g2">
-                  <div>
-                    <p><b>Classification:</b></p>
-                    <ul style="padding-left:16px;">
-                      <li><b>Sentinel Event:</b> unexpected death or serious harm — 72-hour root cause analysis</li>
-                      <li><b>Adverse Event:</b> unintended harm — 7-day investigation</li>
-                      <li><b>Near Miss:</b> error caught before harm — 14-day review</li>
-                      <li><b>No-Harm Event:</b> reached patient but caused no harm — monthly review</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p><b>Reporting Process:</b></p>
-                    <ul style="padding-left:16px;">
-                      <li>Complete incident form within 24 hours</li>
-                      <li>Notify supervisor immediately for sentinel/adverse events</li>
-                      <li>Preserve all evidence (equipment, records, samples)</li>
-                      <li>Root Cause Analysis (RCA) using fishbone / 5-Whys methodology</li>
-                      <li>Corrective Action Plan (CAP) with deadline and owner</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Section 6 -->
-            <div class="cb" style="margin-bottom:8px;border:1px solid #bfdbfe;border-radius:8px;">
-              <div class="ch" onclick="tClin(this)" style="background:#eff6ff;border-radius:8px;padding:12px 16px;font-weight:700;color:#1e3a8a;display:flex;justify-content:space-between;">
-                <span>6. Fire Safety & Emergency Preparedness</span><span class="cr">▼</span>
-              </div>
-              <div class="cbody" style="padding:14px 18px;font-size:13px;line-height:1.8;">
-                <div class="g2">
-                  <div>
-                    <p><b>RACE Protocol (Fire):</b></p>
-                    <ul style="padding-left:16px;">
-                      <li><b>R</b>escue anyone in immediate danger</li>
-                      <li><b>A</b>lert — sound the alarm</li>
-                      <li><b>C</b>onfine — close all doors and windows</li>
-                      <li><b>E</b>xtinguish if trained and safe to do so / Evacuate</li>
-                    </ul>
-                    <p><b>PASS Protocol (Extinguisher):</b></p>
-                    <ul style="padding-left:16px;">
-                      <li><b>P</b>ull the pin · <b>A</b>im at base · <b>S</b>queeze · <b>S</b>weep</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p><b>Emergency Codes:</b></p>
-                    <ul style="padding-left:16px;">
-                      <li>🔴 <b>Code Red</b> — Fire</li>
-                      <li>🔵 <b>Code Blue</b> — Cardiac/Respiratory Arrest</li>
-                      <li>⚫ <b>Code Black</b> — Bomb Threat</li>
-                      <li>🟣 <b>Code Purple</b> — Hostage / Security Threat</li>
-                      <li>🟠 <b>Code Orange</b> — Mass Casualty / Disaster</li>
-                      <li>🟡 <b>Code Yellow</b> — Missing Patient</li>
-                    </ul>
-                    <p>Emergency drills conducted quarterly. All staff must participate annually.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Section 7 -->
-            <div class="cb" style="margin-bottom:8px;border:1px solid #bfdbfe;border-radius:8px;">
-              <div class="ch" onclick="tClin(this)" style="background:#eff6ff;border-radius:8px;padding:12px 16px;font-weight:700;color:#1e3a8a;display:flex;justify-content:space-between;">
-                <span>7. Data Security & Privacy (HIPAA / GDPR Principles)</span><span class="cr">▼</span>
-              </div>
-              <div class="cbody" style="padding:14px 18px;font-size:13px;line-height:1.8;">
-                <div class="g2">
-                  <div>
-                    <ul style="padding-left:16px;">
-                      <li>Patient data is confidential — access granted on need-to-know basis only</li>
-                      <li>All system access logged with timestamp and user ID</li>
-                      <li>Passwords must be ≥ 8 characters, changed every 90 days</li>
-                      <li>Screen lock after 15 minutes of inactivity</li>
-                      <li>No patient data shared via personal email or messaging apps</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <ul style="padding-left:16px;">
-                      <li>Physical records stored in locked cabinets</li>
-                      <li>Data breaches reported to the Data Protection Officer within 24 hours</li>
-                      <li>Patients have the right to access and correct their own records</li>
-                      <li>Backup performed daily; tested monthly</li>
-                      <li>Staff sign confidentiality agreement on employment</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Section 8 -->
-            <div class="cb" style="margin-bottom:8px;border:1px solid #bfdbfe;border-radius:8px;">
-              <div class="ch" onclick="tClin(this)" style="background:#eff6ff;border-radius:8px;padding:12px 16px;font-weight:700;color:#1e3a8a;display:flex;justify-content:space-between;">
-                <span>8. Medical Equipment Management</span><span class="cr">▼</span>
-              </div>
-              <div class="cbody" style="padding:14px 18px;font-size:13px;line-height:1.8;">
-                <ul style="padding-left:16px;">
-                  <li>All equipment entered in the Assets Register with serial number, purchase date, and warranty expiry</li>
-                  <li>Preventive maintenance schedule maintained for all life-critical equipment</li>
-                  <li>Equipment faults reported immediately; labelled "DO NOT USE" until cleared</li>
-                  <li>Calibration records kept for diagnostic and measuring equipment</li>
-                  <li>Decommissioned equipment documented with disposal method</li>
-                  <li>Only biomedical-trained staff or certified engineers may service critical devices</li>
-                </ul>
-              </div>
-            </div>
-
-            <!-- Section 9 -->
-            <div class="cb" style="margin-bottom:8px;border:1px solid #bfdbfe;border-radius:8px;">
-              <div class="ch" onclick="tClin(this)" style="background:#eff6ff;border-radius:8px;padding:12px 16px;font-weight:700;color:#1e3a8a;display:flex;justify-content:space-between;">
-                <span>9. Occupational Health & Staff Safety</span><span class="cr">▼</span>
-              </div>
-              <div class="cbody" style="padding:14px 18px;font-size:13px;line-height:1.8;">
-                <div class="g2">
-                  <div>
-                    <p><b>Sharps & Needlestick Injuries:</b></p>
-                    <ul style="padding-left:16px;">
-                      <li>Report immediately to supervisor and occupational health</li>
-                      <li>First aid: wash wound with soap and water for 15 minutes</li>
-                      <li>Post-exposure prophylaxis (PEP) for HIV within 2 hours</li>
-                      <li>Hepatitis B vaccination mandatory for all clinical staff</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p><b>Violence & Aggression:</b></p>
-                    <ul style="padding-left:16px;">
-                      <li>Zero tolerance policy for violence against staff</li>
-                      <li>All incidents reported to security and documented</li>
-                      <li>De-escalation training mandatory annually</li>
-                    </ul>
-                    <p><b>Staff Wellbeing:</b></p>
-                    <ul style="padding-left:16px;">
-                      <li>Workload monitored — escalate if unsafe staffing ratios</li>
-                      <li>Counselling services available confidentially</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Section 10 -->
-            <div class="cb" style="margin-bottom:8px;border:1px solid #bfdbfe;border-radius:8px;">
-              <div class="ch" onclick="tClin(this)" style="background:#eff6ff;border-radius:8px;padding:12px 16px;font-weight:700;color:#1e3a8a;display:flex;justify-content:space-between;">
-                <span>10. Risk Register & Review Schedule</span><span class="cr">▼</span>
-              </div>
-              <div class="cbody" style="padding:14px 18px;font-size:13px;line-height:1.8;">
-                <table class="pit" style="font-size:12px;">
-                  <tr><th>Risk Area</th><th>Review Frequency</th><th>Responsible</th><th>Escalation Path</th></tr>
-                  <tr><td>Medication Errors</td><td>Monthly</td><td>Pharmacy / Nurse Manager</td><td>Clinical Director</td></tr>
-                  <tr><td>Infection Control</td><td>Monthly</td><td>IPC Committee</td><td>Medical Director</td></tr>
-                  <tr><td>Patient Falls</td><td>Quarterly</td><td>Nursing Manager</td><td>Clinical Director</td></tr>
-                  <tr><td>Fire & Emergency</td><td>Quarterly</td><td>Safety Officer</td><td>CEO / Director</td></tr>
-                  <tr><td>Data / Cyber Security</td><td>Bi-annual</td><td>Data Protection Officer</td><td>Director</td></tr>
-                  <tr><td>Supplier / Supply Chain</td><td>Quarterly</td><td>Procurement</td><td>Finance Director</td></tr>
-                  <tr><td>Financial Risks</td><td>Monthly</td><td>Finance Manager</td><td>Director / Board</td></tr>
-                  <tr><td>Staff Safety</td><td>Quarterly</td><td>HR Manager</td><td>Director</td></tr>
-                </table>
-                <div style="background:#f0fdf4;border-left:4px solid #10b981;border-radius:5px;padding:10px 14px;margin-top:12px;font-size:12px;">
-                  <b>Manual Review Cycle:</b> This manual is reviewed annually by the Risk Management Committee and updated whenever significant regulatory changes occur. Version control is maintained. All staff are notified of updates within 5 working days.
-                </div>
-              </div>
-            </div>
-
-            <!-- Signature block -->
-            <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:14px 18px;margin-top:16px;">
-              <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:12px;">APPROVAL SIGNATURES</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;font-size:12px;">
-                <div><div style="border-top:1.5px solid #334155;padding-top:6px;margin-top:28px;">Medical Director</div><div style="color:#94a3b8;font-size:11px;">Date: ___________</div></div>
-                <div><div style="border-top:1.5px solid #334155;padding-top:6px;margin-top:28px;">Quality & Risk Manager</div><div style="color:#94a3b8;font-size:11px;">Date: ___________</div></div>
-                <div><div style="border-top:1.5px solid #334155;padding-top:6px;margin-top:28px;">Chief Executive Officer</div><div style="color:#94a3b8;font-size:11px;">Date: ___________</div></div>
-              </div>
-            </div>
-          </div><!-- /rm-manual-body -->
-        </div>
-      </div><!-- /admin-tab-rmmanual -->
 
     </section>
 
@@ -2516,7 +2144,7 @@ const STAFF_ROLES={
   'Medical Director':{color:'#1e3a8a',bg:'#eff6ff',sections:[],landing:'director',canEditInv:true,canAddInv:true,isAdmin:true,desc:'Full system access — clinical & administrative'},
   'System Admin':{color:'#374151',bg:'#f3f4f6',sections:[],landing:'admin',canEditInv:true,canAddInv:true,isAdmin:true,desc:'Full access including staff & system management'},
 };
-const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','suppliers','expenses','chat'];
+const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','expenses','chat'];
 const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',suppliers:'Suppliers',expenses:'Expenses',chat:'Staff Chat'};
 const CONSULT_FEE=10;
 
@@ -2851,8 +2479,9 @@ function doLogout(){
 function renderNav(){
   const secs=currentUser.isAdmin?['director',...ALL_SECS,'admin','feedbacks']:(currentUser.sections||[]);
   const lbl={director:'Dashboard',...SEC_LABELS,admin:'Admin',feedbacks:'Feedback'};
-  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',suppliers:'🏪',expenses:'💰',chat:'💬',admin:'⚙️',feedbacks:'⭐'};
-  document.getElementById('dn').innerHTML=secs.map(s=>`<button id="btn-${s}" class="nb" onclick="showSection('${s}')">${icons[s]||'•'} ${lbl[s]||s.toUpperCase()}</button>`).join('');
+  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',expenses:'💰',chat:'💬',admin:'⚙️',feedbacks:'⭐'};
+  const hiddenFromNav=['suppliers']; // Suppliers managed via Admin tab only
+  document.getElementById('dn').innerHTML=secs.filter(s=>!hiddenFromNav.includes(s)).map(s=>`<button id="btn-${s}" class="nb" onclick="showSection('${s}')">${icons[s]||'•'} ${lbl[s]||s.toUpperCase()}</button>`).join('');
 }
 
 function showSection(id){
@@ -2863,7 +2492,7 @@ function showSection(id){
   safeCall(()=>{({
     director:renderDash,
     reception:()=>{renderPatients();renderFollowups();},
-    suppliers:()=>{const s=document.getElementById('sec-suppliers');if(s)s.style.display='block';requestAnimationFrame(()=>setTimeout(renderSuppliers,10));},
+
     nurse:()=>{renderTriage();renderTreatList();renderNurseQueue();},
     doctor:renderCons,billing:()=>renderBilling(),
     lab:()=>renderLab(),pharmacy:()=>renderPharm(),
@@ -7463,7 +7092,7 @@ function saveExpense(){
 function swAdmin(tab, btn){
   document.querySelectorAll('#sec-admin .stabs .st').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
-  const tabs=['staff','activity','suppliers','insurance','hrguide','patients','import','services','assets','rmmanual','settings'];
+  const tabs=['staff','activity','suppliers','insurance','hrguide','patients','import','services','assets','settings'];
   tabs.forEach(t=>{const el=document.getElementById('admin-tab-'+t);if(el)el.style.display=(t===tab)?'block':'none';});
   if(tab==='staff')renderAdmin();
   if(tab==='activity'){renderLoginLog();renderOnlineStaff();renderStaffMonthSummary();}
