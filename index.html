@@ -1668,7 +1668,7 @@ document.addEventListener("DOMContentLoaded", function(){
       <div class="stabs" style="margin-bottom:14px;flex-wrap:wrap;">
         <button class="st active" onclick="swAdmin('staff',this)">👥 Staff</button>
         <button class="st" onclick="swAdmin('activity',this)">🕐 Activity</button>
-        <button class="st" onclick="swAdmin(this)">🏪 Suppliers</button>
+        <button class="st" onclick="swAdmin('suppliers',this)">🏪 Suppliers</button>
         <button class="st" onclick="swAdmin('insurance',this)">🏥 Insurance</button>
         <button class="st" onclick="swAdmin('hrguide',this)">👔 HR Guide</button>
         <button class="st" onclick="swAdmin('patients',this)">🧾 Patients</button>
@@ -2316,9 +2316,12 @@ const STAFF_ROLES={
   'Accountant':{color:'#92400e',bg:'#fef3c7',sections:['billing','expenses','suppliers','chat'],landing:'billing',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Revenue, expenses & supplier balances'},
   'Medical Director':{color:'#1e3a8a',bg:'#eff6ff',sections:[],landing:'director',canEditInv:true,canAddInv:true,isAdmin:true,desc:'Full system access — clinical & administrative'},
   'System Admin':{color:'#374151',bg:'#f3f4f6',sections:[],landing:'admin',canEditInv:true,canAddInv:true,isAdmin:true,desc:'Full access including staff & system management'},
+  'Dentist':{color:'#0891b2',bg:'#e0f2fe',sections:['dental','chat'],landing:'dental',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Dental consultations, charting & procedures'},
+  'Dental Nurse':{color:'#0e7490',bg:'#cffafe',sections:['dental','chat'],landing:'dental',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Dental nursing, sterilisation & patient care'},
+  'Physiotherapist':{color:'#059669',bg:'#d1fae5',sections:['physiotherapy','chat'],landing:'physiotherapy',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Physiotherapy assessments, exercise plans & sessions'},
 };
-const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','expenses','chat'];
-const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',suppliers:'Suppliers',expenses:'Expenses',chat:'Staff Chat'};
+const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','expenses','dental','physiotherapy','suppliers','chat'];
+const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',suppliers:'Suppliers',expenses:'Expenses',dental:'Dental',physiotherapy:'Physiotherapy',chat:'Staff Chat'};
 const CONSULT_FEE=10;
 
 // ══════════════════════════════════════════════
@@ -2355,6 +2358,7 @@ async function loadData(){
     if(d.labTests&&d.labTests.length)window._labTests=[...d.labTests];
     if(d.radProcs&&d.radProcs.length)window._radProcs=[...d.radProcs];
     window.feedbacks=d.feedbacks||window.feedbacks||[];
+    if(d.physioSessions&&d.physioSessions.length)window.physioSessions=d.physioSessions;
   }
   try{
     const ls=localStorage.getItem('tali_data');
@@ -2460,6 +2464,7 @@ function save(){
   // Always save to localStorage immediately (fast, reliable, offline)
   const payload={patients,visits,inventory,staffList,expenses,
     feedbacks:window.feedbacks||[],
+    physioSessions:window.physioSessions||[],
     labTests:window._labTests||LAB_TESTS,
     radProcs:window._radProcs||RADIOLOGY_PROCS,
     nursingProcs:window._nursingProcs||NURSING_PROCEDURES,
@@ -2652,7 +2657,7 @@ function doLogout(){
 function renderNav(){
   const secs=currentUser.isAdmin?['director',...ALL_SECS,'admin','feedbacks']:(currentUser.sections||[]);
   const lbl={director:'Dashboard',...SEC_LABELS,admin:'Admin',feedbacks:'Feedback'};
-  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',expenses:'💰',chat:'💬',admin:'⚙️',feedbacks:'⭐'};
+  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',expenses:'💰',dental:'🦷',physiotherapy:'🏃',suppliers:'🏪',chat:'💬',admin:'⚙️',feedbacks:'⭐'};
   const hiddenFromNav=['suppliers']; // Suppliers managed via Admin tab only
   document.getElementById('dn').innerHTML=secs.filter(s=>!hiddenFromNav.includes(s)).map(s=>`<button id="btn-${s}" class="nb" onclick="showSection('${s}')">${icons[s]||'•'} ${lbl[s]||s.toUpperCase()}</button>`).join('');
 }
@@ -2670,7 +2675,7 @@ function showSection(id){
     doctor:renderCons,billing:()=>renderBilling(),
     lab:()=>renderLab(),pharmacy:()=>renderPharm(),
     radiology:()=>renderRad(),inventory:()=>{renderInventory();checkNearExpiry();},
-    expenses:()=>renderExpenses(),admin:()=>{swAdmin('staff',document.querySelector('#sec-admin .stabs .st'));loadFacilitySettingsUI();},feedbacks:renderFeedbacks,chat:renderChat
+    expenses:()=>renderExpenses(),dental:()=>renderDental(),physiotherapy:()=>renderPhysio(),suppliers:()=>renderSuppliers(),admin:()=>{swAdmin('staff',document.querySelector('#sec-admin .stabs .st'));loadFacilitySettingsUI();},feedbacks:renderFeedbacks,chat:renderChat
   })[id]?.();},'showSection:'+id);
 }
 
@@ -5413,7 +5418,350 @@ function renderLab(){
   document.getElementById('table-lab').innerHTML=h;
 }
 
-function buildLabSummary(){
+function renderLabSummary(){ buildLabSummary(); }
+
+// ══════════════════════════════════════════════
+//  DENTAL SECTION
+// ══════════════════════════════════════════════
+function swDental(tab,btn){
+  document.querySelectorAll('#dental-tabs .st').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.getElementById('dental-queue-panel').style.display='none';
+  document.getElementById('dental-chart-panel').style.display='none';
+  document.getElementById('dental-records-panel').style.display='none';
+  document.getElementById('dental-supplies-panel').style.display='none';
+  if(tab==='queue'){document.getElementById('dental-queue-panel').style.display='block';renderDentalQueue();}
+  else if(tab==='chart'){document.getElementById('dental-chart-panel').style.display='block';populateDentalPatientSelect();}
+  else if(tab==='records'){document.getElementById('dental-records-panel').style.display='block';renderDentalRecords();}
+  else if(tab==='supplies'){document.getElementById('dental-supplies-panel').style.display='block';renderDentalSupplies();}
+}
+
+function renderDental(){
+  renderDentalQueue();
+  renderDentalStats();
+}
+
+function renderDentalStats(){
+  const dentalVisits=visits.filter(v=>['DENTAL','REVIEW_DENTAL'].includes(v.consultType));
+  const today=new Date().toLocaleDateString();
+  const todayDental=dentalVisits.filter(v=>v.date===today);
+  const pending=todayDental.filter(v=>!['DISCHARGED','ADMITTED'].includes(v.status));
+  const done=todayDental.filter(v=>['DISCHARGED','ADMITTED'].includes(v.status));
+  const el=document.getElementById('dental-stats');
+  if(el)el.innerHTML=[
+    {l:'Today\'s Patients',v:todayDental.length,c:'#1e3a8a'},
+    {l:'Pending',v:pending.length,c:'#f59e0b'},
+    {l:'Completed Today',v:done.length,c:'#10b981'},
+    {l:'Total Records',v:dentalVisits.length,c:'#7c3aed'},
+  ].map(x=>`<div style="background:${x.c};color:#fff;border-radius:7px;padding:9px 12px;"><div style="font-size:10px;opacity:.8;font-weight:700;">${x.l}</div><div style="font-size:18px;font-weight:800;margin-top:2px;">${x.v}</div></div>`).join('');
+}
+
+function renderDentalQueue(){
+  renderDentalStats();
+  const today=new Date().toLocaleDateString();
+  const q=visits.filter(v=>['DENTAL','REVIEW_DENTAL'].includes(v.consultType)&&v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status));
+  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Consult Type</th><th>Pay Status</th><th>Status</th><th>Actions</th></tr>`;
+  if(!q.length)h+=`<tr><td colspan="6" class="emp">No dental patients in queue today. Patients are directed here when registered as Dental consultations.</td></tr>`;
+  q.forEach(v=>{
+    const p=patients.find(x=>x.id===v.patId)||{};
+    h+=`<tr>
+      <td><b>${v.name}</b></td>
+      <td>${p.ageVal||'—'} ${p.ageUnit||''} / ${p.gender||'—'}</td>
+      <td>${ctBadge(v.consultType)}</td>
+      <td>${payBadge(v)}</td>
+      <td><span class="badge bbl">${v.status.replace(/_/g,' ')}</span></td>
+      <td><div style="display:flex;gap:4px;">
+        <button class="bsm bp" onclick="openDentalConsultation('${v.id}')">🦷 Consult</button>
+        <button class="bsm bo" onclick="printVisitReport('${v.id}')">🖨</button>
+      </div></td>
+    </tr>`;
+  });
+  const el=document.getElementById('dental-queue-table');
+  if(el)el.innerHTML=h;
+}
+
+function renderDentalRecords(){
+  const q=(document.getElementById('dental-rec-search')?.value||'').toLowerCase();
+  const recs=visits.filter(v=>['DENTAL','REVIEW_DENTAL'].includes(v.consultType)&&(!q||v.name.toLowerCase().includes(q)));
+  let h=`<tr><th>Date</th><th>Patient</th><th>Diagnosis</th><th>Status</th><th>Actions</th></tr>`;
+  if(!recs.length)h+=`<tr><td colspan="5" class="emp">No dental records found.</td></tr>`;
+  recs.slice().reverse().forEach(v=>{
+    const cl=v.clinical||{};
+    h+=`<tr>
+      <td>${v.date}</td>
+      <td><b>${v.name}</b></td>
+      <td style="font-size:12px;">${cl.finalDx||cl.notes||'—'}</td>
+      <td><span class="badge ${['DISCHARGED','ADMITTED'].includes(v.status)?'bpd':'bwn'}">${v.status.replace(/_/g,' ')}</span></td>
+      <td><button class="bsm bo" onclick="viewVisitRecord('${v.id}')">View</button></td>
+    </tr>`;
+  });
+  const el=document.getElementById('dental-records-table');
+  if(el)el.innerHTML=h;
+}
+
+function renderDentalSupplies(){
+  const items=inventory.filter(i=>i.invSection==='dental'||i.drugClass==='Dental Consumable'||i.drugClass==='Dental Medication'||i.drugClass==='Dental Material'||i.drugClass==='Dental Equipment');
+  let h=`<tr><th>Item</th><th>Drug Class</th><th>Stock</th><th>Unit</th><th>Price</th><th>Status</th></tr>`;
+  if(!items.length)h+=`<tr><td colspan="6" class="emp">No dental supplies in inventory. Add items via Inventory → Dental Supplies tab.</td></tr>`;
+  items.forEach(i=>{
+    const low=i.stock<=(i.reorderLevel||10);
+    h+=`<tr>
+      <td><b>${i.name}</b>${i.strength?`<br><span style="font-size:11px;color:var(--mu);">${i.strength}</span>`:''}</td>
+      <td><span class="badge bgr" style="font-size:10px;">${i.drugClass||'—'}</span></td>
+      <td style="${low?'color:#dc2626;font-weight:700;':''}">${i.stock||0}</td>
+      <td>${i.unit||'—'}</td>
+      <td>$${(i.price||0).toFixed(2)}</td>
+      <td><span class="badge ${low?'bp2':'bpd'}">${low?'⚠ Low Stock':'OK'}</span></td>
+    </tr>`;
+  });
+  const el=document.getElementById('dental-supplies-table');
+  if(el)el.innerHTML=h;
+}
+
+function populateDentalPatientSelect(){
+  const sel=document.getElementById('dental-chart-patient');if(!sel)return;
+  const dentalPats=[...new Map(visits.filter(v=>['DENTAL','REVIEW_DENTAL'].includes(v.consultType)).map(v=>[v.patId,v])).values()];
+  sel.innerHTML='<option value="">— Select a dental patient —</option>'+dentalPats.map(v=>`<option value="${v.patId}">${v.name}</option>`).join('');
+}
+
+function renderToothChart(){
+  const patId=document.getElementById('dental-chart-patient')?.value;
+  const wrap=document.getElementById('tooth-chart-wrap');if(!wrap)return;
+  if(!patId){wrap.innerHTML='<p class="emp">Select a patient to view their tooth chart.</p>';return;}
+  const p=patients.find(x=>x.id===patId)||{};
+  if(!p.toothChart)p.toothChart={};
+  const conditions=['Healthy','Caries','Extracted','Filled','Crown','RCT','Implant','Missing'];
+  const condColors={Healthy:'#10b981',Caries:'#ef4444',Extracted:'#94a3b8',Filled:'#3b82f6',Crown:'#f59e0b',RCT:'#7c3aed',Implant:'#0891b2',Missing:'#64748b'};
+  // Universal numbering: Upper 1-16, Lower 17-32
+  const upper=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
+  const lower=[32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17];
+  function toothHtml(n){
+    const cond=p.toothChart[n]||'Healthy';
+    const col=condColors[cond]||'#10b981';
+    return `<div title="Tooth #${n}: ${cond}" onclick="setToothCond(${n},'${patId}')" style="width:34px;height:50px;border:2.5px solid ${col};border-radius:5px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${col}18;">
+      <span style="font-size:9px;font-weight:700;color:${col};">${n}</span>
+      <span style="font-size:8px;color:${col};text-align:center;line-height:1.1;">${cond}</span>
+    </div>`;
+  }
+  wrap.innerHTML=`
+    <div style="overflow-x:auto;padding:6px 0;">
+      <div style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:4px;">UPPER JAW</div>
+      <div style="display:flex;gap:4px;margin-bottom:14px;">${upper.map(toothHtml).join('')}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:4px;">LOWER JAW</div>
+      <div style="display:flex;gap:4px;">${lower.map(toothHtml).join('')}</div>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
+      ${conditions.map(c=>`<span style="background:${condColors[c]}22;color:${condColors[c]};border:1.5px solid ${condColors[c]};padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">${c}</span>`).join('')}
+    </div>
+    <p style="font-size:11px;color:var(--mu);margin-top:7px;">Click any tooth to set condition. Hover for current status.</p>`;
+}
+
+function setToothCond(toothNum, patId){
+  const conditions=['Healthy','Caries','Extracted','Filled','Crown','RCT','Implant','Missing'];
+  const current=(patients.find(x=>x.id===patId)||{}).toothChart?.[toothNum]||'Healthy';
+  const next=conditions[(conditions.indexOf(current)+1)%conditions.length];
+  const p=patients.find(x=>x.id===patId);if(!p)return;
+  if(!p.toothChart)p.toothChart={};
+  p.toothChart[toothNum]=next;
+  save();renderToothChart();
+}
+
+function openDentalConsultation(vid){
+  // Redirect to the doctor consultation view
+  openCons(vid);
+  showSection('doctor');
+}
+
+function openDentalConsModal(){
+  showSection('reception');
+  setTimeout(()=>{
+    const ct=document.getElementById('pConsultType');
+    if(ct)ct.value='DENTAL';
+    document.getElementById('pName')?.focus();
+    _showToast('Register the dental patient below and select "Special — Dental" as consultation type.','#1e3a8a');
+  },300);
+}
+
+function printDentalSummary(){
+  const today=new Date().toLocaleDateString();
+  const recs=visits.filter(v=>['DENTAL','REVIEW_DENTAL'].includes(v.consultType)&&v.date===today);
+  document.getElementById('pra-con').innerHTML=printHeader('DENTAL CLINIC — DAILY SUMMARY')+
+    `<p style="font-size:12px;margin-bottom:10px;">Date: ${today} &nbsp;|&nbsp; Total Dental Patients: ${recs.length}</p>`+
+    `<table class="pit"><tr><th>Patient</th><th>Consult Type</th><th>Diagnosis</th><th>Status</th></tr>`+
+    (recs.length?recs.map(v=>`<tr><td>${v.name}</td><td>${v.consultType}</td><td>${(v.clinical||{}).finalDx||'—'}</td><td>${v.status.replace(/_/g,' ')}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#94a3b8;">No dental patients today</td></tr>')+
+    `</table>`+printFooter();
+  doPrint();
+}
+
+// ══════════════════════════════════════════════
+//  ENT SECTION (handled within Doctor queue — add ENT helpers)
+// ══════════════════════════════════════════════
+function getENTInventory(){
+  return inventory.filter(i=>i.invSection==='ent'||i.drugClass==='ENT Consumable'||i.drugClass==='ENT Medication'||i.drugClass==='ENT Equipment');
+}
+
+// ══════════════════════════════════════════════
+//  PHYSIOTHERAPY SECTION
+// ══════════════════════════════════════════════
+if(!window.physioSessions) window.physioSessions=[];
+
+function swPhysio(tab,btn){
+  document.querySelectorAll('#physio-tabs .st').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.getElementById('physio-queue-panel').style.display='none';
+  document.getElementById('physio-sessions-panel').style.display='none';
+  document.getElementById('physio-exercises-panel').style.display='none';
+  document.getElementById('physio-stats-panel').style.display='none';
+  if(tab==='queue'){document.getElementById('physio-queue-panel').style.display='block';renderPhysioQueue();}
+  else if(tab==='sessions'){document.getElementById('physio-sessions-panel').style.display='block';renderPhysioSessions();}
+  else if(tab==='exercises'){document.getElementById('physio-exercises-panel').style.display='block';populatePhysioPatientSelect();}
+  else if(tab==='stats'){document.getElementById('physio-stats-panel').style.display='block';renderPhysioStats();}
+}
+
+function renderPhysio(){
+  renderPhysioQueue();
+  renderPhysioStatsBar();
+}
+
+function renderPhysioStatsBar(){
+  const pVisits=visits.filter(v=>v.consultType==='PHYSIOTHERAPY'||(v.clinical||{}).physio);
+  const today=new Date().toLocaleDateString();
+  const todayP=pVisits.filter(v=>v.date===today);
+  const sessions=(window.physioSessions||[]);
+  const el=document.getElementById('physio-stats');
+  if(el)el.innerHTML=[
+    {l:'Today\'s Patients',v:todayP.length,c:'#059669'},
+    {l:'Total Sessions',v:sessions.length,c:'#1e3a8a'},
+    {l:'Active Plans',v:patients.filter(p=>p.exercisePlan).length,c:'#7c3aed'},
+    {l:'Patients with Physio',v:pVisits.length,c:'#0891b2'},
+  ].map(x=>`<div style="background:${x.c};color:#fff;border-radius:7px;padding:9px 12px;"><div style="font-size:10px;opacity:.8;font-weight:700;">${x.l}</div><div style="font-size:18px;font-weight:800;margin-top:2px;">${x.v}</div></div>`).join('');
+}
+
+function renderPhysioQueue(){
+  renderPhysioStatsBar();
+  const today=new Date().toLocaleDateString();
+  // Show patients referred to physio OR any visit with physio notes
+  const q=visits.filter(v=>v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status)&&(v.consultType==='PHYSIOTHERAPY'||(v.clinical&&v.clinical.physioRef)));
+  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Referred For</th><th>Pay Status</th><th>Status</th><th>Actions</th></tr>`;
+  if(!q.length)h+=`<tr><td colspan="6" class="emp">No physiotherapy patients today. Patients appear here when referred for physiotherapy by a doctor, or registered directly as Physiotherapy consultations.</td></tr>`;
+  q.forEach(v=>{
+    const p=patients.find(x=>x.id===v.patId)||{};
+    const ref=(v.clinical||{}).physioRef||v.consultType||'Physiotherapy';
+    h+=`<tr>
+      <td><b>${v.name}</b></td>
+      <td>${p.ageVal||'—'} ${p.ageUnit||''} / ${p.gender||'—'}</td>
+      <td style="font-size:12px;">${ref}</td>
+      <td>${payBadge(v)}</td>
+      <td><span class="badge bbl">${v.status.replace(/_/g,' ')}</span></td>
+      <td><div style="display:flex;gap:4px;">
+        <button class="bsm ba" onclick="openPhysioSession('${v.id}')">🏃 Log Session</button>
+        <button class="bsm bo" onclick="viewVisitRecord('${v.id}')">View</button>
+      </div></td>
+    </tr>`;
+  });
+  const el=document.getElementById('physio-queue-table');
+  if(el)el.innerHTML=h;
+}
+
+function openPhysioSession(vid){
+  const v=visits.find(x=>x.id===vid);if(!v)return;
+  const notes=prompt(`Log physiotherapy session for ${v.name}\n\nSession notes (exercises, ROM, pain score, progress):`,'');
+  if(notes===null)return;
+  if(!window.physioSessions)window.physioSessions=[];
+  window.physioSessions.push({id:'PS-'+Date.now(),patId:v.patId,vid,name:v.name,date:new Date().toLocaleDateString(),time:new Date().toLocaleTimeString(),notes,by:currentUser.name});
+  save();renderPhysioQueue();
+  _showToast(`✅ Session logged for ${v.name}`,'#059669');
+}
+
+function renderPhysioSessions(){
+  const q=(document.getElementById('physio-session-search')?.value||'').toLowerCase();
+  const m=document.getElementById('physio-session-month')?.value||'';
+  const sessions=(window.physioSessions||[]).filter(s=>{
+    if(q&&!s.name.toLowerCase().includes(q))return false;
+    if(m){const[y,mo]=m.split('-');const d=new Date(s.date);if(d.getFullYear()!==parseInt(y)||d.getMonth()+1!==parseInt(mo))return false;}
+    return true;
+  });
+  let h=`<tr><th>Date</th><th>Time</th><th>Patient</th><th>Session Notes</th><th>Logged By</th></tr>`;
+  if(!sessions.length)h+=`<tr><td colspan="5" class="emp">No sessions recorded yet.</td></tr>`;
+  sessions.slice().reverse().forEach(s=>{
+    h+=`<tr><td>${s.date}</td><td>${s.time}</td><td><b>${s.name}</b></td><td style="font-size:12px;max-width:280px;">${s.notes||'—'}</td><td>${s.by||'—'}</td></tr>`;
+  });
+  const el=document.getElementById('physio-sessions-table');
+  if(el)el.innerHTML=h;
+}
+
+function populatePhysioPatientSelect(){
+  const sel=document.getElementById('physio-plan-patient');if(!sel)return;
+  // All patients who've ever had a physio session or referral
+  const ids=new Set([...(window.physioSessions||[]).map(s=>s.patId),...visits.filter(v=>v.consultType==='PHYSIOTHERAPY'||(v.clinical&&v.clinical.physioRef)).map(v=>v.patId)]);
+  const pats=patients.filter(p=>ids.has(p.id));
+  sel.innerHTML='<option value="">— Select a patient —</option>'+pats.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+function renderExercisePlan(){
+  const patId=document.getElementById('physio-plan-patient')?.value;
+  const wrap=document.getElementById('physio-plan-wrap');
+  const editor=document.getElementById('physio-plan-editor');
+  if(!patId){if(wrap)wrap.innerHTML='<p class="emp">Select a patient to view or create their exercise plan.</p>';if(editor)editor.style.display='none';return;}
+  const p=patients.find(x=>x.id===patId);if(!p)return;
+  if(wrap)wrap.innerHTML=p.exercisePlan?`<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:7px;padding:12px;white-space:pre-wrap;font-size:13px;">${p.exercisePlan}</div>`:'<p class="emp">No exercise plan on record.</p>';
+  if(editor){editor.style.display='block';const ta=document.getElementById('physio-plan-notes');if(ta)ta.value=p.exercisePlan||'';}
+}
+
+function saveExercisePlan(){
+  const patId=document.getElementById('physio-plan-patient')?.value;
+  const notes=document.getElementById('physio-plan-notes')?.value.trim();
+  if(!patId||!notes)return alert('Select a patient and enter plan details.');
+  const p=patients.find(x=>x.id===patId);if(!p)return;
+  p.exercisePlan=notes;
+  save();renderExercisePlan();
+  _showToast('✅ Exercise plan saved.','#059669');
+}
+
+function renderPhysioStats(){
+  const sessions=(window.physioSessions||[]);
+  const now=new Date();
+  // Sessions per month chart
+  const monthLabels=[];const monthCounts=[];
+  for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);monthLabels.push(d.toLocaleString('default',{month:'short'}));monthCounts.push(sessions.filter(s=>{const sd=new Date(s.date);return sd.getMonth()===d.getMonth()&&sd.getFullYear()===d.getFullYear();}).length);}
+  dChart('physiomonth');const ctx1=document.getElementById('ch-physio-monthly');
+  if(ctx1)charts.physiomonth=new Chart(ctx1,{type:'bar',data:{labels:monthLabels,datasets:[{label:'Sessions',data:monthCounts,backgroundColor:'rgba(5,150,105,.75)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+  // Summary table
+  const el=document.getElementById('physio-stats-table');
+  if(el){let h=`<tr><th>Metric</th><th>Value</th></tr>`;
+    h+=`<tr><td>Total Sessions Logged</td><td><b>${sessions.length}</b></td></tr>`;
+    h+=`<tr><td>Unique Patients</td><td><b>${new Set(sessions.map(s=>s.patId)).size}</b></td></tr>`;
+    h+=`<tr><td>Sessions This Month</td><td><b>${sessions.filter(s=>{const d=new Date(s.date);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}).length}</b></td></tr>`;
+    h+=`<tr><td>Patients with Exercise Plans</td><td><b>${patients.filter(p=>p.exercisePlan).length}</b></td></tr>`;
+    el.innerHTML=h;
+  }
+}
+
+function openPhysioSessionModal(){
+  showSection('reception');
+  setTimeout(()=>{
+    const ct=document.getElementById('pConsultType');
+    if(ct)ct.value='OTHER_SPECIAL';
+    document.getElementById('pName')?.focus();
+    _showToast('Register the patient below, then refer to Physiotherapy in their clinical notes.','#059669');
+  },300);
+}
+
+function printPhysioReport(){
+  const today=new Date().toLocaleDateString();
+  const sessions=(window.physioSessions||[]).filter(s=>s.date===today);
+  document.getElementById('pra-con').innerHTML=printHeader('PHYSIOTHERAPY — DAILY REPORT')+
+    `<p style="font-size:12px;margin-bottom:10px;">Date: ${today} &nbsp;|&nbsp; Sessions Today: ${sessions.length}</p>`+
+    `<table class="pit"><tr><th>Patient</th><th>Time</th><th>Session Notes</th><th>By</th></tr>`+
+    (sessions.length?sessions.map(s=>`<tr><td>${s.name}</td><td>${s.time}</td><td>${s.notes||'—'}</td><td>${s.by||'—'}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#94a3b8;">No sessions today</td></tr>')+
+    `</table>`+printFooter();
+  doPrint();
+}
+
+// ══════════════════════════════════════════════
+//  PATCH: Inventory show suppliers button
+// ══════════════════════════════════════════════
+
   const now=new Date();const m=now.getMonth();const y=now.getFullYear();
   const allLabs=visits.flatMap(v=>(v.labs||[]).filter(l=>l.name));
   const mLabs=visits.filter(v=>{const d=new Date(v.date);return d.getMonth()===m&&d.getFullYear()===y;}).flatMap(v=>(v.labs||[]).filter(l=>l.name));
@@ -6945,6 +7293,8 @@ function renderInventory(){
   }
   if(invSection==='expiry2_unused'){
     inv=getInvItems();
+  } else {
+    inv=getInvItems();
   }
   if(classF)inv=inv.filter(i=>i.drugClass===classF);
   if(catF)inv=inv.filter(i=>i.category===catF);
@@ -7718,17 +8068,19 @@ function adminSupDetail(id){
 }
 
 function adminAddPO(supId){
-  // Reuse the existing PO modal from sec-suppliers section
-  activeSupId=supId;
   const s=suppliers.find(x=>x.id===supId);if(!s)return;
-  document.getElementById('po-sup-name').textContent=s.name;
+  activeSupId=supId;
+  // Update modal header to show supplier name
+  const hdr=document.querySelector('#sup-po-modal h3');
+  if(hdr)hdr.textContent='📦 Add Purchase Order — '+s.name;
+  // Clear fields
   document.getElementById('poDate').value=new Date().toISOString().split('T')[0];
   document.getElementById('poRef').value='';
   document.getElementById('poItems').value='';
   document.getElementById('poAmount').value='';
   document.getElementById('poPaid').value='';
   document.getElementById('poNotes').value='';
-  oModal('po-add-modal');
+  oModal('sup-po-modal');
 }
 
 function adminPayPO(supId,idx){
@@ -8767,12 +9119,12 @@ function savePO(){
   const paid=parseFloat(document.getElementById('poPaid').value)||0;
   s.pos=s.pos||[];
   s.pos.push({date:document.getElementById('poDate').value||new Date().toLocaleDateString(),ref:document.getElementById('poRef').value.trim(),items:document.getElementById('poItems').value.trim(),amount,paid,notes:document.getElementById('poNotes').value.trim(),by:currentUser.name});
-  save();cModal('sup-po-modal');openSupDetail(sid);renderSuppliers();
+  save();cModal('sup-po-modal');openSupDetail(sid);renderSuppliers();if(document.getElementById('admin-tab-suppliers')?.style.display!=='none'){renderAdminSuppliers();if(sid)adminSupDetail(sid);}
 }
 
 function deletePO(supId,idx){
   const s=suppliers.find(x=>x.id===supId);if(!s||!confirm('Delete this purchase order?'))return;
-  s.pos.splice(idx,1);save();openSupDetail(supId);renderSuppliers();
+  s.pos.splice(idx,1);save();openSupDetail(supId);renderSuppliers();if(document.getElementById('admin-tab-suppliers')?.style.display!=='none'){renderAdminSuppliers();adminSupDetail(supId);}
 }
 
 // ══════════════════════════════════════════════
@@ -13354,8 +13706,14 @@ function updateSLABanners() {
     breachList.innerHTML = triageBreaches.map(v =>
       `<div>⚠ <b>${v.name}</b> — waiting <b>${_fmtWait(_waitMins(v))}</b> (limit: ${SLA_LIMITS.WAITING_TRIAGE}m) — <span style="color:#7f1d1d;">${v.consultType}</span></div>`
     ).join('');
-    // Fire alert chime for new breaches
-    _chimeSoft();
+    // Only chime when breach count increases (new breach detected), not on every poll
+    const breachIds = triageBreaches.map(v=>v.id).sort().join(',');
+    if(breachIds !== (window._lastSLABreachIds||'')){
+      window._lastSLABreachIds = breachIds;
+      if(voiceEnabled) _chimeSoft();
+    }
+  } else {
+    window._lastSLABreachIds = '';
   }
 
   // Stats bar
@@ -14131,6 +14489,144 @@ window.saveClinical = function(){
   </div>
 
     <!-- SUPPLIERS -->
+    <!-- ══ DENTAL SECTION ══ -->
+    <section id="sec-dental">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+        <h3>🦷 Dental Clinic</h3>
+        <div style="display:flex;gap:6px;">
+          <button class="ba" onclick="openDentalConsModal()">+ New Dental Consultation</button>
+          <button class="bo" onclick="printDentalSummary()">🖨 Print Daily</button>
+        </div>
+      </div>
+      <div class="stabs" id="dental-tabs">
+        <button class="st active" onclick="swDental('queue',this)">🪥 Queue</button>
+        <button class="st" onclick="swDental('chart',this)">🦷 Tooth Chart</button>
+        <button class="st" onclick="swDental('records',this)">📋 Records</button>
+        <button class="st" onclick="swDental('supplies',this)">📦 Supplies</button>
+      </div>
+
+      <!-- Queue panel -->
+      <div id="dental-queue-panel">
+        <div id="dental-stats" class="g4" style="margin-bottom:10px;"></div>
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">Today's Dental Queue</h4>
+          <table id="dental-queue-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- Tooth Chart panel -->
+      <div id="dental-chart-panel" style="display:none;">
+        <div class="card">
+          <h4 style="margin-bottom:10px;color:var(--p);">🦷 Universal Tooth Charting</h4>
+          <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:7px;padding:10px;margin-bottom:12px;">
+            <label style="font-size:11px;">Select Patient</label>
+            <select id="dental-chart-patient" onchange="renderToothChart()" style="max-width:280px;">
+              <option value="">— Select a dental patient —</option>
+            </select>
+          </div>
+          <div id="tooth-chart-wrap">
+            <p class="emp">Select a patient above to view/update their tooth chart.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Records panel -->
+      <div id="dental-records-panel" style="display:none;">
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">Dental Records</h4>
+          <div style="display:flex;gap:7px;margin-bottom:8px;flex-wrap:wrap;">
+            <input id="dental-rec-search" placeholder="🔍 Search patient name…" oninput="renderDentalRecords()" style="width:220px;margin:0;font-size:12px;">
+          </div>
+          <table id="dental-records-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- Dental supplies panel -->
+      <div id="dental-supplies-panel" style="display:none;">
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">🦷 Dental Supplies Inventory</h4>
+          <table id="dental-supplies-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PHYSIOTHERAPY SECTION ══ -->
+    <section id="sec-physiotherapy">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+        <h3>🏃 Physiotherapy</h3>
+        <div style="display:flex;gap:6px;">
+          <button class="ba" onclick="openPhysioSessionModal()">+ New Session</button>
+          <button class="bo" onclick="printPhysioReport()">🖨 Print Report</button>
+        </div>
+      </div>
+      <div class="stabs" id="physio-tabs">
+        <button class="st active" onclick="swPhysio('queue',this)">📋 Patient Queue</button>
+        <button class="st" onclick="swPhysio('sessions',this)">🏃 Sessions</button>
+        <button class="st" onclick="swPhysio('exercises',this)">💪 Exercise Plans</button>
+        <button class="st" onclick="swPhysio('stats',this)">📊 Statistics</button>
+      </div>
+
+      <!-- Queue panel -->
+      <div id="physio-queue-panel">
+        <div id="physio-stats" class="g4" style="margin-bottom:10px;"></div>
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">Physiotherapy Patient Queue</h4>
+          <table id="physio-queue-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- Sessions panel -->
+      <div id="physio-sessions-panel" style="display:none;">
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">📅 Session Log</h4>
+          <div style="display:flex;gap:7px;margin-bottom:8px;flex-wrap:wrap;">
+            <input id="physio-session-search" placeholder="🔍 Search patient…" oninput="renderPhysioSessions()" style="width:220px;margin:0;font-size:12px;">
+            <input type="month" id="physio-session-month" onchange="renderPhysioSessions()" style="margin:0;font-size:12px;width:auto;">
+          </div>
+          <table id="physio-sessions-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- Exercise Plans panel -->
+      <div id="physio-exercises-panel" style="display:none;">
+        <div class="card">
+          <h4 style="margin-bottom:10px;color:var(--p);">💪 Personalised Exercise Plans</h4>
+          <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:7px;padding:10px;margin-bottom:12px;">
+            <label style="font-size:11px;">Select Patient</label>
+            <select id="physio-plan-patient" onchange="renderExercisePlan()" style="max-width:280px;">
+              <option value="">— Select a patient —</option>
+            </select>
+          </div>
+          <div id="physio-plan-wrap">
+            <p class="emp">Select a patient to view or create their exercise plan.</p>
+          </div>
+          <div id="physio-plan-editor" style="display:none;margin-top:12px;">
+            <label>Exercise Plan Notes</label>
+            <textarea id="physio-plan-notes" rows="6" placeholder="List exercises, sets, reps, frequency, precautions…"></textarea>
+            <div class="ab"><button onclick="saveExercisePlan()" class="ba">💾 Save Plan</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats panel -->
+      <div id="physio-stats-panel" style="display:none;">
+        <div class="g2">
+          <div class="card">
+            <h4 style="margin-bottom:8px;">📊 Sessions This Month</h4>
+            <div style="position:relative;height:200px;"><canvas id="ch-physio-monthly"></canvas></div>
+          </div>
+          <div class="card">
+            <h4 style="margin-bottom:8px;">🏷 Conditions Treated</h4>
+            <div style="position:relative;height:200px;"><canvas id="ch-physio-conditions"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <h4 style="margin-bottom:8px;">📋 Physio Statistics Summary</h4>
+          <table id="physio-stats-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+    </section>
+
     <section id="sec-suppliers">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
         <h3>🏪 Supplier Management</h3>
