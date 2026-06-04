@@ -677,25 +677,49 @@ document.addEventListener("DOMContentLoaded", function(){
 
       <!-- ══ TAB: APPOINTMENTS ══ -->
       <div id="rec-appointments" style="display:none;">
-        <div class="card" style="margin-bottom:12px;">
+        <!-- APPOINTMENT STATS -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:12px;" id="appt-stat-cards"></div>
+
+        <!-- CALENDAR CONTROLS -->
+        <div class="card" style="margin-bottom:12px;padding:12px 16px;">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-            <h3 style="margin:0;color:var(--p);">📅 Appointment Book</h3>
+            <h3 style="margin:0;color:var(--p);">📅 Appointment Calendar</h3>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-              <input type="date" id="appt-date-filter" onchange="renderAppointments()" style="margin:0;font-size:13px;">
-              <button onclick="oApptModal()" class="bp" style="font-size:13px;">+ Book Appointment</button>
+              <div style="display:flex;gap:0;border:1.5px solid var(--bd);border-radius:7px;overflow:hidden;">
+                <button id="cal-btn-week" onclick="setCalView('week',this)" style="background:var(--p);color:#fff;border:none;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">Week</button>
+                <button id="cal-btn-month" onclick="setCalView('month',this)" style="background:transparent;color:var(--p);border:none;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">Month</button>
+              </div>
+              <button onclick="calNav(-1)" class="bsm bo">◀</button>
+              <span id="cal-period-label" style="font-weight:700;font-size:13px;min-width:140px;text-align:center;"></span>
+              <button onclick="calNav(1)" class="bsm bo">▶</button>
+              <button onclick="calGoToday()" class="bsm ba">Today</button>
+              <button onclick="oApptModal()" class="bp">+ Book Appointment</button>
+              <button onclick="exportApptsCSV()" class="bo" style="font-size:12px;">⬇ CSV</button>
             </div>
           </div>
-          <div class="g2" style="margin-bottom:14px;">
-            <div style="background:#eff6ff;border-radius:8px;padding:10px 14px;text-align:center;">
-              <div id="appt-stat-today" style="font-size:28px;font-weight:800;color:var(--p);">0</div>
-              <div style="font-size:12px;color:var(--mu);">Today's Appointments</div>
-            </div>
-            <div style="background:#f0fdf4;border-radius:8px;padding:10px 14px;text-align:center;">
-              <div id="appt-stat-pending" style="font-size:28px;font-weight:800;color:#16a34a;">0</div>
-              <div style="font-size:12px;color:var(--mu);">Pending / Upcoming</div>
-            </div>
+          <!-- Filter bar -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+            <input id="appt-search" placeholder="🔍 Search patient, doctor..." oninput="renderCalendar()" style="flex:1;min-width:180px;margin:0;font-size:12px;">
+            <select id="appt-status-filter" onchange="renderCalendar()" style="margin:0;font-size:12px;">
+              <option value="">All Status</option>
+              <option>Scheduled</option><option>Confirmed</option><option>Arrived</option>
+              <option>Completed</option><option>Cancelled</option><option>No Show</option>
+            </select>
+            <select id="appt-doctor-filter" onchange="renderCalendar()" style="margin:0;font-size:12px;">
+              <option value="">All Doctors</option>
+            </select>
           </div>
-          <table id="table-appointments" style="font-size:13px;"></table>
+          <!-- Calendar grid -->
+          <div id="cal-grid" style="overflow-x:auto;"></div>
+        </div>
+
+        <!-- DAILY LIST VIEW -->
+        <div class="card" style="padding:12px 16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+            <h4 style="margin:0;color:var(--p);">📋 Selected Day — Appointment List</h4>
+            <input type="date" id="appt-date-filter" onchange="renderDayList()" style="margin:0;font-size:12px;width:auto;">
+          </div>
+          <table id="table-appointments" style="font-size:12px;"></table>
         </div>
       </div>
 
@@ -821,6 +845,13 @@ document.addEventListener("DOMContentLoaded", function(){
         <button class="st" onclick="swNurse('nurseguide',this)">📗 Nursing Guide</button>
       </div>
       <div id="nurse-triage">
+        <!-- SLA BREACH ALERT BANNER -->
+        <div id="sla-breach-banner" style="display:none;background:#fef2f2;border:2px solid #ef4444;border-radius:9px;padding:11px 16px;margin-bottom:10px;">
+          <div style="font-weight:800;color:#dc2626;font-size:13px;margin-bottom:5px;">🚨 SLA BREACH — Patients waiting too long</div>
+          <div id="sla-breach-list" style="font-size:12px;"></div>
+        </div>
+        <!-- LIVE QUEUE SLA STATS -->
+        <div id="sla-stats-bar" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:7px;margin-bottom:10px;"></div>
         <div class="card"><h4 style="margin-bottom:8px;">Patients Awaiting Triage</h4><table id="table-triage"></table></div>
         <div id="triage-form" class="card" style="display:none;">
           <h4 id="triage-target" style="color:var(--p);margin-bottom:9px;"></h4>
@@ -987,6 +1018,10 @@ document.addEventListener("DOMContentLoaded", function(){
         <button class="st" onclick="swDoc('oxhandbook',this)">📕 Oxford Ref</button>
       </div>
       <div id="doc-queue">
+        <div id="doc-sla-banner" style="display:none;background:#fef2f2;border:2px solid #ef4444;border-radius:9px;padding:11px 16px;margin-bottom:10px;">
+          <div style="font-weight:800;color:#dc2626;font-size:13px;margin-bottom:5px;">🚨 SLA BREACH — Patients waiting too long for consultation</div>
+          <div id="doc-sla-breach-list" style="font-size:12px;color:#7f1d1d;"></div>
+        </div>
         <div id="queue-list-card" class="card"><table id="table-cons"></table></div>
         <div id="cons-form" class="card" style="display:none;">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:11px;">
@@ -1017,15 +1052,89 @@ document.addEventListener("DOMContentLoaded", function(){
             <h4 style="color:var(--pu);margin-bottom:8px;">📡 Radiology Results</h4>
             <div id="rad-res-display"></div>
           </div>
-          <!-- ══ CLINICALLY ORDERED CONSULTATION FORM ══ -->
-          <!-- STEP 1: HISTORY -->
-          <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#1e3a8a,#2563eb);color:#fff;border-radius:7px;padding:8px 14px;margin-bottom:10px;">
-            <span style="font-size:16px;">📋</span>
-            <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Step 1 — History</span>
+          <!-- ══════════════════════════════════════════════════════════════ -->
+          <!-- CONSULTATION STEP RAIL — 6 steps in one row, tap to expand   -->
+          <!-- Each step keeps its original gradient colour                  -->
+          <!-- ══════════════════════════════════════════════════════════════ -->
+
+          <!-- CSS for step rail (injected inline, scoped to cons-form) -->
+          <style>
+            .cons-rail{display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:0;padding-bottom:0;scrollbar-width:none;}
+            .cons-rail::-webkit-scrollbar{display:none;}
+            .cons-step-btn{
+              flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+              gap:2px;padding:7px 4px 5px;border:none;border-radius:8px 8px 0 0;cursor:pointer;
+              transition:filter .18s,transform .15s;position:relative;z-index:2;
+              color:#fff;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.04em;
+              border-bottom:3px solid transparent;
+            }
+            .cons-step-btn .cs-icon{font-size:17px;line-height:1;}
+            .cons-step-btn .cs-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:9px;opacity:.9;}
+            .cons-step-btn .cs-badge{
+              position:absolute;top:4px;right:6px;width:14px;height:14px;
+              border-radius:50%;background:rgba(255,255,255,.35);
+              font-size:8px;font-weight:800;display:none;align-items:center;justify-content:center;
+            }
+            .cons-step-btn.active{filter:brightness(1.12);transform:translateY(-2px);border-bottom:3px solid rgba(255,255,255,.7);box-shadow:0 4px 14px rgba(0,0,0,.25);}
+            .cons-step-btn.done .cs-badge{display:flex;}
+            .cons-step-panel{display:none;border:2px solid transparent;border-top:none;border-radius:0 0 9px 9px;padding:14px 14px 10px;margin-bottom:12px;animation:stepFadeIn .18s ease;}
+            .cons-step-panel.active{display:block;}
+            @keyframes stepFadeIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+            /* Step colours */
+            .cs1{background:linear-gradient(135deg,#1e3a8a,#2563eb);}
+            .cs1p{border-color:#2563eb;background:linear-gradient(180deg,#eff6ff 0%,#fff 60%);}
+            .cs2{background:linear-gradient(135deg,#065f46,#10b981);}
+            .cs2p{border-color:#10b981;background:linear-gradient(180deg,#f0fdf4 0%,#fff 60%);}
+            .cs3{background:linear-gradient(135deg,#5b21b6,#7c3aed);}
+            .cs3p{border-color:#7c3aed;background:linear-gradient(180deg,#ede9fe 0%,#fff 60%);}
+            .cs4{background:linear-gradient(135deg,#92400e,#f59e0b);}
+            .cs4p{border-color:#f59e0b;background:linear-gradient(180deg,#fef9c3 0%,#fff 60%);}
+            .cs5{background:linear-gradient(135deg,#991b1b,#ef4444);}
+            .cs5p{border-color:#ef4444;background:linear-gradient(180deg,#fee2e2 0%,#fff 60%);}
+            .cs6{background:linear-gradient(135deg,#0c4a6e,#0ea5e9);}
+            .cs6p{border-color:#0ea5e9;background:linear-gradient(180deg,#eff6ff 0%,#fff 60%);}
+          </style>
+
+          <!-- STEP RAIL (one horizontal row) -->
+          <div class="cons-rail" id="cons-step-rail">
+            <button class="cons-step-btn cs1 active" id="cstab-1" onclick="openConsStep(1)">
+              <span class="cs-icon">📋</span>
+              <span class="cs-label">History</span>
+              <span class="cs-badge" id="csbadge-1">✓</span>
+            </button>
+            <button class="cons-step-btn cs2" id="cstab-2" onclick="openConsStep(2)">
+              <span class="cs-icon">🩺</span>
+              <span class="cs-label">Exam</span>
+              <span class="cs-badge" id="csbadge-2">✓</span>
+            </button>
+            <button class="cons-step-btn cs3" id="cstab-3" onclick="openConsStep(3)">
+              <span class="cs-icon">🔬</span>
+              <span class="cs-label">Ix</span>
+              <span class="cs-badge" id="csbadge-3">✓</span>
+            </button>
+            <button class="cons-step-btn cs4" id="cstab-4" onclick="openConsStep(4)">
+              <span class="cs-icon">💊</span>
+              <span class="cs-label">Rx</span>
+              <span class="cs-badge" id="csbadge-4">✓</span>
+            </button>
+            <button class="cons-step-btn cs5" id="cstab-5" onclick="openConsStep(5)">
+              <span class="cs-icon">🔪</span>
+              <span class="cs-label">Procs</span>
+              <span class="cs-badge" id="csbadge-5">✓</span>
+            </button>
+            <button class="cons-step-btn cs6" id="cstab-6" onclick="openConsStep(6)">
+              <span class="cs-icon">📝</span>
+              <span class="cs-label">Summary</span>
+              <span class="cs-badge" id="csbadge-6">✓</span>
+            </button>
           </div>
-          <!-- PC accordion -->
-          <div class="cb"><div class="ch open" onclick="tClin(this)"><span><span class="abbr-hdr">(PC)</span><span class="abbr-full">Presenting Complaint</span></span><span class="cr">▼</span></div><div class="cbody open">
-            <div style="margin-bottom:6px;">
+
+          <!-- ── STEP 1 PANEL: HISTORY ── -->
+          <div class="cons-step-panel cs1p active" id="cspanel-1">
+            <!-- PC -->
+            <div class="cb"><div class="ch open" onclick="tClin(this)">
+              <span><span class="abbr-hdr">(PC)</span><span class="abbr-full">Presenting Complaint</span></span><span class="cr">▼</span>
+            </div><div class="cbody open">
               <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">
                 <input id="pc-complaint-input" list="pc-datalist" placeholder="Symptom (e.g. Headache)" style="flex:2;min-width:140px;margin:0;font-size:13px;">
                 <datalist id="pc-datalist"></datalist>
@@ -1037,100 +1146,136 @@ document.addEventListener("DOMContentLoaded", function(){
               </div>
               <div id="pc-list" style="min-height:28px;"></div>
               <input type="hidden" id="hPC">
+            </div></div>
+            <!-- Full history 2-col -->
+            <div class="cb"><div class="ch open" onclick="tClin(this)">
+              <span><span class="abbr-hdr">(HPC · PMH · DH · Allergy · FSH)</span><span class="abbr-full">Full Clinical History</span></span><span class="cr">▼</span>
+            </div><div class="cbody open">
+              <div class="g2">
+                <div><label><span class="abbr-hdr">(HPC)</span> History of Presenting Complaint</label><textarea id="hHPC" rows="3" placeholder="Duration, onset, character, severity, radiation, aggravating/relieving factors..."></textarea></div>
+                <div><label><span class="abbr-hdr">(PM/PSH)</span> Past Medical &amp; Surgical History</label><textarea id="hPMH" rows="3" placeholder="Previous illnesses, operations, hospitalisations, chronic conditions..."></textarea></div>
+              </div>
+              <div class="g2" style="margin-top:6px;">
+                <div><label><span class="abbr-hdr">(DH)</span> Drug History — Current Medications</label><textarea id="hDrug" rows="2" placeholder="Current medications, doses, duration..."></textarea></div>
+                <div>
+                  <label>⚠ Allergies</label>
+                  <input id="hAllergy" placeholder="e.g. Penicillin — rash. None known." style="margin-bottom:4px;">
+                  <label>👨‍👩‍👧 Family &amp; Social History</label>
+                  <textarea id="hFSH" rows="2" placeholder="Family illnesses, occupation, smoking, alcohol, travel..."></textarea>
+                </div>
+              </div>
+              <div id="ogBlock" style="display:none;margin-top:6px;">
+                <div style="background:#fce7f3;border-left:3px solid #db2777;border-radius:5px;padding:8px 12px;">
+                  <label style="color:#9d174d;"><span class="abbr-hdr">(O/G)</span> Obstetric &amp; Gynaecological History — Female</label>
+                  <div class="g2" style="margin-bottom:4px;"><div><label>LMP</label><input id="hLMP"></div><div><label>Gravida/Para</label><input id="hGP"></div></div>
+                  <textarea id="hOG" rows="2" placeholder="Obs/Gyn notes, previous pregnancies, contraception..."></textarea>
+                </div>
+              </div>
+              <div style="margin-top:10px;text-align:right;">
+                <button onclick="openConsStep(2)" class="bsm cs2" style="color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:700;">Next: Exam →</button>
+              </div>
+            </div></div>
+          </div>
+
+          <!-- ── STEP 2 PANEL: EXAMINATION ── -->
+          <div class="cons-step-panel cs2p" id="cspanel-2">
+            <div class="cb"><div class="ch open" onclick="tClin(this)">
+              <span><span class="abbr-hdr">(PE)</span><span class="abbr-full">Physical Examination Findings</span></span><span class="cr">▼</span>
+            </div><div class="cbody open">
+              <div class="g2"><div><label>General Appearance</label><input id="hPEGeneral" placeholder="e.g. Alert, oriented, not in distress"></div><div><label>Head &amp; Neck</label><input id="hPEHead" placeholder="e.g. No lymphadenopathy, JVP normal"></div></div>
+              <div class="g2" style="margin-top:5px;"><div><label>Chest / Respiratory</label><input id="hPEChest" placeholder="e.g. Clear to auscultation bilaterally"></div><div><label>Cardiovascular</label><input id="hPECVS" placeholder="e.g. Regular rate and rhythm, no murmurs"></div></div>
+              <div class="g2" style="margin-top:5px;"><div><label>Abdomen</label><input id="hPEAbdomen" placeholder="e.g. Soft, non-tender, no hepatosplenomegaly"></div><div><label>CNS / Neurological</label><input id="hPECNS" placeholder="e.g. GCS 15, pupils equal and reactive"></div></div>
+              <div class="g2" style="margin-top:5px;"><div><label>Extremities / MSK</label><input id="hPEExtremities" placeholder="e.g. No oedema, full range of motion"></div><div><label>Skin</label><input id="hPESkin" placeholder="e.g. No rash, jaundice, or cyanosis"></div></div>
+              <label style="margin-top:5px;">Other Examination Findings</label>
+              <textarea id="hPEOther" rows="2" placeholder="Any other relevant examination findings..."></textarea>
+            </div></div>
+            <div class="cb"><div class="ch" onclick="tClin(this)">
+              <span><span class="abbr-hdr">(Diff Dx)</span><span class="abbr-full">Differential Diagnosis</span></span><span class="cr">▼</span>
+            </div><div class="cbody"><textarea id="cDiffDx" rows="2" placeholder="Differentials being considered..."></textarea></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:10px;">
+              <button onclick="openConsStep(1)" class="bsm cs1" style="color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:700;">← History</button>
+              <button onclick="openConsStep(3)" class="bsm cs3" style="color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:700;">Next: Ix →</button>
             </div>
-          </div></div>
-          <!-- Full history in 2-column grid inside single accordion -->
-          <div class="cb"><div class="ch open" onclick="tClin(this)"><span><span class="abbr-hdr">(HPC · PMH · DH · Allergy · FSH)</span><span class="abbr-full">Full Clinical History</span></span><span class="cr">▼</span></div><div class="cbody open">
+          </div>
+
+          <!-- ── STEP 3 PANEL: INVESTIGATIONS ── -->
+          <div class="cons-step-panel cs3p" id="cspanel-3">
             <div class="g2">
-              <div><label><span class="abbr-hdr">(HPC)</span> History of Presenting Complaint</label><textarea id="hHPC" rows="3" placeholder="Duration, onset, character, severity, radiation, aggravating/relieving factors..."></textarea></div>
-              <div><label><span class="abbr-hdr">(PM/PSH)</span> Past Medical &amp; Surgical History</label><textarea id="hPMH" rows="3" placeholder="Previous illnesses, operations, hospitalisations, chronic conditions..."></textarea></div>
+              <div class="cb"><div class="ch open" onclick="tClin(this)">
+                <span><span class="abbr-hdr">(Ix-Lab)</span><span class="abbr-full">Lab Orders</span></span><span class="cr">▼</span>
+              </div><div class="cbody open">
+                <div id="lab-order-sec">
+                  <input id="lab-search" placeholder="Search lab tests..." onkeyup="filterLabTests()" style="margin-bottom:6px;">
+                  <div class="lab-check-list" id="lab-check-list"></div>
+                  <div id="selected-labs-display" style="margin-top:6px;"></div>
+                </div>
+              </div></div>
+              <div class="cb"><div class="ch open" onclick="tClin(this)">
+                <span><span class="abbr-hdr">(Rad)</span><span class="abbr-full">Radiology / Imaging</span></span><span class="cr">▼</span>
+              </div><div class="cbody open">
+                <div id="rad-orders-list"></div>
+                <button class="badd" onclick="addRadRow()">+ Add Imaging</button>
+              </div></div>
             </div>
-            <div class="g2" style="margin-top:6px;">
-              <div><label><span class="abbr-hdr">(DH)</span> Drug History — Current Medications</label><textarea id="hDrug" rows="2" placeholder="Current medications, doses, duration..."></textarea></div>
-              <div><label>⚠ Allergies</label><input id="hAllergy" placeholder="e.g. Penicillin — rash. None known." style="margin-bottom:4px;"><label>👨‍👩‍👧 Family &amp; Social History</label><textarea id="hFSH" rows="2" placeholder="Family illnesses, occupation, smoking, alcohol, travel..."></textarea></div>
+            <div style="display:flex;justify-content:space-between;margin-top:10px;">
+              <button onclick="openConsStep(2)" class="bsm cs2" style="color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:700;">← Exam</button>
+              <button onclick="openConsStep(4)" class="bsm cs4" style="color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:700;">Next: Rx →</button>
             </div>
-            <div id="ogBlock" style="display:none;margin-top:6px;">
-              <div style="background:#fce7f3;border-left:3px solid #db2777;border-radius:5px;padding:8px 12px;">
-                <label style="color:#9d174d;"><span class="abbr-hdr">(O/G)</span> Obstetric &amp; Gynaecological History — Female</label>
-                <div class="g2" style="margin-bottom:4px;"><div><label>LMP</label><input id="hLMP"></div><div><label>Gravida/Para</label><input id="hGP"></div></div>
-                <textarea id="hOG" rows="2" placeholder="Obs/Gyn notes, previous pregnancies, contraception..."></textarea>
-              </div>
-            </div>
-          </div></div>
-
-          <!-- STEP 2: EXAMINATION -->
-          <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#065f46,#10b981);color:#fff;border-radius:7px;padding:8px 14px;margin:12px 0 10px;">
-            <span style="font-size:16px;">🩺</span>
-            <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Step 2 — Physical Examination</span>
           </div>
-          <div class="cb"><div class="ch open" onclick="tClin(this)"><span><span class="abbr-hdr">(PE)</span><span class="abbr-full">Physical Examination Findings</span></span><span class="cr">▼</span></div><div class="cbody open">
-            <div class="g2"><div><label>General Appearance</label><input id="hPEGeneral" placeholder="e.g. Alert, oriented, not in distress"></div><div><label>Head &amp; Neck</label><input id="hPEHead" placeholder="e.g. No lymphadenopathy, JVP normal"></div></div>
-            <div class="g2" style="margin-top:5px;"><div><label>Chest / Respiratory</label><input id="hPEChest" placeholder="e.g. Clear to auscultation bilaterally"></div><div><label>Cardiovascular</label><input id="hPECVS" placeholder="e.g. Regular rate and rhythm, no murmurs"></div></div>
-            <div class="g2" style="margin-top:5px;"><div><label>Abdomen</label><input id="hPEAbdomen" placeholder="e.g. Soft, non-tender, no hepatosplenomegaly"></div><div><label>CNS / Neurological</label><input id="hPECNS" placeholder="e.g. GCS 15, pupils equal and reactive"></div></div>
-            <div class="g2" style="margin-top:5px;"><div><label>Extremities / MSK</label><input id="hPEExtremities" placeholder="e.g. No oedema, full range of motion"></div><div><label>Skin</label><input id="hPESkin" placeholder="e.g. No rash, jaundice, or cyanosis"></div></div>
-            <label style="margin-top:5px;">Other Examination Findings</label><textarea id="hPEOther" rows="2" placeholder="Any other relevant examination findings..."></textarea>
-          </div></div>
-          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(Diff Dx)</span><span class="abbr-full">Differential Diagnosis</span></span><span class="cr">▼</span></div><div class="cbody"><textarea id="cDiffDx" rows="2" placeholder="Differentials being considered..."></textarea></div></div>
 
-          <!-- STEP 3: INVESTIGATIONS -->
-          <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#5b21b6,#7c3aed);color:#fff;border-radius:7px;padding:8px 14px;margin:12px 0 10px;">
-            <span style="font-size:16px;">🔬</span>
-            <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Step 3 — Investigations</span>
+          <!-- ── STEP 4 PANEL: PRESCRIPTIONS ── -->
+          <div class="cons-step-panel cs4p" id="cspanel-4">
+            <div class="cb"><div class="ch open" onclick="tClin(this)">
+              <span><span class="abbr-hdr">(Rx)</span><span class="abbr-full">Prescription Orders</span></span><span class="cr">▼</span>
+            </div><div class="cbody open">
+              <input id="med-search" placeholder="Search drug by name, class or formulation..." onkeyup="filterMeds()" style="margin-bottom:5px;">
+              <div class="drug-search-results" id="drug-results" style="display:none;"></div>
+              <div id="med-orders-list"></div>
+            </div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:10px;">
+              <button onclick="openConsStep(3)" class="bsm cs3" style="color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:700;">← Ix</button>
+              <button onclick="openConsStep(5)" class="bsm cs5" style="color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:700;">Next: Procs →</button>
+            </div>
           </div>
-          <div class="g2">
-            <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(Ix-Lab)</span><span class="abbr-full">Lab Orders</span></span><span class="cr">▼</span></div><div class="cbody">
-              <div id="lab-order-sec">
-                <input id="lab-search" placeholder="Search lab tests..." onkeyup="filterLabTests()" style="margin-bottom:6px;">
-                <div class="lab-check-list" id="lab-check-list"></div>
-                <div id="selected-labs-display" style="margin-top:6px;"></div>
+
+          <!-- ── STEP 5 PANEL: PROCEDURES ── -->
+          <div class="cons-step-panel cs5p" id="cspanel-5">
+            <div class="cb"><div class="ch open" onclick="tClin(this)">
+              <span><span class="abbr-hdr">(Pr)</span><span class="abbr-full">Procedure Orders</span></span><span class="cr">▼</span>
+            </div><div class="cbody open">
+              <div id="proc-order-sec">
+                <div id="proc-orders-list"></div>
+                <div style="display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap;">
+                  <select id="proc-order-select" style="flex:1;min-width:200px;margin:0;font-size:13px;">
+                    <option value="">-- Select procedure to order --</option>
+                  </select>
+                  <button class="badd" onclick="addProcOrder()">+ Order Procedure</button>
+                </div>
               </div>
             </div></div>
-            <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(Rad)</span><span class="abbr-full">Radiology / Imaging</span></span><span class="cr">▼</span></div><div class="cbody">
-              <div id="rad-orders-list"></div>
-              <button class="badd" onclick="addRadRow()">+ Add Imaging</button>
-            </div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:10px;">
+              <button onclick="openConsStep(4)" class="bsm cs4" style="color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:700;">← Rx</button>
+              <button onclick="openConsStep(6)" class="bsm cs6" style="color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:700;">Next: Summary →</button>
+            </div>
           </div>
 
-          <!-- STEP 4: PRESCRIPTIONS -->
-          <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#92400e,#f59e0b);color:#fff;border-radius:7px;padding:8px 14px;margin:12px 0 10px;">
-            <span style="font-size:16px;">💊</span>
-            <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Step 4 — Prescriptions</span>
-          </div>
-          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(Rx)</span><span class="abbr-full">Prescription Orders</span></span><span class="cr">▼</span></div><div class="cbody">
-            <input id="med-search" placeholder="Search drug by name, class or formulation..." onkeyup="filterMeds()" style="margin-bottom:5px;">
-            <div class="drug-search-results" id="drug-results" style="display:none;"></div>
-            <div id="med-orders-list"></div>
-          </div></div>
-
-          <!-- STEP 5: PROCEDURES -->
-          <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#991b1b,#ef4444);color:#fff;border-radius:7px;padding:8px 14px;margin:12px 0 10px;">
-            <span style="font-size:16px;">🔪</span>
-            <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Step 5 — Nursing &amp; Surgical Procedures</span>
-          </div>
-          <div class="cb"><div class="ch" onclick="tClin(this)"><span><span class="abbr-hdr">(Pr)</span><span class="abbr-full">Procedure Orders</span></span><span class="cr">▼</span></div><div class="cbody">
-            <div id="proc-order-sec">
-              <div id="proc-orders-list"></div>
-              <div style="display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap;">
-                <select id="proc-order-select" style="flex:1;min-width:200px;margin:0;font-size:13px;">
-                  <option value="">-- Select procedure to order --</option>
-                </select>
-                <button class="badd" onclick="addProcOrder()">+ Order Procedure</button>
+          <!-- ── STEP 6 PANEL: SUMMARY & DISCHARGE ── -->
+          <div class="cons-step-panel cs6p" id="cspanel-6">
+            <div class="cb"><div class="ch open" onclick="tClin(this)">
+              <span><span class="abbr-hdr">(Dx / Mx / Rec)</span><span class="abbr-full">Diagnosis, Management &amp; Recommendations</span></span><span class="cr">▼</span>
+            </div><div class="cbody open">
+              <label><span class="abbr-hdr">(Dx)</span> Final Diagnosis</label>
+              <input id="cFinalDx" placeholder="Final/confirmed diagnosis...">
+              <div class="g2" style="margin-top:6px;">
+                <div><label><span class="abbr-hdr">(Mx)</span> Management Plan / Clinical Notes</label><textarea id="cNotes" rows="3" placeholder="Management plan, clinical notes..."></textarea></div>
+                <div><label><span class="abbr-hdr">(Rec)</span> Doctor's Recommendations to Patient</label><textarea id="cRecommendations" rows="3" placeholder="Patient education, lifestyle advice, dietary recommendations, activity restrictions..."></textarea></div>
               </div>
+            </div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:10px;align-items:center;">
+              <button onclick="openConsStep(5)" class="bsm cs5" style="color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:700;">← Procs</button>
+              <span style="font-size:11px;color:var(--mu);">Use the Save &amp; Discharge buttons below ↓</span>
             </div>
-          </div></div>
-
-          <!-- STEP 6: SUMMARY / DISCHARGE -->
-          <div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#0c4a6e,#0ea5e9);color:#fff;border-radius:7px;padding:8px 14px;margin:12px 0 10px;">
-            <span style="font-size:16px;">📝</span>
-            <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Step 6 — Summary &amp; Discharge</span>
           </div>
-          <div class="cb"><div class="ch open" onclick="tClin(this)"><span><span class="abbr-hdr">(Dx / Mx / Rec)</span><span class="abbr-full">Diagnosis, Management &amp; Recommendations</span></span><span class="cr">▼</span></div><div class="cbody open">
-            <label><span class="abbr-hdr">(Dx)</span> Final Diagnosis</label><input id="cFinalDx" placeholder="Final/confirmed diagnosis...">
-            <div class="g2" style="margin-top:6px;">
-              <div><label><span class="abbr-hdr">(Mx)</span> Management Plan / Clinical Notes</label><textarea id="cNotes" rows="2" placeholder="Management plan, clinical notes..."></textarea></div>
-              <div><label><span class="abbr-hdr">(Rec)</span> Doctor's Recommendations to Patient</label><textarea id="cRecommendations" rows="2" placeholder="Patient education, lifestyle advice, dietary recommendations, activity restrictions..."></textarea></div>
-            </div>
-          </div></div>
           <!-- Order Summary -->
           <div class="osum"><h5>📋 Current Visit Bill</h5><div id="order-sum-body"><div class="emp">No orders yet.</div></div></div>
           <!-- Allergy Warning Banner -->
@@ -1467,7 +1612,11 @@ document.addEventListener("DOMContentLoaded", function(){
         <button class="st" onclick="swInv('dental',this)">🦷 Dental Supplies</button>
         <button class="st" onclick="swInv('expiry',this)">⚠ Near Expiry</button>
       </div>
-      <div class="card" style="padding:9px;"><table id="table-inv"></table></div>
+      <div id="inv-expiry-alert" style="display:none;border:1.5px solid #fed7aa;background:#fff7ed;border-radius:8px;padding:12px;margin-bottom:10px;"></div>
+      <!-- EXPIRY DASHBOARD (full) -->
+      <div id="expiry-dashboard" style="display:none;"></div>
+      <!-- Normal inventory table -->
+      <div id="inv-list" class="card" style="padding:9px;"><table id="table-inv"></table></div>
     </section>
 
     <!-- EXPENSES -->
@@ -1600,16 +1749,40 @@ document.addEventListener("DOMContentLoaded", function(){
         </div>
       </div>
 
-      <!-- ══ TAB: SUPPLIERS (Admin Mirror) ══ -->
+      <!-- ══ TAB: SUPPLIERS (Full Management) ══ -->
       <div id="admin-tab-suppliers" style="display:none;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
-          <h3 style="margin:0;">🏪 Supplier Management</h3>
-          <button onclick="oSupModal()" class="ba">+ Add Supplier</button>
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div>
+            <h3 style="margin:0;color:var(--p);">🏪 Supplier Management</h3>
+            <p style="font-size:12px;color:var(--mu);margin:3px 0 0;">Manage vendors, track purchase orders, and monitor outstanding balances.</p>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button onclick="oSupModal()" class="bp">+ Add Supplier</button>
+            <button onclick="exportSuppliersCSV()" class="bo" style="font-size:12px;">⬇ Export CSV</button>
+          </div>
         </div>
-        <div class="card" style="padding:9px;overflow-x:auto;">
-          <input id="admin-sup-search" placeholder="🔍 Search suppliers…" oninput="renderAdminSuppliers()" style="width:220px;margin:0 0 10px;font-size:12px;">
+
+        <!-- Summary cards -->
+        <div id="admin-sup-summary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:12px;"></div>
+
+        <!-- Filters -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+          <input id="admin-sup-search" placeholder="🔍 Search by name, phone, email…" oninput="renderAdminSuppliers()" style="flex:1;min-width:200px;margin:0;font-size:13px;">
+          <select id="admin-sup-balance-filter" onchange="renderAdminSuppliers()" style="margin:0;font-size:13px;">
+            <option value="">All Suppliers</option>
+            <option value="owed">Has Outstanding Balance</option>
+            <option value="clear">Fully Paid / Clear</option>
+          </select>
+        </div>
+
+        <!-- Main table -->
+        <div class="card" style="padding:9px;overflow-x:auto;margin-bottom:12px;">
           <table id="table-admin-suppliers" style="font-size:13px;"></table>
         </div>
+
+        <!-- Supplier detail panel (expands inline) -->
+        <div id="admin-sup-detail" style="display:none;"></div>
       </div>
 
       <!-- ══ TAB: PATIENTS ══ -->
@@ -2940,6 +3113,7 @@ function newVisit(vId,patId,name,consultType='GENERAL'){
     PHARMACY_ONLY:'WAITING_PHARMACY',
   };
   return{id:vId,patId,name,consultType,status:statusMap[consultType]||'WAITING_TRIAGE',date:new Date().toLocaleDateString(),
+    registeredAt:Date.now(),statusLog:{WAITING_TRIAGE:Date.now()},
     timeline:[],vitals:null,clinical:{pc:'',hpc:'',pmh:'',lmp:'',gravPara:'',obsGyn:'',fsh:'',drugHx:'',allergies:'',diffDx:'',finalDx:'',notes:''},
     labs:[],radiology:[],prescriptions:[],treatmentChart:[],
     consultFee:0,discount:0,discountReason:'',totalPaid:0,payments:[],admitted:false,admissionWard:'',cleared:[]};
@@ -6762,8 +6936,14 @@ function renderInventory(){
   const now=new Date();const warn=new Date(now);warn.setMonth(warn.getMonth()+3);
   let inv;
   if(invSection==='expiry'){
-    inv=inventory.filter(i=>{if(!i.expiry)return false;const e=new Date(i.expiry+'-01');return e<=warn;});
-  }else{
+    renderExpiryDashboard();
+    const el=document.getElementById('inv-list');if(el)el.style.display='none';
+    return;
+  } else {
+    const el=document.getElementById('inv-list');if(el)el.style.display='block';
+    const expDash=document.getElementById('expiry-dashboard');if(expDash)expDash.style.display='none';
+  }
+  if(invSection==='expiry2_unused'){
     inv=getInvItems();
   }
   if(classF)inv=inv.filter(i=>i.drugClass===classF);
@@ -7384,32 +7564,211 @@ function loadSystemPoliciesUI(){
 // ══════════════════════════════════════════════
 function renderAdminSuppliers(){
   const term=(document.getElementById('admin-sup-search')?.value||'').toLowerCase();
-  const filtered=suppliers.filter(s=>s.name.toLowerCase().includes(term));
-  let h=`<tr><th>Supplier</th><th>Phone</th><th>Email</th><th>Address</th><th>Items Linked</th><th>Balance Owed</th><th>Actions</th></tr>`;
-  if(!filtered.length)h+=`<tr><td colspan="7" class="emp">No suppliers found</td></tr>`;
+  const balFilter=document.getElementById('admin-sup-balance-filter')?.value||'';
+
+  // Summary cards
+  const sumEl=document.getElementById('admin-sup-summary');
+  if(sumEl){
+    const totalOwed=suppliers.reduce((s,sup)=>s+(sup.pos||[]).reduce((a,p)=>a+(p.amount-p.paid),0),0);
+    const totalOrdered=suppliers.reduce((s,sup)=>s+(sup.pos||[]).reduce((a,p)=>a+p.amount,0),0);
+    const totalPaid=suppliers.reduce((s,sup)=>s+(sup.pos||[]).reduce((a,p)=>a+p.paid,0),0);
+    const itemsLinked=inventory.filter(i=>i.supplierId).length;
+    sumEl.innerHTML=[
+      {label:'Total Suppliers',val:suppliers.length,color:'#1e3a8a'},
+      {label:'Outstanding Balance',val:'$'+totalOwed.toFixed(2),color:'#dc2626'},
+      {label:'Total Ordered',val:'$'+totalOrdered.toFixed(2),color:'#065f46'},
+      {label:'Total Paid',val:'$'+totalPaid.toFixed(2),color:'#0369a1'},
+      {label:'Items Linked',val:itemsLinked,color:'#7c3aed'},
+    ].map(c=>`<div style="background:${c.color};color:#fff;border-radius:9px;padding:11px 14px;">
+      <div style="font-size:10px;opacity:.8;font-weight:700;text-transform:uppercase;">${c.label}</div>
+      <div style="font-size:20px;font-weight:800;margin-top:3px;">${c.val}</div>
+    </div>`).join('');
+  }
+
+  const filtered=suppliers.filter(s=>{
+    const mt=!term||(s.name+s.phone+s.email+s.address).toLowerCase().includes(term);
+    const owed=(s.pos||[]).reduce((a,p)=>a+(p.amount-p.paid),0);
+    const mb=!balFilter||(balFilter==='owed'&&owed>0)||(balFilter==='clear'&&owed<=0);
+    return mt&&mb;
+  });
+
+  let h=`<tr>
+    <th>Supplier</th><th>Contact</th><th>Address</th>
+    <th>Items Linked</th><th>POs</th><th>Total Ordered</th>
+    <th>Total Paid</th><th>Outstanding</th><th>Actions</th>
+  </tr>`;
+
+  if(!filtered.length){
+    h+=`<tr><td colspan="9" style="text-align:center;color:var(--mu);padding:20px;">No suppliers found. Click "+ Add Supplier" to create one.</td></tr>`;
+  }
   filtered.forEach(s=>{
     const linked=inventory.filter(i=>i.supplierId===s.id).length;
-    const owed=(s.pos||[]).reduce((t,po)=>t+(po.total||0)-(po.paid||0),0);
+    const pos=s.pos||[];
+    const totalOrdered=pos.reduce((a,p)=>a+p.amount,0);
+    const totalPaid=pos.reduce((a,p)=>a+p.paid,0);
+    const owed=totalOrdered-totalPaid;
+    const owedColor=owed>0?'#dc2626':owed===0&&totalOrdered>0?'#065f46':'#64748b';
     h+=`<tr>
-      <td><b>${s.name}</b></td>
-      <td style="font-size:12px;">${s.phone||'—'}</td>
-      <td style="font-size:12px;">${s.email||'—'}</td>
-      <td style="font-size:11px;color:var(--mu);">${s.address||'—'}</td>
-      <td style="text-align:center;">${linked}</td>
-      <td style="font-weight:700;color:${owed>0?'#dc2626':'#16a34a'};">$${owed.toFixed(2)}</td>
-      <td><div style="display:flex;gap:3px;">
-        <button class="bsm bo" onclick="oSupModal('${s.id}')">Edit</button>
-        <button class="bsm bd2" onclick="delSupplier('${s.id}')">🗑</button>
-      </div></td>
+      <td>
+        <div style="font-weight:700;">${s.name}</div>
+        ${s.notes?`<div style="font-size:11px;color:var(--mu);">${s.notes}</div>`:''}
+      </td>
+      <td style="font-size:12px;">
+        ${s.phone?`📞 ${s.phone}<br>`:''}
+        ${s.email?`✉ ${s.email}`:''}
+        ${!s.phone&&!s.email?'—':''}
+      </td>
+      <td style="font-size:11px;color:var(--mu);max-width:130px;">${s.address||'—'}</td>
+      <td style="text-align:center;">
+        <span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${linked}</span>
+      </td>
+      <td style="text-align:center;">${pos.length}</td>
+      <td>$${totalOrdered.toFixed(2)}</td>
+      <td style="color:#065f46;">$${totalPaid.toFixed(2)}</td>
+      <td style="font-weight:800;color:${owedColor};">$${owed.toFixed(2)}</td>
+      <td style="white-space:nowrap;">
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="bsm" style="background:var(--p);color:#fff;" onclick="adminSupDetail('${s.id}')">📋 View</button>
+          <button class="bsm bo" onclick="oSupModal('${s.id}')">✏ Edit</button>
+          <button class="bsm" style="background:#065f46;color:#fff;font-size:11px;" onclick="adminAddPO('${s.id}')">+ PO</button>
+          <button class="bsm bo" onclick="delSupplier('${s.id}')" style="color:#dc2626;border-color:#dc2626;">🗑</button>
+        </div>
+      </td>
     </tr>`;
   });
+
   const el=document.getElementById('table-admin-suppliers');
   if(el)el.innerHTML=h;
 }
+
+function adminSupDetail(id){
+  const s=suppliers.find(x=>x.id===id);if(!s)return;
+  const wrap=document.getElementById('admin-sup-detail');if(!wrap)return;
+  const pos=s.pos||[];
+  const totalOrdered=pos.reduce((a,p)=>a+p.amount,0);
+  const totalPaid=pos.reduce((a,p)=>a+p.paid,0);
+  const owed=totalOrdered-totalPaid;
+  const linkedItems=inventory.filter(i=>i.supplierId===id);
+  const poRows=pos.length
+    ?pos.map((p,i)=>{
+        const bal=p.amount-p.paid;
+        return`<tr>
+          <td>${p.date||'—'}</td><td>${p.ref||'—'}</td>
+          <td style="font-size:11px;">${p.items||'—'}</td>
+          <td>$${p.amount.toFixed(2)}</td>
+          <td style="color:#065f46;">$${p.paid.toFixed(2)}</td>
+          <td style="font-weight:700;color:${bal>0?'#dc2626':'#065f46'};">$${bal.toFixed(2)}</td>
+          <td style="font-size:11px;">${p.notes||'—'}</td>
+          <td style="white-space:nowrap;">
+            <button class="bsm bo" onclick="adminPayPO('${id}',${i})" style="font-size:11px;">💳 Pay</button>
+            <button class="bsm bo" onclick="deletePO('${id}',${i})" style="color:#dc2626;border-color:#dc2626;font-size:11px;">🗑</button>
+          </td>
+        </tr>`;
+      }).join('')
+    :`<tr><td colspan="8" style="text-align:center;color:var(--mu);padding:12px;">No purchase orders yet. Click "+ PO" to add one.</td></tr>`;
+
+  wrap.style.display='block';
+  wrap.innerHTML=`<div class="card" style="margin-top:0;border-left:4px solid var(--p);">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+      <div>
+        <h3 style="margin:0;color:var(--p);">${s.name}</h3>
+        <div style="font-size:12px;color:var(--mu);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap;">
+          ${s.phone?`<span>📞 ${s.phone}</span>`:''}
+          ${s.email?`<span>✉ ${s.email}</span>`:''}
+          ${s.address?`<span>📍 ${s.address}</span>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="adminAddPO('${id}')" class="bp" style="font-size:12px;">+ Purchase Order</button>
+        <button onclick="oSupModal('${id}')" class="bo" style="font-size:12px;">✏ Edit Supplier</button>
+        <button onclick="document.getElementById('admin-sup-detail').style.display='none'" style="background:#e2e8f0;color:#475569;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;">✕ Close</button>
+      </div>
+    </div>
+    <!-- Account summary bar -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:12px;">
+      ${[
+        {l:'Total Ordered',v:'$'+totalOrdered.toFixed(2),c:'#1e3a8a'},
+        {l:'Total Paid',v:'$'+totalPaid.toFixed(2),c:'#065f46'},
+        {l:'Outstanding',v:'$'+owed.toFixed(2),c:owed>0?'#dc2626':'#065f46'},
+        {l:'PO Count',v:pos.length,c:'#7c3aed'},
+        {l:'Items Supplied',v:linkedItems.length,c:'#0369a1'},
+      ].map(x=>`<div style="background:${x.c};color:#fff;border-radius:7px;padding:8px 12px;">
+        <div style="font-size:10px;opacity:.8;font-weight:700;">${x.l}</div>
+        <div style="font-size:17px;font-weight:800;margin-top:2px;">${x.v}</div>
+      </div>`).join('')}
+    </div>
+    <!-- Linked inventory items -->
+    ${linkedItems.length?`<div style="margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:6px;">Linked Inventory Items</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;">
+        ${linkedItems.map(i=>`<span style="background:#dbeafe;color:#1e40af;padding:3px 10px;border-radius:10px;font-size:12px;">${i.name} ${i.strength||''} — ${i.stock} ${i.unit||''} in stock</span>`).join('')}
+      </div>
+    </div>`:''}
+    <!-- PO Table -->
+    <div style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:6px;">Purchase Orders</div>
+    <div style="overflow-x:auto;">
+      <table class="pit" style="font-size:12px;">
+        <tr><th>Date</th><th>Ref</th><th>Items</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Notes</th><th>Actions</th></tr>
+        ${poRows}
+      </table>
+    </div>
+    ${s.notes?`<div style="margin-top:10px;font-size:12px;color:var(--mu);font-style:italic;">Notes: ${s.notes}</div>`:''}
+  </div>`;
+  wrap.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function adminAddPO(supId){
+  // Reuse the existing PO modal from sec-suppliers section
+  activeSupId=supId;
+  const s=suppliers.find(x=>x.id===supId);if(!s)return;
+  document.getElementById('po-sup-name').textContent=s.name;
+  document.getElementById('poDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('poRef').value='';
+  document.getElementById('poItems').value='';
+  document.getElementById('poAmount').value='';
+  document.getElementById('poPaid').value='';
+  document.getElementById('poNotes').value='';
+  oModal('po-add-modal');
+}
+
+function adminPayPO(supId,idx){
+  const s=suppliers.find(x=>x.id===supId);if(!s||!s.pos[idx])return;
+  const po=s.pos[idx];
+  const bal=po.amount-po.paid;
+  const amt=parseFloat(prompt(`Pay against PO ${po.ref||'#'+(idx+1)}\nBalance: $${bal.toFixed(2)}\n\nEnter payment amount:`));
+  if(isNaN(amt)||amt<=0)return;
+  po.paid=Math.min(po.amount,po.paid+(amt));
+  _auditLog('SUPPLIER_PAYMENT',`$${amt.toFixed(2)} paid to ${s.name} — PO ${po.ref||idx+1}`,supId);
+  save();adminSupDetail(supId);renderAdminSuppliers();
+  _showToast(`✅ $${amt.toFixed(2)} payment recorded for ${s.name}`,'#065f46');
+}
+
 function delSupplier(id){
-  if(!confirm('Delete this supplier? This cannot be undone.'))return;
-  suppliers=suppliers.filter(s=>s.id!==id);
-  save();renderSuppliers();renderAdminSuppliers();
+  const s=suppliers.find(x=>x.id===id);
+  if(!s||!confirm(`Delete "${s.name}"? This cannot be undone.`))return;
+  suppliers=suppliers.filter(x=>x.id!==id);
+  inventory.forEach(i=>{if(i.supplierId===id)delete i.supplierId;});
+  _auditLog('SUPPLIER_DELETED',s.name,id);
+  save();renderAdminSuppliers();
+  const det=document.getElementById('admin-sup-detail');
+  if(det)det.style.display='none';
+}
+
+function exportSuppliersCSV(){
+  const rows=[['ID','Name','Phone','Email','Address','Items Linked','Total Ordered','Total Paid','Outstanding','PO Count','Notes']];
+  suppliers.forEach(s=>{
+    const pos=s.pos||[];
+    const to=pos.reduce((a,p)=>a+p.amount,0);
+    const tp=pos.reduce((a,p)=>a+p.paid,0);
+    rows.push([s.id,s.name,s.phone||'',s.email||'',s.address||'',
+      inventory.filter(i=>i.supplierId===s.id).length,
+      to.toFixed(2),(tp).toFixed(2),(to-tp).toFixed(2),pos.length,s.notes||'']);
+  });
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='tali_suppliers_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
 }
 
 // ══════════════════════════════════════════════
@@ -12923,6 +13282,762 @@ if(_origLogin2){
 }
 // Also run on startup
 setTimeout(_initBackupSchedule, 2000);
+
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  MODULE 1 — WAITING TIME & QUEUE SLA TRACKER                    ║
+// ║  NHS 4-hour rule · Epic SLA standards · Cerner queue timers     ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+// SLA limits in minutes (configurable)
+const SLA_LIMITS = {
+  WAITING_TRIAGE:   30,   // 30 min max wait for triage (NHS standard)
+  WAITING_DOCTOR:   45,   // 45 min max wait for doctor
+  IN_NURSE_QUEUE:   20,   // 20 min max in nurse queue
+  WAITING_PHARMACY: 15,   // 15 min max for pharmacy
+  WAITING_LAB:      60,   // 60 min for lab
+  WAITING_RADIOLOGY:60,
+};
+
+const SLA_LABELS = {
+  WAITING_TRIAGE:   'Triage Wait',
+  WAITING_DOCTOR:   'Doctor Wait',
+  IN_NURSE_QUEUE:   'Nurse Queue',
+  WAITING_PHARMACY: 'Pharmacy',
+  WAITING_LAB:      'Lab Wait',
+  WAITING_RADIOLOGY:'Radiology',
+};
+
+function _waitMins(v) {
+  // Use statusLog to get time patient entered current status
+  const enteredStatus = v.statusLog?.[v.status] || v.registeredAt || (Date.now() - 30*60000);
+  return Math.floor((Date.now() - enteredStatus) / 60000);
+}
+
+function _waitColor(mins, limit) {
+  const pct = mins / limit;
+  if (pct >= 1)   return { bg:'#fee2e2', text:'#dc2626', border:'#ef4444' }; // BREACH
+  if (pct >= 0.7) return { bg:'#fef9c3', text:'#92400e', border:'#fbbf24' }; // WARNING
+  return             { bg:'#f0fdf4', text:'#065f46', border:'#bbf7d0' };      // OK
+}
+
+function _fmtWait(mins) {
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins/60)}h ${mins%60}m`;
+}
+
+// ── Timer chip rendered in queue tables ──────────────────────
+function _waitChip(v) {
+  const limit = SLA_LIMITS[v.status];
+  if (!limit) return '';
+  const mins = _waitMins(v);
+  const col = _waitColor(mins, limit);
+  const pct = Math.min(100, Math.round((mins/limit)*100));
+  return `<div style="display:inline-flex;align-items:center;gap:5px;background:${col.bg};border:1.5px solid ${col.border};border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;color:${col.text};">
+    ⏱ ${_fmtWait(mins)}${mins>=limit?` 🚨 BREACH`:''}
+    <div style="background:rgba(0,0,0,.08);border-radius:4px;height:5px;width:40px;overflow:hidden;">
+      <div style="background:${col.text};height:5px;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
+    </div>
+  </div>`;
+}
+
+// ── Update SLA banners and stats on nurse + doctor screens ───
+function updateSLABanners() {
+  // Nurse triage SLA
+  const triageBreaches = visits.filter(v =>
+    v.status==='WAITING_TRIAGE' && _waitMins(v) >= SLA_LIMITS.WAITING_TRIAGE
+  );
+  const banner = document.getElementById('sla-breach-banner');
+  const breachList = document.getElementById('sla-breach-list');
+  if (banner) banner.style.display = triageBreaches.length ? 'block' : 'none';
+  if (breachList && triageBreaches.length) {
+    breachList.innerHTML = triageBreaches.map(v =>
+      `<div>⚠ <b>${v.name}</b> — waiting <b>${_fmtWait(_waitMins(v))}</b> (limit: ${SLA_LIMITS.WAITING_TRIAGE}m) — <span style="color:#7f1d1d;">${v.consultType}</span></div>`
+    ).join('');
+    // Fire alert chime for new breaches
+    _chimeSoft();
+  }
+
+  // Stats bar
+  const statsBar = document.getElementById('sla-stats-bar');
+  if (statsBar) {
+    const waiting = visits.filter(v => Object.keys(SLA_LIMITS).includes(v.status));
+    const breached = waiting.filter(v => _waitMins(v) >= (SLA_LIMITS[v.status]||999));
+    const avgWait = waiting.length
+      ? Math.round(waiting.reduce((s,v)=>s+_waitMins(v),0)/waiting.length) : 0;
+    statsBar.innerHTML = [
+      {l:'In Queue',v:waiting.length,c:'#1e3a8a'},
+      {l:'SLA Breaches',v:breached.length,c:breached.length?'#dc2626':'#065f46'},
+      {l:'Avg Wait',v:_fmtWait(avgWait),c:'#0369a1'},
+      {l:'Triage Pending',v:visits.filter(v=>v.status==='WAITING_TRIAGE').length,c:'#7c3aed'},
+      {l:'Awaiting Doctor',v:visits.filter(v=>v.status==='WAITING_DOCTOR').length,c:'#92400e'},
+    ].map(x=>`<div style="background:${x.c};color:#fff;border-radius:8px;padding:9px 12px;">
+      <div style="font-size:10px;opacity:.8;font-weight:700;text-transform:uppercase;">${x.l}</div>
+      <div style="font-size:18px;font-weight:800;margin-top:2px;">${x.v}</div>
+    </div>`).join('');
+  }
+
+  // Doctor queue SLA
+  const docBreaches = visits.filter(v =>
+    v.status==='WAITING_DOCTOR' && _waitMins(v) >= SLA_LIMITS.WAITING_DOCTOR
+  );
+  const docBanner = document.getElementById('doc-sla-banner');
+  const docList = document.getElementById('doc-sla-breach-list');
+  if (docBanner) docBanner.style.display = docBreaches.length ? 'block' : 'none';
+  if (docList && docBreaches.length) {
+    docList.innerHTML = docBreaches.map(v =>
+      `<div>⚠ <b>${v.name}</b> — waiting <b>${_fmtWait(_waitMins(v))}</b> for consultation (limit: ${SLA_LIMITS.WAITING_DOCTOR}m)</div>`
+    ).join('');
+  }
+}
+
+// ── Patch status changes to log timestamps ────────────────────
+const _origStatusChange = window.changeStatus || null;
+function _logStatusChange(v, newStatus) {
+  if (!v.statusLog) v.statusLog = {};
+  v.statusLog[newStatus] = Date.now();
+}
+
+// Patch _showQueueList to also update SLA
+const _origShowQL = window._showQueueList;
+window._showQueueList = function(){
+  if(_origShowQL) _origShowQL();
+  updateSLABanners();
+};
+
+// Run SLA checks every 60 seconds automatically
+setInterval(() => {
+  updateSLABanners();
+  // Refresh triage table chip timers if visible
+  const triageEl = document.getElementById('nurse-triage');
+  if (triageEl && triageEl.style.display!=='none') {
+    const chips = triageEl.querySelectorAll('[data-wait-chip]');
+    chips.forEach(c => {
+      const vid = c.dataset.waitChip;
+      const v = visits.find(x=>x.id===vid);
+      if(v) c.innerHTML = _waitChip(v);
+    });
+  }
+}, 60000);
+
+// Patch renderNurseQueue / renderTriageQueue to include wait chips
+// Hook into the triage table renderer
+const _origRenderTriage = window.renderTriageQueue || null;
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  MODULE 2 — APPOINTMENT BOOKING CALENDAR                        ║
+// ║  Visual week/month · booking modal · SMS/WhatsApp reminders     ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+if(!window.appointments) window.appointments = [];
+let _calView = 'week';  // 'week' | 'month'
+let _calOffset = 0;     // weeks or months from today
+
+const APPT_COLORS = {
+  Scheduled:'#3b82f6', Confirmed:'#10b981', Arrived:'#f59e0b',
+  Completed:'#94a3b8', Cancelled:'#ef4444', 'No Show':'#7c3aed'
+};
+const APPT_TYPES = [
+  'General Consultation','Dental','ANC / Antenatal','Family Planning',
+  'Follow-Up','Procedure','Specialist Referral','Lab Only','Immunisation',
+  'Eye Clinic','ENT','Physiotherapy','Counselling','Other'
+];
+
+function setCalView(v, btn) {
+  _calView = v; _calOffset = 0;
+  document.querySelectorAll('[id^="cal-btn-"]').forEach(b=>{
+    b.style.background='transparent';b.style.color='var(--p)';
+  });
+  if(btn){btn.style.background='var(--p)';btn.style.color='#fff';}
+  renderCalendar();
+}
+
+function calNav(dir) { _calOffset += dir; renderCalendar(); }
+function calGoToday() { _calOffset = 0; renderCalendar(); }
+
+function _getCalRange() {
+  const now = new Date();
+  if (_calView === 'week') {
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((now.getDay()||7)-1) + _calOffset*7);
+    const days = Array.from({length:7}, (_,i) => {
+      const d = new Date(monday); d.setDate(monday.getDate()+i); return d;
+    });
+    return { days, label: `${days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}` };
+  } else {
+    const base = new Date(now.getFullYear(), now.getMonth()+_calOffset, 1);
+    const daysInMonth = new Date(base.getFullYear(), base.getMonth()+1, 0).getDate();
+    const days = Array.from({length:daysInMonth}, (_,i) => new Date(base.getFullYear(), base.getMonth(), i+1));
+    return { days, label: base.toLocaleDateString('en-GB',{month:'long',year:'numeric'}) };
+  }
+}
+
+function _apptsByDate(dateStr) {
+  const search = (document.getElementById('appt-search')?.value||'').toLowerCase();
+  const statusF = document.getElementById('appt-status-filter')?.value||'';
+  const docF = document.getElementById('appt-doctor-filter')?.value||'';
+  return appointments.filter(a => {
+    if(a.date !== dateStr) return false;
+    if(statusF && a.status !== statusF) return false;
+    if(docF && a.doctor !== docF) return false;
+    if(search && !(a.patient+a.doctor+a.type).toLowerCase().includes(search)) return false;
+    return true;
+  });
+}
+
+function renderCalendar() {
+  // Populate doctor filter
+  const docSel = document.getElementById('appt-doctor-filter');
+  if(docSel && docSel.options.length <= 1) {
+    const docs = [...new Set(appointments.map(a=>a.doctor).filter(Boolean)),
+                  ...staffList.filter(s=>s.sections?.includes('doctor')).map(s=>s.name)];
+    const unique = [...new Set(docs)];
+    docSel.innerHTML = '<option value="">All Doctors</option>' + unique.map(d=>`<option>${d}</option>`).join('');
+  }
+
+  const {days, label} = _getCalRange();
+  const labelEl = document.getElementById('cal-period-label');
+  if(labelEl) labelEl.textContent = label;
+
+  // Update stat cards
+  const today = new Date().toLocaleDateString();
+  const todayAppts = appointments.filter(a=>a.date===today);
+  const upcoming = appointments.filter(a=>a.status==='Scheduled'||a.status==='Confirmed');
+  const statEl = document.getElementById('appt-stat-cards');
+  if(statEl) statEl.innerHTML = [
+    {l:'Today',v:todayAppts.length,c:'#1e3a8a'},
+    {l:'Confirmed',v:appointments.filter(a=>a.status==='Confirmed').length,c:'#065f46'},
+    {l:'Upcoming',v:upcoming.length,c:'#0369a1'},
+    {l:'No Shows',v:appointments.filter(a=>a.status==='No Show').length,c:'#dc2626'},
+    {l:'This Month',v:appointments.filter(a=>a.date?.startsWith(new Date().toISOString().slice(0,7).split('-').reverse().join('/'))).length,c:'#7c3aed'},
+  ].map(x=>`<div style="background:${x.c};color:#fff;border-radius:9px;padding:10px 14px;">
+    <div style="font-size:10px;opacity:.8;font-weight:700;text-transform:uppercase;">${x.l}</div>
+    <div style="font-size:20px;font-weight:800;margin-top:2px;">${x.v}</div>
+  </div>`).join('');
+
+  const grid = document.getElementById('cal-grid');
+  if(!grid) return;
+  const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const todayStr = new Date().toLocaleDateString();
+
+  if(_calView === 'week') {
+    let h = `<table style="width:100%;border-collapse:collapse;">
+      <tr>${days.map((d,i)=>{
+        const ds = d.toLocaleDateString();
+        const isToday = ds === todayStr;
+        const dayAppts = _apptsByDate(ds);
+        return`<th style="padding:6px 4px;border:1px solid var(--bd);background:${isToday?'var(--p)':'var(--lt)'};color:${isToday?'#fff':'var(--tx)'};font-size:12px;font-weight:700;min-width:100px;vertical-align:top;">
+          ${dayNames[i]}<br><span style="font-size:11px;opacity:.8;">${d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>
+          ${dayAppts.length?`<span style="display:inline-block;background:${isToday?'rgba(255,255,255,.3)':'var(--p)'};color:#fff;border-radius:10px;padding:0 6px;font-size:10px;margin-left:3px;">${dayAppts.length}</span>`:''}
+        </th>`;
+      }).join('')}</tr>
+      <tr>${days.map(d => {
+        const ds = d.toLocaleDateString();
+        const dayAppts = _apptsByDate(ds);
+        return `<td style="border:1px solid var(--bd);vertical-align:top;padding:4px;min-height:90px;cursor:pointer;" onclick="quickBookAppt('${ds}')">
+          ${dayAppts.map(a=>`<div onclick="event.stopPropagation();oApptModal('${a.id}')" style="background:${APPT_COLORS[a.status]||'#3b82f6'}22;border-left:3px solid ${APPT_COLORS[a.status]||'#3b82f6'};border-radius:4px;padding:3px 6px;margin-bottom:3px;font-size:11px;cursor:pointer;">
+            <div style="font-weight:700;color:${APPT_COLORS[a.status]||'#3b82f6'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.time||''} ${a.patient}</div>
+            <div style="color:var(--mu);font-size:10px;">${a.type||''} · ${a.doctor||''}</div>
+          </div>`).join('')}
+          <div style="color:#cbd5e1;font-size:11px;text-align:center;padding:4px;">+</div>
+        </td>`;
+      }).join('')}</tr>
+    </table>`;
+    grid.innerHTML = h;
+  } else {
+    // Month view — 7-column grid
+    const firstDay = days[0];
+    const startDow = (firstDay.getDay()||7)-1; // 0=Mon
+    const totalCells = Math.ceil((startDow + days.length) / 7) * 7;
+    let h = `<table style="width:100%;border-collapse:collapse;">
+      <tr>${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<th style="padding:5px;font-size:11px;font-weight:700;color:var(--mu);border:1px solid var(--bd);background:var(--lt);">${d}</th>`).join('')}</tr>`;
+    for(let row=0; row<Math.ceil(totalCells/7); row++){
+      h += '<tr>';
+      for(let col=0; col<7; col++){
+        const cell = row*7+col;
+        const dayIdx = cell - startDow;
+        if(dayIdx<0||dayIdx>=days.length){
+          h += '<td style="border:1px solid var(--bd);background:var(--lt);min-height:60px;"></td>';
+        } else {
+          const d = days[dayIdx];
+          const ds = d.toLocaleDateString();
+          const isToday = ds===todayStr;
+          const dayAppts = _apptsByDate(ds);
+          h += `<td style="border:1px solid var(--bd);vertical-align:top;padding:4px;min-height:60px;cursor:pointer;" onclick="quickBookAppt('${ds}')">
+            <div style="font-size:12px;font-weight:${isToday?800:600};color:${isToday?'var(--p)':'var(--tx)'};margin-bottom:3px;">${d.getDate()}</div>
+            ${dayAppts.slice(0,2).map(a=>`<div style="background:${APPT_COLORS[a.status]||'#3b82f6'};color:#fff;border-radius:3px;padding:1px 5px;font-size:10px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.time||''} ${a.patient}</div>`).join('')}
+            ${dayAppts.length>2?`<div style="font-size:10px;color:var(--mu);">+${dayAppts.length-2} more</div>`:''}
+          </td>`;
+        }
+      }
+      h += '</tr>';
+    }
+    h += '</table>';
+    grid.innerHTML = h;
+  }
+
+  // Also refresh day list
+  renderDayList();
+}
+
+function quickBookAppt(dateStr) {
+  oApptModal(null, dateStr);
+}
+
+function renderDayList() {
+  const dateEl = document.getElementById('appt-date-filter');
+  if(!dateEl) return;
+  if(!dateEl.value) {
+    const n = new Date(); dateEl.value = `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+  }
+  const selDate = new Date(dateEl.value).toLocaleDateString();
+  const dayAppts = _apptsByDate(selDate).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  const tbl = document.getElementById('table-appointments');
+  if(!tbl) return;
+  if(!dayAppts.length){
+    tbl.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--mu);padding:20px;">No appointments for this day. Click a calendar cell or "+ Book Appointment" to add one.</td></tr>`;
+    return;
+  }
+  let h=`<tr><th>Time</th><th>Patient</th><th>Type</th><th>Doctor</th><th>Phone</th><th>Status</th><th>Notes</th><th>Actions</th></tr>`;
+  dayAppts.forEach(a=>h+=`<tr>
+    <td style="font-weight:700;">${a.time||'—'}</td>
+    <td><b>${a.patient}</b></td>
+    <td style="font-size:12px;">${a.type||'—'}</td>
+    <td>${a.doctor||'—'}</td>
+    <td style="font-size:12px;">${a.phone||'—'}</td>
+    <td><span style="background:${APPT_COLORS[a.status]||'#94a3b8'}22;color:${APPT_COLORS[a.status]||'#374151'};border:1px solid ${APPT_COLORS[a.status]||'#94a3b8'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${a.status}</span></td>
+    <td style="font-size:11px;color:var(--mu);">${a.notes||'—'}</td>
+    <td style="white-space:nowrap;">
+      <button class="bsm" style="background:var(--p);color:#fff;" onclick="oApptModal('${a.id}')">✏</button>
+      <button class="bsm bo" onclick="apptArrive('${a.id}')">✅ Arrived</button>
+      <button class="bsm bo" onclick="deleteAppt('${a.id}')" style="color:#dc2626;border-color:#dc2626;">🗑</button>
+    </td>
+  </tr>`);
+  tbl.innerHTML = h;
+}
+
+function apptArrive(id) {
+  const a = appointments.find(x=>x.id===id);
+  if(!a) return;
+  a.status = 'Arrived';
+  _auditLog('APPOINTMENT_ARRIVED', a.patient+' arrived for '+a.type, id);
+  save(); renderCalendar();
+  _showToast(`✅ ${a.patient} marked as Arrived`,'#065f46');
+}
+
+function oApptModal(id, prefDate='') {
+  const a = id ? appointments.find(x=>x.id===id) : {};
+  let mo = document.getElementById('appt-modal');
+  if(!mo) {
+    mo = document.createElement('div'); mo.id='appt-modal'; mo.className='mo';
+    mo.innerHTML=`<div class="mb" style="max-width:580px;">
+      <button class="mc" onclick="cModal('appt-modal')">✕</button>
+      <h3 id="appt-modal-title" style="color:var(--p);margin-bottom:14px;">Book Appointment</h3>
+      <input type="hidden" id="appt-id">
+      <div class="g2">
+        <div><label>Patient Name *</label>
+          <input id="appt-patient" list="appt-pat-dl" placeholder="Search or type name..." oninput="apptPatSearch(this.value)" autocomplete="off">
+          <datalist id="appt-pat-dl"></datalist>
+        </div>
+        <div><label>Phone</label><input id="appt-phone" placeholder="Patient phone number"></div>
+      </div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Date *</label><input type="date" id="appt-date"></div>
+        <div><label>Time *</label><input type="time" id="appt-time"></div>
+      </div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Appointment Type</label><select id="appt-type">${APPT_TYPES.map(t=>`<option>${t}</option>`).join('')}</select></div>
+        <div><label>Attending Doctor</label>
+          <select id="appt-doctor"><option value="">-- Select Doctor --</option></select>
+        </div>
+      </div>
+      <div class="g2" style="margin-top:6px;">
+        <div><label>Status</label>
+          <select id="appt-status"><option>Scheduled</option><option>Confirmed</option><option>Arrived</option><option>Completed</option><option>Cancelled</option><option>No Show</option></select>
+        </div>
+        <div><label>Duration (mins)</label><input type="number" id="appt-duration" placeholder="15" min="5" max="240" value="15"></div>
+      </div>
+      <div style="margin-top:6px;"><label>Notes / Instructions to Patient</label><textarea id="appt-notes" rows="2" placeholder="Special instructions, bring fasting, bring previous results..."></textarea></div>
+      <!-- SMS/WhatsApp reminder -->
+      <div style="margin-top:8px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:7px;padding:10px 14px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+          <input type="checkbox" id="appt-send-reminder" style="width:16px;height:16px;"> Send SMS/WhatsApp reminder to patient
+        </label>
+        <div id="appt-reminder-preview" style="font-size:11px;color:#065f46;margin-top:5px;display:none;"></div>
+      </div>
+      <div class="ab">
+        <button onclick="saveAppt()" class="bp">💾 Save Appointment</button>
+        ${id?`<button onclick="deleteAppt('${id}')" style="background:#dc2626;color:#fff;border:none;border-radius:7px;padding:7px 14px;cursor:pointer;font-weight:600;">🗑 Delete</button>`:''}
+        <button onclick="cModal('appt-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button>
+      </div>
+    </div>`;
+    document.body.appendChild(mo);
+    // Reminder checkbox handler
+    document.getElementById('appt-send-reminder').addEventListener('change', e=>{
+      const prev=document.getElementById('appt-reminder-preview');
+      if(e.target.checked&&prev){
+        const pat=document.getElementById('appt-patient')?.value||'[Patient]';
+        const dt=document.getElementById('appt-date')?.value||'';
+        const tm=document.getElementById('appt-time')?.value||'';
+        const fac=_getFacilitySettings();
+        prev.style.display='block';
+        prev.textContent=`SMS Preview: "Hello ${pat}, your appointment at ${fac.name||'Tali Medicals'} is confirmed for ${dt} at ${tm}. Please arrive 10 minutes early. Call ${fac.phone||''} to reschedule."`;
+      } else if(prev) prev.style.display='none';
+    });
+  }
+  // Populate doctors
+  const docSel=document.getElementById('appt-doctor');
+  const docs=staffList.filter(s=>s.sections?.includes('doctor'));
+  docSel.innerHTML='<option value="">-- Select Doctor --</option>'+docs.map(d=>`<option>${d.name}</option>`).join('');
+  document.getElementById('appt-modal-title').textContent=id?'Edit Appointment':'Book Appointment';
+  document.getElementById('appt-id').value=id||'';
+  document.getElementById('appt-patient').value=a.patient||'';
+  document.getElementById('appt-phone').value=a.phone||'';
+  // Format date for input[type=date]
+  let dateVal=a.date||'';
+  if(prefDate&&!id){
+    try{const d=new Date(prefDate);dateVal=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}catch(e){}
+  }
+  document.getElementById('appt-date').value=dateVal;
+  document.getElementById('appt-time').value=a.time||'09:00';
+  document.getElementById('appt-type').value=a.type||APPT_TYPES[0];
+  document.getElementById('appt-doctor').value=a.doctor||'';
+  document.getElementById('appt-status').value=a.status||'Scheduled';
+  document.getElementById('appt-duration').value=a.duration||15;
+  document.getElementById('appt-notes').value=a.notes||'';
+  document.getElementById('appt-send-reminder').checked=false;
+  oModal('appt-modal');
+}
+
+function apptPatSearch(q){
+  const dl=document.getElementById('appt-pat-dl');if(!dl)return;
+  const phone=document.getElementById('appt-phone');
+  const matches=patients.filter(p=>p.name&&p.name.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+  dl.innerHTML=matches.map(p=>`<option value="${p.name}" data-phone="${p.phone||''}">${p.name} — ${p.ageVal} ${p.ageUnit}</option>`).join('');
+  // Auto-fill phone
+  const match=matches.find(p=>p.name.toLowerCase()===q.toLowerCase());
+  if(match&&phone)phone.value=match.phone||'';
+}
+
+function saveAppt(){
+  const patient=document.getElementById('appt-patient').value.trim();
+  const date=document.getElementById('appt-date').value;
+  const time=document.getElementById('appt-time').value;
+  if(!patient||!date||!time)return alert('Patient name, date and time are required.');
+  const id=document.getElementById('appt-id').value||'APT-'+Date.now().toString().slice(-7);
+  const existing=appointments.find(a=>a.id===id);
+  // Convert date for storage — use ISO for filtering
+  const dateObj=new Date(date);
+  const localDateStr=dateObj.toLocaleDateString();
+  const rec={id,patient,phone:document.getElementById('appt-phone').value,
+    date:localDateStr,dateISO:date,time,type:document.getElementById('appt-type').value,
+    doctor:document.getElementById('appt-doctor').value,status:document.getElementById('appt-status').value,
+    duration:parseInt(document.getElementById('appt-duration').value)||15,
+    notes:document.getElementById('appt-notes').value,
+    bookedBy:currentUser?.name||'—',bookedAt:existing?.bookedAt||new Date().toLocaleString()};
+  if(existing){Object.assign(existing,rec);}else{appointments.push(rec);}
+  // Simulated SMS reminder
+  const sendReminder=document.getElementById('appt-send-reminder')?.checked;
+  if(sendReminder&&rec.phone){
+    const fac=_getFacilitySettings();
+    _showToast(`📱 SMS reminder sent to ${rec.phone} for ${rec.patient}`,'#065f46');
+    _auditLog('SMS_REMINDER_SENT',rec.patient+' — '+rec.date+' '+rec.time,id);
+  }
+  _auditLog(existing?'APPOINTMENT_UPDATED':'APPOINTMENT_CREATED',rec.patient+' '+rec.date+' '+rec.time,id);
+  save(); cModal('appt-modal'); renderCalendar();
+  _showToast('✅ Appointment saved','#065f46');
+}
+
+function deleteAppt(id){
+  const a=appointments.find(x=>x.id===id);
+  if(!a||!confirm(`Cancel appointment for ${a.patient}?`))return;
+  appointments=appointments.filter(x=>x.id!==id);
+  _auditLog('APPOINTMENT_DELETED',a.patient+' '+a.date,id);
+  save(); cModal('appt-modal'); renderCalendar();
+}
+
+function exportApptsCSV(){
+  const rows=[['ID','Patient','Phone','Date','Time','Type','Doctor','Status','Duration','Notes','Booked By']];
+  appointments.forEach(a=>rows.push([a.id,a.patient,a.phone||'',a.date,a.time||'',a.type||'',a.doctor||'',a.status||'',a.duration||'',a.notes||'',a.bookedBy||'']));
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const link=document.createElement('a');link.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  link.download='tali_appointments_'+new Date().toISOString().slice(0,10)+'.csv';link.click();
+}
+
+// Patch renderAppointments (used by doctor section) to use new data
+function renderDocAppointments(){
+  const dateEl=document.getElementById('doc-appt-date');
+  const dateStr=dateEl?.value;
+  if(!dateStr)return;
+  const selDate=new Date(dateStr).toLocaleDateString();
+  const docAppts=appointments.filter(a=>a.date===selDate&&(a.doctor===currentUser?.name||!a.doctor)).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  const tbl=document.getElementById('table-doc-appointments');if(!tbl)return;
+  if(!docAppts.length){tbl.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--mu);padding:16px;">No appointments for this date.</td></tr>`;return;}
+  let h=`<tr><th>Time</th><th>Patient</th><th>Type</th><th>Status</th><th>Notes</th></tr>`;
+  docAppts.forEach(a=>h+=`<tr>
+    <td style="font-weight:700;">${a.time||'—'}</td>
+    <td><b>${a.patient}</b>${a.phone?`<br><span style="font-size:11px;color:var(--mu);">${a.phone}</span>`:''}</td>
+    <td>${a.type||'—'}</td>
+    <td><span style="background:${APPT_COLORS[a.status]||'#94a3b8'}22;color:${APPT_COLORS[a.status]||'#374151'};border:1px solid ${APPT_COLORS[a.status]||'#94a3b8'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${a.status}</span></td>
+    <td style="font-size:11px;">${a.notes||'—'}</td>
+  </tr>`);
+  tbl.innerHTML=h;
+}
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  MODULE 3 — STOCK EXPIRY DASHBOARD                              ║
+// ║  30/60/90 day buckets · write-off · audit trail                 ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+function renderExpiryDashboard(){
+  const dash=document.getElementById('expiry-dashboard');
+  const invList=document.getElementById('inv-list');
+  if(!dash)return;
+  dash.style.display='block';
+  if(invList)invList.style.display='none';
+
+  const now=new Date();
+  function parsedExpiry(i){
+    if(!i.expiry)return null;
+    // Support YYYY-MM or YYYY-MM-DD
+    const parts=i.expiry.split('-');
+    return parts.length>=2?new Date(parts[0],parseInt(parts[1])-1,parts[2]||1):null;
+  }
+  function daysUntil(d){return Math.round((d-now)/(1000*60*60*24));}
+
+  const buckets={
+    expired:  {label:'🔴 EXPIRED',      color:'#dc2626', bg:'#fee2e2', border:'#ef4444', items:[]},
+    d30:      {label:'🟠 Expires ≤ 30d', color:'#c2410c', bg:'#fff7ed', border:'#fed7aa', items:[]},
+    d60:      {label:'🟡 Expires 31–60d',color:'#92400e', bg:'#fef9c3', border:'#fde68a', items:[]},
+    d90:      {label:'🔵 Expires 61–90d',color:'#1d4ed8', bg:'#eff6ff', border:'#bfdbfe', items:[]},
+    beyond:   {label:'✅ Expires > 90d', color:'#065f46', bg:'#f0fdf4', border:'#bbf7d0', items:[]},
+  };
+
+  let noExpiry=0;
+  inventory.forEach(i=>{
+    const exp=parsedExpiry(i);
+    if(!exp){noExpiry++;return;}
+    const days=daysUntil(exp);
+    if(days<0)        buckets.expired.items.push({...i,days});
+    else if(days<=30) buckets.d30.items.push({...i,days});
+    else if(days<=60) buckets.d60.items.push({...i,days});
+    else if(days<=90) buckets.d90.items.push({...i,days});
+    else              buckets.beyond.items.push({...i,days});
+  });
+
+  // Sort each bucket by days ascending (most urgent first)
+  Object.values(buckets).forEach(b=>b.items.sort((a,b2)=>a.days-b2.days));
+
+  const totalValue=inv=>{const val=inv.reduce((s,i)=>s+(i.stock*(i.price||0)),0);return'$'+val.toFixed(2);};
+  const atRisk=[...buckets.expired.items,...buckets.d30.items,...buckets.d60.items];
+  const atRiskVal=atRisk.reduce((s,i)=>s+(i.stock*(i.price||0)),0);
+
+  let html=`
+    <!-- Summary cards -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:14px;">
+      ${[
+        {l:'Expired Items',v:buckets.expired.items.length,c:'#dc2626'},
+        {l:'Expires ≤ 30d',v:buckets.d30.items.length,c:'#c2410c'},
+        {l:'Expires 31–60d',v:buckets.d60.items.length,c:'#92400e'},
+        {l:'Expires 61–90d',v:buckets.d90.items.length,c:'#1d4ed8'},
+        {l:'Value at Risk',v:'$'+atRiskVal.toFixed(2),c:'#7c3aed'},
+        {l:'No Expiry Date',v:noExpiry,c:'#64748b'},
+      ].map(x=>`<div style="background:${x.c};color:#fff;border-radius:9px;padding:11px 14px;">
+        <div style="font-size:10px;opacity:.8;font-weight:700;text-transform:uppercase;">${x.l}</div>
+        <div style="font-size:18px;font-weight:800;margin-top:3px;">${x.v}</div>
+      </div>`).join('')}
+    </div>
+
+    <!-- Bulk actions bar -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+      <button onclick="writeOffExpired()" style="background:#dc2626;color:#fff;border:none;border-radius:7px;padding:7px 16px;font-weight:700;font-size:13px;cursor:pointer;">🗑 Write Off All Expired</button>
+      <button onclick="exportExpiryCSV()" class="bo" style="font-size:12px;">⬇ Export Expiry Report CSV</button>
+      <span style="font-size:12px;color:var(--mu);">Total value at risk (≤90d): <b style="color:#dc2626;">$${atRiskVal.toFixed(2)}</b></span>
+    </div>`;
+
+  // Render each bucket
+  Object.entries(buckets).forEach(([key,bkt])=>{
+    if(!bkt.items.length)return;
+    html+=`<div style="margin-bottom:14px;">
+      <div style="background:${bkt.bg};border:1.5px solid ${bkt.border};border-radius:8px;overflow:hidden;">
+        <div style="background:${bkt.color};color:#fff;padding:9px 16px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:800;">${bkt.label} <span style="font-weight:400;opacity:.8;">(${bkt.items.length} items · ${totalValue(bkt.items)})</span></span>
+          <button onclick="this.closest('div').nextElementSibling.style.display=this.closest('div').nextElementSibling.style.display==='none'?'block':'none'" style="background:rgba(255,255,255,.2);border:none;border-radius:5px;color:#fff;padding:3px 10px;cursor:pointer;font-size:12px;">Toggle</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;font-size:12px;border-collapse:collapse;">
+            <tr style="background:${bkt.bg};">
+              <th style="padding:7px 10px;text-align:left;">Item</th>
+              <th>Class</th><th>Stock</th><th>Unit</th><th>Value</th>
+              <th>Expiry</th><th>Days</th><th>Supplier</th><th>Actions</th>
+            </tr>
+            ${bkt.items.map(i=>`<tr style="border-bottom:1px solid ${bkt.border};">
+              <td style="padding:6px 10px;font-weight:700;">${i.name} ${i.strength||''}</td>
+              <td style="color:var(--mu);font-size:11px;">${i.drugClass||'—'}</td>
+              <td style="font-weight:700;color:${i.stock<=0?'#dc2626':'inherit'};">${i.stock}</td>
+              <td style="font-size:11px;">${i.unit||'—'}</td>
+              <td>$${((i.stock||0)*(i.price||0)).toFixed(2)}</td>
+              <td style="font-weight:700;color:${bkt.color};">${i.expiry||'—'}</td>
+              <td style="font-weight:800;color:${bkt.color};">${i.days<0?Math.abs(i.days)+' days ago':i.days+'d'}</td>
+              <td style="font-size:11px;">${suppliers.find(s=>s.id===i.supplierId)?.name||'—'}</td>
+              <td style="white-space:nowrap;">
+                <button class="bsm bo" onclick="writeOffSingle('${i.id}')" style="color:#dc2626;border-color:#dc2626;font-size:11px;">🗑 Write Off</button>
+                <button class="bsm bo" onclick="quarantineItem('${i.id}')" style="font-size:11px;">🔒 Quarantine</button>
+              </td>
+            </tr>`).join('')}
+          </table>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  if(!Object.values(buckets).some(b=>b.items.length)){
+    html+=`<div style="text-align:center;padding:40px;color:var(--mu);">
+      <div style="font-size:40px;margin-bottom:10px;">✅</div>
+      <div style="font-weight:700;font-size:16px;">All inventory is within expiry limits</div>
+      <div style="font-size:13px;margin-top:5px;">No items expiring within 90 days.</div>
+    </div>`;
+  }
+
+  dash.innerHTML=html;
+}
+
+function writeOffExpired(){
+  const now=new Date();
+  const expired=inventory.filter(i=>{
+    if(!i.expiry)return false;
+    const parts=i.expiry.split('-');
+    const exp=new Date(parts[0],parseInt(parts[1])-1,parts[2]||1);
+    return exp<now&&i.stock>0;
+  });
+  if(!expired.length)return alert('No expired items with stock to write off.');
+  const totalVal=expired.reduce((s,i)=>s+(i.stock*(i.price||0)),0);
+  if(!confirm(`Write off ${expired.length} expired items with total value $${totalVal.toFixed(2)}?\n\nThis will set their stock to 0 and log an audit entry.`))return;
+  expired.forEach(i=>{
+    _auditLog('WRITE_OFF_EXPIRED',`${i.name} ${i.strength||''} — ${i.stock} ${i.unit||''} written off (expired ${i.expiry})`,i.id);
+    i.stock=0;
+  });
+  save();renderExpiryDashboard();checkNearExpiry();
+  _showToast(`🗑 ${expired.length} expired items written off`,'#dc2626');
+}
+
+function writeOffSingle(id){
+  const i=inventory.find(x=>x.id===id);if(!i)return;
+  if(!confirm(`Write off all ${i.stock} units of ${i.name} ${i.strength||''}?\nExpiry: ${i.expiry}`))return;
+  _auditLog('WRITE_OFF_SINGLE',`${i.name} ${i.strength||''} — ${i.stock} units written off`,id);
+  i.stock=0;
+  save();renderExpiryDashboard();checkNearExpiry();
+  _showToast(`🗑 ${i.name} written off`,'#dc2626');
+}
+
+function quarantineItem(id){
+  const i=inventory.find(x=>x.id===id);if(!i)return;
+  i.quarantined=true;i.quarantinedAt=new Date().toLocaleString();i.quarantinedBy=currentUser?.name||'—';
+  _auditLog('ITEM_QUARANTINED',`${i.name} ${i.strength||''} quarantined`,id);
+  save();renderExpiryDashboard();
+  _showToast(`🔒 ${i.name} quarantined — marked for return/disposal`,'#92400e');
+}
+
+function exportExpiryCSV(){
+  const now=new Date();
+  const rows=[['Item','Strength','Class','Stock','Unit','Price','Value','Expiry','Days Until Expiry','Status','Supplier']];
+  inventory.filter(i=>i.expiry).forEach(i=>{
+    const parts=i.expiry.split('-');
+    const exp=new Date(parts[0],parseInt(parts[1])-1,parts[2]||1);
+    const days=Math.round((exp-now)/(1000*60*60*24));
+    const status=days<0?'EXPIRED':days<=30?'CRITICAL':days<=60?'WARNING':days<=90?'WATCH':'OK';
+    rows.push([i.name,i.strength||'',i.drugClass||'',i.stock,i.unit||'',i.price||0,((i.stock||0)*(i.price||0)).toFixed(2),i.expiry,days,status,suppliers.find(s=>s.id===i.supplierId)?.name||'']);
+  });
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='tali_expiry_report_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+
+// ── Persist appointments & patch save ────────────────────────
+const _origSave3=window.save;
+window.save=function(){
+  if(_origSave3)_origSave3();
+  try{localStorage.setItem('tali_appointments',JSON.stringify(window.appointments||[]));}catch(e){}
+};
+try{const la=localStorage.getItem('tali_appointments');if(la)window.appointments=JSON.parse(la);}catch(e){}
+
+// Init calendar on load
+setTimeout(()=>{
+  const dateEl=document.getElementById('appt-date-filter');
+  if(dateEl){const n=new Date();dateEl.value=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;}
+  updateSLABanners();
+},1500);
+
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  CONSULTATION STEP RAIL — navigation & completion badges        ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+let _activeConsStep = 1;
+
+function openConsStep(n) {
+  _activeConsStep = n;
+  // Deactivate all tabs + panels
+  for(let i=1;i<=6;i++){
+    const tab   = document.getElementById('cstab-'+i);
+    const panel = document.getElementById('cspanel-'+i);
+    if(tab)   tab.classList.remove('active');
+    if(panel) panel.classList.remove('active');
+  }
+  // Activate selected
+  const activeTab   = document.getElementById('cstab-'+n);
+  const activePanel = document.getElementById('cspanel-'+n);
+  if(activeTab)   activeTab.classList.add('active');
+  if(activePanel) activePanel.classList.add('active');
+  // Scroll rail so active tab is visible
+  if(activeTab) activeTab.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+  // Refresh step-specific content
+  if(n===3){ filterLabTests(); _refreshProcList && _refreshProcList(); }
+  if(n===4){ if(typeof filterMeds==='function') filterMeds(); }
+  updateConsStepBadges();
+}
+
+function updateConsStepBadges() {
+  // Step 1 — History: has PC or HPC
+  const s1done = !!(document.getElementById('hPC')?.value || document.getElementById('hHPC')?.value?.trim());
+  // Step 2 — Exam: has any PE field
+  const s2done = !!(document.getElementById('hPEGeneral')?.value?.trim() || document.getElementById('hPEChest')?.value?.trim());
+  // Step 3 — Ix: has any lab or radiology order
+  const labDisplay = document.getElementById('selected-labs-display');
+  const radList    = document.getElementById('rad-orders-list');
+  const s3done = !!(labDisplay?.children.length || (radList && radList.querySelectorAll('input[value]').length));
+  // Step 4 — Rx: has any prescription row
+  const medList = document.getElementById('med-orders-list');
+  const s4done = !!(medList && medList.querySelectorAll('.rx-card,.med-row,[data-drug]').length);
+  // Step 5 — Procedures: has any proc order
+  const procList = document.getElementById('proc-orders-list');
+  const s5done = !!(procList && procList.children.length);
+  // Step 6 — Summary: has final Dx
+  const s6done = !!(document.getElementById('cFinalDx')?.value?.trim());
+
+  [s1done,s2done,s3done,s4done,s5done,s6done].forEach((done,i)=>{
+    const tab   = document.getElementById('cstab-'+(i+1));
+    const badge = document.getElementById('csbadge-'+(i+1));
+    if(!tab) return;
+    if(done){ tab.classList.add('done'); if(badge)badge.style.display='flex'; }
+    else    { tab.classList.remove('done'); if(badge)badge.style.display='none'; }
+  });
+}
+
+// Kick off on consultation open and after every save
+const _origOpenCons = window.openCons;
+window.openCons = function(id){
+  if(_origOpenCons) _origOpenCons(id);
+  // Open step 1 each time a new consultation is opened
+  setTimeout(()=>{ openConsStep(1); updateConsStepBadges(); }, 80);
+};
+
+// Update badges whenever saveClinical runs
+const _origSaveClinical = window.saveClinical;
+window.saveClinical = function(){
+  if(_origSaveClinical) _origSaveClinical();
+  updateConsStepBadges();
+};
 
 </script>
 
