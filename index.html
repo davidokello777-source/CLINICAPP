@@ -2127,8 +2127,270 @@ document.addEventListener("DOMContentLoaded", function(){
       <div class="card" style="padding:9px;"><table id="table-feedbacks"></table></div>
     </section>
 
-  </div>
-</div>
+
+
+    <!-- ══ ENT SECTION ══ -->
+    <section id="sec-ent">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+        <h3>👂 ENT Clinic — Ear, Nose &amp; Throat</h3>
+        <div style="display:flex;gap:6px;">
+          <button class="ba" onclick="openENTConsModal()">+ New ENT Consultation</button>
+          <button class="bo" onclick="printENTSummary()">🖨 Print Daily</button>
+        </div>
+      </div>
+      <div class="stabs" id="ent-tabs">
+        <button class="st active" onclick="swENT('queue',this)">👂 Queue</button>
+        <button class="st" onclick="swENT('audiogram',this)">🎧 Audiogram</button>
+        <button class="st" onclick="swENT('records',this)">📋 Records</button>
+        <button class="st" onclick="swENT('supplies',this)">📦 Supplies</button>
+        <button class="st" onclick="swENT('guide',this)">📖 ENT Guide</button>
+      </div>
+
+      <!-- Queue panel -->
+      <div id="ent-queue-panel">
+        <div id="ent-stats" class="g4" style="margin-bottom:10px;"></div>
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">Today's ENT Queue</h4>
+          <table id="ent-queue-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- Audiogram panel -->
+      <div id="ent-audiogram-panel" style="display:none;">
+        <div class="card">
+          <h4 style="margin-bottom:10px;color:var(--p);">🎧 Hearing Assessment — Audiogram</h4>
+          <div style="background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:7px;padding:10px;margin-bottom:12px;">
+            <label style="font-size:11px;">Select Patient</label>
+            <select id="ent-audio-patient" onchange="renderAudiogram()" style="max-width:280px;">
+              <option value="">— Select an ENT patient —</option>
+            </select>
+          </div>
+          <div id="audiogram-wrap">
+            <p class="emp">Select a patient to record hearing assessment.</p>
+          </div>
+          <div id="audiogram-entry" style="display:none;margin-top:12px;">
+            <div class="g2" style="margin-bottom:10px;">
+              <div>
+                <h5 style="color:var(--pu);margin-bottom:8px;">🔵 Right Ear (dB HL)</h5>
+                <div id="ent-right-ear"></div>
+              </div>
+              <div>
+                <h5 style="color:#dc2626;margin-bottom:8px;">🔴 Left Ear (dB HL)</h5>
+                <div id="ent-left-ear"></div>
+              </div>
+            </div>
+            <div><label>Tympanometry / Notes</label><textarea id="ent-audio-notes" rows="3" placeholder="Type A/B/C, acoustic reflex, speech discrimination score…"></textarea></div>
+            <div class="ab"><button onclick="saveAudiogram()" class="ba">💾 Save Assessment</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Records panel -->
+      <div id="ent-records-panel" style="display:none;">
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">ENT Records</h4>
+          <input id="ent-rec-search" placeholder="🔍 Search patient name…" oninput="renderENTRecords()" style="max-width:260px;margin-bottom:8px;font-size:12px;">
+          <table id="ent-records-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- Supplies panel -->
+      <div id="ent-supplies-panel" style="display:none;">
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">👂 ENT Supplies</h4>
+          <table id="ent-supplies-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- ENT Guide panel -->
+      <div id="ent-guide-panel" style="display:none;">
+        <div class="card">
+          <h4 style="margin-bottom:10px;color:var(--pu);">📖 ENT Clinical Quick Reference</h4>
+          <div id="ent-guide-content"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ DENTAL SECTION ══ -->
+    <section id="sec-dental">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+        <h3>🦷 Dental Clinic</h3>
+        <div style="display:flex;gap:6px;">
+          <button class="ba" onclick="openDentalConsModal()">+ New Dental Consultation</button>
+          <button class="bo" onclick="printDentalSummary()">🖨 Print Daily</button>
+        </div>
+      </div>
+      <div class="stabs" id="dental-tabs">
+        <button class="st active" onclick="swDental('queue',this)">🪥 Queue</button>
+        <button class="st" onclick="swDental('chart',this)">🦷 Tooth Chart</button>
+        <button class="st" onclick="swDental('records',this)">📋 Records</button>
+        <button class="st" onclick="swDental('supplies',this)">📦 Supplies</button>
+      </div>
+
+      <!-- Queue panel -->
+      <div id="dental-queue-panel">
+        <div id="dental-stats" class="g4" style="margin-bottom:10px;"></div>
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">Today's Dental Queue</h4>
+          <table id="dental-queue-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- Tooth Chart panel -->
+      <div id="dental-chart-panel" style="display:none;">
+        <div class="card">
+          <h4 style="margin-bottom:10px;color:var(--p);">🦷 Universal Tooth Charting</h4>
+          <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:7px;padding:10px;margin-bottom:12px;">
+            <label style="font-size:11px;">Select Patient</label>
+            <select id="dental-chart-patient" onchange="renderToothChart()" style="max-width:280px;">
+              <option value="">— Select a dental patient —</option>
+            </select>
+          </div>
+          <div id="tooth-chart-wrap">
+            <p class="emp">Select a patient above to view/update their tooth chart.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Records panel -->
+      <div id="dental-records-panel" style="display:none;">
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">Dental Records</h4>
+          <div style="display:flex;gap:7px;margin-bottom:8px;flex-wrap:wrap;">
+            <input id="dental-rec-search" placeholder="🔍 Search patient name…" oninput="renderDentalRecords()" style="width:220px;margin:0;font-size:12px;">
+          </div>
+          <table id="dental-records-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- Dental supplies panel -->
+      <div id="dental-supplies-panel" style="display:none;">
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">🦷 Dental Supplies Inventory</h4>
+          <table id="dental-supplies-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PHYSIOTHERAPY SECTION ══ -->
+    <section id="sec-physiotherapy">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+        <h3>🏃 Physiotherapy</h3>
+        <div style="display:flex;gap:6px;">
+          <button class="ba" onclick="openPhysioSessionModal()">+ New Session</button>
+          <button class="bo" onclick="printPhysioReport()">🖨 Print Report</button>
+        </div>
+      </div>
+      <div class="stabs" id="physio-tabs">
+        <button class="st active" onclick="swPhysio('queue',this)">📋 Patient Queue</button>
+        <button class="st" onclick="swPhysio('sessions',this)">🏃 Sessions</button>
+        <button class="st" onclick="swPhysio('exercises',this)">💪 Exercise Plans</button>
+        <button class="st" onclick="swPhysio('stats',this)">📊 Statistics</button>
+      </div>
+
+      <!-- Queue panel -->
+      <div id="physio-queue-panel">
+        <div id="physio-stats" class="g4" style="margin-bottom:10px;"></div>
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">Physiotherapy Patient Queue</h4>
+          <table id="physio-queue-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- Sessions panel -->
+      <div id="physio-sessions-panel" style="display:none;">
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">📅 Session Log</h4>
+          <div style="display:flex;gap:7px;margin-bottom:8px;flex-wrap:wrap;">
+            <input id="physio-session-search" placeholder="🔍 Search patient…" oninput="renderPhysioSessions()" style="width:220px;margin:0;font-size:12px;">
+            <input type="month" id="physio-session-month" onchange="renderPhysioSessions()" style="margin:0;font-size:12px;width:auto;">
+          </div>
+          <table id="physio-sessions-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- Exercise Plans panel -->
+      <div id="physio-exercises-panel" style="display:none;">
+        <div class="card">
+          <h4 style="margin-bottom:10px;color:var(--p);">💪 Personalised Exercise Plans</h4>
+          <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:7px;padding:10px;margin-bottom:12px;">
+            <label style="font-size:11px;">Select Patient</label>
+            <select id="physio-plan-patient" onchange="renderExercisePlan()" style="max-width:280px;">
+              <option value="">— Select a patient —</option>
+            </select>
+          </div>
+          <div id="physio-plan-wrap">
+            <p class="emp">Select a patient to view or create their exercise plan.</p>
+          </div>
+          <div id="physio-plan-editor" style="display:none;margin-top:12px;">
+            <label>Exercise Plan Notes</label>
+            <textarea id="physio-plan-notes" rows="6" placeholder="List exercises, sets, reps, frequency, precautions…"></textarea>
+            <div class="ab"><button onclick="saveExercisePlan()" class="ba">💾 Save Plan</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats panel -->
+      <div id="physio-stats-panel" style="display:none;">
+        <div class="g2">
+          <div class="card">
+            <h4 style="margin-bottom:8px;">📊 Sessions This Month</h4>
+            <div style="position:relative;height:200px;"><canvas id="ch-physio-monthly"></canvas></div>
+          </div>
+          <div class="card">
+            <h4 style="margin-bottom:8px;">🏷 Conditions Treated</h4>
+            <div style="position:relative;height:200px;"><canvas id="ch-physio-conditions"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <h4 style="margin-bottom:8px;">📋 Physio Statistics Summary</h4>
+          <table id="physio-stats-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-suppliers">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+        <h3>🏪 Supplier Management</h3>
+        <button onclick="oSupModal()" class="ba" style="font-size:14px;padding:8px 18px;">+ Add Supplier</button>
+      </div>
+      <!-- Summary cards -->
+      <div class="g4" style="margin-bottom:12px;" id="sup-summary-cards"></div>
+      <!-- Supplier table -->
+      <div class="card" style="padding:9px;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
+          <input id="sup-search" placeholder="🔍 Search suppliers…" oninput="renderSuppliers()" style="width:220px;margin:0;font-size:12px;">
+          <button onclick="oSupModal()" class="ba" style="padding:5px 14px;font-size:13px;">+ Add Supplier</button>
+        </div>
+        <table id="table-suppliers" style="font-size:13px;"></table>
+      </div>
+      <!-- Supplier detail / PO panel -->
+      <div id="sup-detail-wrap" style="display:none;margin-top:12px;">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+            <h4 id="sup-detail-name" style="margin:0;color:var(--p);"></h4>
+            <button onclick="document.getElementById('sup-detail-wrap').style.display='none'" style="background:#e2e8f0;color:#475569;font-size:12px;padding:4px 10px;border-radius:5px;border:none;cursor:pointer;">✕ Close</button>
+          </div>
+          <!-- Info strip -->
+          <div id="sup-detail-info" style="font-size:13px;margin-bottom:10px;background:#f8fafc;border-radius:6px;padding:8px 12px;"></div>
+          <!-- Items supplied -->
+          <h5 style="margin-bottom:6px;color:var(--mu);font-size:11px;text-transform:uppercase;">Items Supplied</h5>
+          <div id="sup-items-list" style="margin-bottom:12px;font-size:13px;"></div>
+          <!-- PO log -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <h5 style="margin:0;color:var(--mu);font-size:11px;text-transform:uppercase;">Purchase Orders / Deliveries</h5>
+            <button onclick="oModal('sup-po-modal')" class="ba bsm">+ Add Purchase Order</button>
+          </div>
+          <table id="sup-po-table" style="font-size:13px;"></table>
+          <!-- Balance -->
+          <div id="sup-balance-bar" style="margin-top:10px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:7px;padding:10px 14px;font-size:13px;"></div>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /con -->
+  </div><!-- /main-wrap -->
+</div><!-- /app -->
 
 <!-- MODALS -->
 <div id="edit-modal" class="mo">
@@ -14686,267 +14948,6 @@ window.saveClinical = function(){
     </div>
   </div>
 </div><!-- /inv-import-modal -->
-
-    <!-- ══ ENT SECTION ══ -->
-    <section id="sec-ent">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
-        <h3>👂 ENT Clinic — Ear, Nose &amp; Throat</h3>
-        <div style="display:flex;gap:6px;">
-          <button class="ba" onclick="openENTConsModal()">+ New ENT Consultation</button>
-          <button class="bo" onclick="printENTSummary()">🖨 Print Daily</button>
-        </div>
-      </div>
-      <div class="stabs" id="ent-tabs">
-        <button class="st active" onclick="swENT('queue',this)">👂 Queue</button>
-        <button class="st" onclick="swENT('audiogram',this)">🎧 Audiogram</button>
-        <button class="st" onclick="swENT('records',this)">📋 Records</button>
-        <button class="st" onclick="swENT('supplies',this)">📦 Supplies</button>
-        <button class="st" onclick="swENT('guide',this)">📖 ENT Guide</button>
-      </div>
-
-      <!-- Queue panel -->
-      <div id="ent-queue-panel">
-        <div id="ent-stats" class="g4" style="margin-bottom:10px;"></div>
-        <div class="card" style="padding:9px;">
-          <h4 style="margin-bottom:8px;color:var(--p);">Today's ENT Queue</h4>
-          <table id="ent-queue-table" style="font-size:13px;"></table>
-        </div>
-      </div>
-
-      <!-- Audiogram panel -->
-      <div id="ent-audiogram-panel" style="display:none;">
-        <div class="card">
-          <h4 style="margin-bottom:10px;color:var(--p);">🎧 Hearing Assessment — Audiogram</h4>
-          <div style="background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:7px;padding:10px;margin-bottom:12px;">
-            <label style="font-size:11px;">Select Patient</label>
-            <select id="ent-audio-patient" onchange="renderAudiogram()" style="max-width:280px;">
-              <option value="">— Select an ENT patient —</option>
-            </select>
-          </div>
-          <div id="audiogram-wrap">
-            <p class="emp">Select a patient to record hearing assessment.</p>
-          </div>
-          <div id="audiogram-entry" style="display:none;margin-top:12px;">
-            <div class="g2" style="margin-bottom:10px;">
-              <div>
-                <h5 style="color:var(--pu);margin-bottom:8px;">🔵 Right Ear (dB HL)</h5>
-                <div id="ent-right-ear"></div>
-              </div>
-              <div>
-                <h5 style="color:#dc2626;margin-bottom:8px;">🔴 Left Ear (dB HL)</h5>
-                <div id="ent-left-ear"></div>
-              </div>
-            </div>
-            <div><label>Tympanometry / Notes</label><textarea id="ent-audio-notes" rows="3" placeholder="Type A/B/C, acoustic reflex, speech discrimination score…"></textarea></div>
-            <div class="ab"><button onclick="saveAudiogram()" class="ba">💾 Save Assessment</button></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Records panel -->
-      <div id="ent-records-panel" style="display:none;">
-        <div class="card" style="padding:9px;">
-          <h4 style="margin-bottom:8px;color:var(--p);">ENT Records</h4>
-          <input id="ent-rec-search" placeholder="🔍 Search patient name…" oninput="renderENTRecords()" style="max-width:260px;margin-bottom:8px;font-size:12px;">
-          <table id="ent-records-table" style="font-size:13px;"></table>
-        </div>
-      </div>
-
-      <!-- Supplies panel -->
-      <div id="ent-supplies-panel" style="display:none;">
-        <div class="card" style="padding:9px;">
-          <h4 style="margin-bottom:8px;color:var(--p);">👂 ENT Supplies</h4>
-          <table id="ent-supplies-table" style="font-size:13px;"></table>
-        </div>
-      </div>
-
-      <!-- ENT Guide panel -->
-      <div id="ent-guide-panel" style="display:none;">
-        <div class="card">
-          <h4 style="margin-bottom:10px;color:var(--pu);">📖 ENT Clinical Quick Reference</h4>
-          <div id="ent-guide-content"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ══ DENTAL SECTION ══ -->
-    <section id="sec-dental">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
-        <h3>🦷 Dental Clinic</h3>
-        <div style="display:flex;gap:6px;">
-          <button class="ba" onclick="openDentalConsModal()">+ New Dental Consultation</button>
-          <button class="bo" onclick="printDentalSummary()">🖨 Print Daily</button>
-        </div>
-      </div>
-      <div class="stabs" id="dental-tabs">
-        <button class="st active" onclick="swDental('queue',this)">🪥 Queue</button>
-        <button class="st" onclick="swDental('chart',this)">🦷 Tooth Chart</button>
-        <button class="st" onclick="swDental('records',this)">📋 Records</button>
-        <button class="st" onclick="swDental('supplies',this)">📦 Supplies</button>
-      </div>
-
-      <!-- Queue panel -->
-      <div id="dental-queue-panel">
-        <div id="dental-stats" class="g4" style="margin-bottom:10px;"></div>
-        <div class="card" style="padding:9px;">
-          <h4 style="margin-bottom:8px;color:var(--p);">Today's Dental Queue</h4>
-          <table id="dental-queue-table" style="font-size:13px;"></table>
-        </div>
-      </div>
-
-      <!-- Tooth Chart panel -->
-      <div id="dental-chart-panel" style="display:none;">
-        <div class="card">
-          <h4 style="margin-bottom:10px;color:var(--p);">🦷 Universal Tooth Charting</h4>
-          <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:7px;padding:10px;margin-bottom:12px;">
-            <label style="font-size:11px;">Select Patient</label>
-            <select id="dental-chart-patient" onchange="renderToothChart()" style="max-width:280px;">
-              <option value="">— Select a dental patient —</option>
-            </select>
-          </div>
-          <div id="tooth-chart-wrap">
-            <p class="emp">Select a patient above to view/update their tooth chart.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Records panel -->
-      <div id="dental-records-panel" style="display:none;">
-        <div class="card" style="padding:9px;">
-          <h4 style="margin-bottom:8px;color:var(--p);">Dental Records</h4>
-          <div style="display:flex;gap:7px;margin-bottom:8px;flex-wrap:wrap;">
-            <input id="dental-rec-search" placeholder="🔍 Search patient name…" oninput="renderDentalRecords()" style="width:220px;margin:0;font-size:12px;">
-          </div>
-          <table id="dental-records-table" style="font-size:13px;"></table>
-        </div>
-      </div>
-
-      <!-- Dental supplies panel -->
-      <div id="dental-supplies-panel" style="display:none;">
-        <div class="card" style="padding:9px;">
-          <h4 style="margin-bottom:8px;color:var(--p);">🦷 Dental Supplies Inventory</h4>
-          <table id="dental-supplies-table" style="font-size:13px;"></table>
-        </div>
-      </div>
-    </section>
-
-    <!-- ══ PHYSIOTHERAPY SECTION ══ -->
-    <section id="sec-physiotherapy">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
-        <h3>🏃 Physiotherapy</h3>
-        <div style="display:flex;gap:6px;">
-          <button class="ba" onclick="openPhysioSessionModal()">+ New Session</button>
-          <button class="bo" onclick="printPhysioReport()">🖨 Print Report</button>
-        </div>
-      </div>
-      <div class="stabs" id="physio-tabs">
-        <button class="st active" onclick="swPhysio('queue',this)">📋 Patient Queue</button>
-        <button class="st" onclick="swPhysio('sessions',this)">🏃 Sessions</button>
-        <button class="st" onclick="swPhysio('exercises',this)">💪 Exercise Plans</button>
-        <button class="st" onclick="swPhysio('stats',this)">📊 Statistics</button>
-      </div>
-
-      <!-- Queue panel -->
-      <div id="physio-queue-panel">
-        <div id="physio-stats" class="g4" style="margin-bottom:10px;"></div>
-        <div class="card" style="padding:9px;">
-          <h4 style="margin-bottom:8px;color:var(--p);">Physiotherapy Patient Queue</h4>
-          <table id="physio-queue-table" style="font-size:13px;"></table>
-        </div>
-      </div>
-
-      <!-- Sessions panel -->
-      <div id="physio-sessions-panel" style="display:none;">
-        <div class="card" style="padding:9px;">
-          <h4 style="margin-bottom:8px;color:var(--p);">📅 Session Log</h4>
-          <div style="display:flex;gap:7px;margin-bottom:8px;flex-wrap:wrap;">
-            <input id="physio-session-search" placeholder="🔍 Search patient…" oninput="renderPhysioSessions()" style="width:220px;margin:0;font-size:12px;">
-            <input type="month" id="physio-session-month" onchange="renderPhysioSessions()" style="margin:0;font-size:12px;width:auto;">
-          </div>
-          <table id="physio-sessions-table" style="font-size:13px;"></table>
-        </div>
-      </div>
-
-      <!-- Exercise Plans panel -->
-      <div id="physio-exercises-panel" style="display:none;">
-        <div class="card">
-          <h4 style="margin-bottom:10px;color:var(--p);">💪 Personalised Exercise Plans</h4>
-          <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:7px;padding:10px;margin-bottom:12px;">
-            <label style="font-size:11px;">Select Patient</label>
-            <select id="physio-plan-patient" onchange="renderExercisePlan()" style="max-width:280px;">
-              <option value="">— Select a patient —</option>
-            </select>
-          </div>
-          <div id="physio-plan-wrap">
-            <p class="emp">Select a patient to view or create their exercise plan.</p>
-          </div>
-          <div id="physio-plan-editor" style="display:none;margin-top:12px;">
-            <label>Exercise Plan Notes</label>
-            <textarea id="physio-plan-notes" rows="6" placeholder="List exercises, sets, reps, frequency, precautions…"></textarea>
-            <div class="ab"><button onclick="saveExercisePlan()" class="ba">💾 Save Plan</button></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stats panel -->
-      <div id="physio-stats-panel" style="display:none;">
-        <div class="g2">
-          <div class="card">
-            <h4 style="margin-bottom:8px;">📊 Sessions This Month</h4>
-            <div style="position:relative;height:200px;"><canvas id="ch-physio-monthly"></canvas></div>
-          </div>
-          <div class="card">
-            <h4 style="margin-bottom:8px;">🏷 Conditions Treated</h4>
-            <div style="position:relative;height:200px;"><canvas id="ch-physio-conditions"></canvas></div>
-          </div>
-        </div>
-        <div class="card">
-          <h4 style="margin-bottom:8px;">📋 Physio Statistics Summary</h4>
-          <table id="physio-stats-table" style="font-size:13px;"></table>
-        </div>
-      </div>
-    </section>
-
-    <section id="sec-suppliers">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
-        <h3>🏪 Supplier Management</h3>
-        <button onclick="oSupModal()" class="ba" style="font-size:14px;padding:8px 18px;">+ Add Supplier</button>
-      </div>
-      <!-- Summary cards -->
-      <div class="g4" style="margin-bottom:12px;" id="sup-summary-cards"></div>
-      <!-- Supplier table -->
-      <div class="card" style="padding:9px;">
-        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
-          <input id="sup-search" placeholder="🔍 Search suppliers…" oninput="renderSuppliers()" style="width:220px;margin:0;font-size:12px;">
-          <button onclick="oSupModal()" class="ba" style="padding:5px 14px;font-size:13px;">+ Add Supplier</button>
-        </div>
-        <table id="table-suppliers" style="font-size:13px;"></table>
-      </div>
-      <!-- Supplier detail / PO panel -->
-      <div id="sup-detail-wrap" style="display:none;margin-top:12px;">
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
-            <h4 id="sup-detail-name" style="margin:0;color:var(--p);"></h4>
-            <button onclick="document.getElementById('sup-detail-wrap').style.display='none'" style="background:#e2e8f0;color:#475569;font-size:12px;padding:4px 10px;border-radius:5px;border:none;cursor:pointer;">✕ Close</button>
-          </div>
-          <!-- Info strip -->
-          <div id="sup-detail-info" style="font-size:13px;margin-bottom:10px;background:#f8fafc;border-radius:6px;padding:8px 12px;"></div>
-          <!-- Items supplied -->
-          <h5 style="margin-bottom:6px;color:var(--mu);font-size:11px;text-transform:uppercase;">Items Supplied</h5>
-          <div id="sup-items-list" style="margin-bottom:12px;font-size:13px;"></div>
-          <!-- PO log -->
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <h5 style="margin:0;color:var(--mu);font-size:11px;text-transform:uppercase;">Purchase Orders / Deliveries</h5>
-            <button onclick="oModal('sup-po-modal')" class="ba bsm">+ Add Purchase Order</button>
-          </div>
-          <table id="sup-po-table" style="font-size:13px;"></table>
-          <!-- Balance -->
-          <div id="sup-balance-bar" style="margin-top:10px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:7px;padding:10px 14px;font-size:13px;"></div>
-        </div>
-      </div>
-    </section>
-  </div><!-- /main-wrap -->
-</div><!-- /app -->
 
 <!-- ══ CLINICAL PEEK PANEL (Lab / Radiology read-only view) ══ -->
 <div id="clinical-peek-modal" class="mo">
