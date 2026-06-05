@@ -2318,10 +2318,12 @@ const STAFF_ROLES={
   'System Admin':{color:'#374151',bg:'#f3f4f6',sections:[],landing:'admin',canEditInv:true,canAddInv:true,isAdmin:true,desc:'Full access including staff & system management'},
   'Dentist':{color:'#0891b2',bg:'#e0f2fe',sections:['dental','chat'],landing:'dental',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Dental consultations, charting & procedures'},
   'Dental Nurse':{color:'#0e7490',bg:'#cffafe',sections:['dental','chat'],landing:'dental',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Dental nursing, sterilisation & patient care'},
+  'ENT Specialist':{color:'#6d28d9',bg:'#ede9fe',sections:['ent','doctor','chat'],landing:'ent',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Ear, Nose & Throat consultations, audiometry & procedures'},
+  'ENT Nurse':{color:'#7c3aed',bg:'#f5f3ff',sections:['ent','nurse','chat'],landing:'ent',canEditInv:false,canAddInv:false,isAdmin:false,desc:'ENT nursing support, otoscopy & patient care'},
   'Physiotherapist':{color:'#059669',bg:'#d1fae5',sections:['physiotherapy','chat'],landing:'physiotherapy',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Physiotherapy assessments, exercise plans & sessions'},
 };
-const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','expenses','dental','physiotherapy','suppliers','chat'];
-const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',suppliers:'Suppliers',expenses:'Expenses',dental:'Dental',physiotherapy:'Physiotherapy',chat:'Staff Chat'};
+const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','expenses','dental','ent','physiotherapy','suppliers','chat'];
+const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',suppliers:'Suppliers',expenses:'Expenses',dental:'Dental',ent:'ENT',physiotherapy:'Physiotherapy',chat:'Staff Chat'};
 const CONSULT_FEE=10;
 
 // ══════════════════════════════════════════════
@@ -2657,7 +2659,7 @@ function doLogout(){
 function renderNav(){
   const secs=currentUser.isAdmin?['director',...ALL_SECS,'admin','feedbacks']:(currentUser.sections||[]);
   const lbl={director:'Dashboard',...SEC_LABELS,admin:'Admin',feedbacks:'Feedback'};
-  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',expenses:'💰',dental:'🦷',physiotherapy:'🏃',suppliers:'🏪',chat:'💬',admin:'⚙️',feedbacks:'⭐'};
+  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',expenses:'💰',dental:'🦷',ent:'👂',physiotherapy:'🏃',suppliers:'🏪',chat:'💬',admin:'⚙️',feedbacks:'⭐'};
   const hiddenFromNav=['suppliers']; // Suppliers managed via Admin tab only
   document.getElementById('dn').innerHTML=secs.filter(s=>!hiddenFromNav.includes(s)).map(s=>`<button id="btn-${s}" class="nb" onclick="showSection('${s}')">${icons[s]||'•'} ${lbl[s]||s.toUpperCase()}</button>`).join('');
 }
@@ -2675,7 +2677,7 @@ function showSection(id){
     doctor:renderCons,billing:()=>renderBilling(),
     lab:()=>renderLab(),pharmacy:()=>renderPharm(),
     radiology:()=>renderRad(),inventory:()=>{renderInventory();checkNearExpiry();},
-    expenses:()=>renderExpenses(),dental:()=>renderDental(),physiotherapy:()=>renderPhysio(),suppliers:()=>renderSuppliers(),admin:()=>{swAdmin('staff',document.querySelector('#sec-admin .stabs .st'));loadFacilitySettingsUI();},feedbacks:renderFeedbacks,chat:renderChat
+    expenses:()=>renderExpenses(),dental:()=>renderDental(),ent:()=>renderENT(),physiotherapy:()=>renderPhysio(),suppliers:()=>renderSuppliers(),admin:()=>{swAdmin('staff',document.querySelector('#sec-admin .stabs .st'));loadFacilitySettingsUI();},feedbacks:renderFeedbacks,chat:renderChat
   })[id]?.();},'showSection:'+id);
 }
 
@@ -5594,11 +5596,207 @@ function printDentalSummary(){
 }
 
 // ══════════════════════════════════════════════
-//  ENT SECTION (handled within Doctor queue — add ENT helpers)
+//  ENT SECTION
 // ══════════════════════════════════════════════
-function getENTInventory(){
-  return inventory.filter(i=>i.invSection==='ent'||i.drugClass==='ENT Consumable'||i.drugClass==='ENT Medication'||i.drugClass==='ENT Equipment');
+const ENT_FREQ=[250,500,1000,2000,4000,8000];
+const ENT_GUIDE_DATA=[
+  {title:'Otitis Media (Acute)',bg:'#ede9fe',color:'#5b21b6',
+   content:'<b>Presentation:</b> Ear pain, fever, conductive hearing loss, bulging TM. Common in children.<br><b>Pathogens:</b> S. pneumoniae, H. influenzae, M. catarrhalis.<br><b>Treatment:</b> Amoxicillin 500mg TDS × 7 days (adults); 80–90 mg/kg/day (children). Analgesia.<br><b>Complications:</b> Perforation, mastoiditis, cholesteatoma, meningitis.<br><b>Referral:</b> Recurrent (&gt;3/yr), bilateral effusion, suspected cholesteatoma.'},
+  {title:'Otitis Externa (Swimmer\'s Ear)',bg:'#dbeafe',color:'#1e40af',
+   content:'<b>Presentation:</b> Ear canal pain, discharge, pruritis, tragal tenderness. No fever unless severe.<br><b>Treatment:</b> Acetic acid / aluminium acetate ear drops; Ciprofloxacin-HC drops if bacterial. Keep dry.<br><b>Caution:</b> Do not irrigate if TM perforation suspected.'},
+  {title:'Epistaxis (Nosebleed)',bg:'#fee2e2',color:'#991b1b',
+   content:'<b>Anterior (90%):</b> Kiesselbach\'s plexus. Pinch nasal alae for 10–15 min, head forward.<br><b>Posterior:</b> Elderly, hypertension. Needs posterior packing or ENT urgently.<br><b>Causes:</b> Trauma, drying, hypertension, anticoagulants, haematological.<br><b>Investigations:</b> BP, FBC, clotting screen if recurrent. Nasal endoscopy.'},
+  {title:'Sinusitis (Acute)',bg:'#d1fae5',color:'#065f46',
+   content:'<b>Presentation:</b> Facial pain/pressure, purulent discharge, nasal obstruction, anosmia. Worsens bending forward.<br><b>Duration:</b> Viral &lt;10 days; bacterial if worsening after 5–7 days or &gt;10 days.<br><b>Treatment:</b> Decongestants, saline rinse. Antibiotics: Amoxicillin 500mg TDS × 7 days (augment if severe).<br><b>Referral:</b> Chronic (&gt;12 weeks), orbital/intracranial complications.'},
+  {title:'Tonsillitis / Pharyngitis',bg:'#fef3c7',color:'#92400e',
+   content:'<b>CENTOR Score:</b> Exudate, tender anterior nodes, no cough, fever. Score ≥3 → swab + treat.<br><b>Pathogen:</b> Group A Strep (GAS) — Phenoxymethylpenicillin 500mg BD × 10 days or Amoxicillin 500mg TDS × 10 days.<br><b>Quinsy:</b> Peritonsillar abscess — ENT urgent, needle aspiration, IV antibiotics.<br><b>Referral:</b> Recurrent tonsillitis (≥7/yr or ≥5/yr × 2 yrs).'},
+  {title:'Hearing Loss — Classification',bg:'#f0fdf4',color:'#166534',
+   content:'<b>Conductive:</b> Outer/middle ear (wax, OM, otosclerosis). Weber → affected ear. Rinne: BC&gt;AC.<br><b>Sensorineural:</b> Cochlea/nerve (noise, presbycusis, Ménière\'s). Weber → better ear. Rinne: AC&gt;BC.<br><b>Mixed:</b> Both components.<br><b>Audiogram:</b> 250–8000 Hz, each ear. Normal: &lt;25 dB HL. Mild: 26–40. Moderate: 41–55. Severe: 56–70. Profound: &gt;70.<br><b>Referral:</b> All SNHL, asymmetric HL, sudden SNHL (ENT emergency within 48h).'},
+  {title:'Foreign Body — Ear/Nose',bg:'#fff7ed',color:'#c2410c',
+   content:'<b>Ear FB:</b> Do NOT irrigate if live insect (use mineral oil first). Crocodile forceps / suction. No blind probing. Refer if impacted or near TM.<br><b>Nasal FB:</b> Positive pressure technique (blow other nostril). Alligator forceps. Airway priority if button battery (caustic — urgent removal).'},
+  {title:'Vertigo — Differentials',bg:'#fce7f3',color:'#9d174d',
+   content:'<b>BPPV:</b> Brief (&lt;1 min), positional, nystagmus. Treat: Epley manoeuvre.<br><b>Ménière\'s:</b> Episodic (20min–24hr), tinnitus, aural fullness, SNHL. Betahistine 16mg TDS.<br><b>Vestibular neuritis:</b> Continuous, post-viral, no hearing loss. Prochlorperazine + vestibular rehab.<br><b>Central (DANGER signs):</b> Sudden onset, headache, neuro signs → CT head & urgent referral.'},
+];
+
+function swENT(tab,btn){
+  document.querySelectorAll('#ent-tabs .st').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  ['queue','audiogram','records','supplies','guide'].forEach(t=>{
+    const el=document.getElementById('ent-'+t+'-panel');if(el)el.style.display='none';
+  });
+  const panel=document.getElementById('ent-'+tab+'-panel');
+  if(panel)panel.style.display='block';
+  if(tab==='queue')renderENTQueue();
+  else if(tab==='audiogram'){populateENTPatientSelect();renderAudiogram();}
+  else if(tab==='records')renderENTRecords();
+  else if(tab==='supplies')renderENTSupplies();
+  else if(tab==='guide')renderENTGuide();
 }
+
+function renderENT(){
+  renderENTQueue();
+  renderENTStatsBar();
+}
+
+function renderENTStatsBar(){
+  const entVisits=visits.filter(v=>['ENT','REVIEW_ENT'].includes(v.consultType));
+  const today=new Date().toLocaleDateString();
+  const todayENT=entVisits.filter(v=>v.date===today);
+  const pending=todayENT.filter(v=>!['DISCHARGED','ADMITTED'].includes(v.status));
+  const el=document.getElementById('ent-stats');
+  if(el)el.innerHTML=[
+    {l:'Today\'s Patients',v:todayENT.length,c:'#6d28d9'},
+    {l:'Pending',v:pending.length,c:'#f59e0b'},
+    {l:'Completed Today',v:todayENT.length-pending.length,c:'#10b981'},
+    {l:'Total ENT Records',v:entVisits.length,c:'#0891b2'},
+  ].map(x=>`<div style="background:${x.c};color:#fff;border-radius:7px;padding:9px 12px;"><div style="font-size:10px;opacity:.8;font-weight:700;">${x.l}</div><div style="font-size:18px;font-weight:800;margin-top:2px;">${x.v}</div></div>`).join('');
+}
+
+function renderENTQueue(){
+  renderENTStatsBar();
+  const today=new Date().toLocaleDateString();
+  const q=visits.filter(v=>['ENT','REVIEW_ENT'].includes(v.consultType)&&v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status));
+  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Consult Type</th><th>Pay Status</th><th>Status</th><th>Actions</th></tr>`;
+  if(!q.length)h+=`<tr><td colspan="6" class="emp">No ENT patients in queue today. Patients appear here when registered as ENT consultations.</td></tr>`;
+  q.forEach(v=>{
+    const p=patients.find(x=>x.id===v.patId)||{};
+    h+=`<tr>
+      <td><b>${v.name}</b></td>
+      <td>${p.ageVal||'—'} ${p.ageUnit||''} / ${p.gender||'—'}</td>
+      <td>${ctBadge(v.consultType)}</td>
+      <td>${payBadge(v)}</td>
+      <td><span class="badge bbl">${v.status.replace(/_/g,' ')}</span></td>
+      <td><div style="display:flex;gap:4px;">
+        <button class="bsm bpu" onclick="openCons('${v.id}');showSection('doctor')">👂 Consult</button>
+        <button class="bsm bo" onclick="printVisitReport('${v.id}')">🖨</button>
+      </div></td>
+    </tr>`;
+  });
+  const el=document.getElementById('ent-queue-table');
+  if(el)el.innerHTML=h;
+}
+
+function renderENTRecords(){
+  const q=(document.getElementById('ent-rec-search')?.value||'').toLowerCase();
+  const recs=visits.filter(v=>['ENT','REVIEW_ENT'].includes(v.consultType)&&(!q||v.name.toLowerCase().includes(q)));
+  let h=`<tr><th>Date</th><th>Patient</th><th>Diagnosis</th><th>Status</th><th></th></tr>`;
+  if(!recs.length)h+=`<tr><td colspan="5" class="emp">No ENT records found.</td></tr>`;
+  recs.slice().reverse().forEach(v=>{
+    const cl=v.clinical||{};
+    h+=`<tr>
+      <td>${v.date}</td>
+      <td><b>${v.name}</b></td>
+      <td style="font-size:12px;">${cl.finalDx||cl.notes||'—'}</td>
+      <td><span class="badge ${['DISCHARGED','ADMITTED'].includes(v.status)?'bpd':'bwn'}">${v.status.replace(/_/g,' ')}</span></td>
+      <td><button class="bsm bo" onclick="viewVisitRecord('${v.id}')">View</button></td>
+    </tr>`;
+  });
+  const el=document.getElementById('ent-records-table');
+  if(el)el.innerHTML=h;
+}
+
+function renderENTSupplies(){
+  const items=inventory.filter(i=>i.invSection==='ent'||i.drugClass==='ENT Consumable'||i.drugClass==='ENT Medication'||i.drugClass==='ENT Equipment');
+  let h=`<tr><th>Item</th><th>Class</th><th>Stock</th><th>Unit</th><th>Price</th><th>Status</th></tr>`;
+  if(!items.length)h+=`<tr><td colspan="6" class="emp">No ENT supplies in inventory. Add items tagged as ENT section in Inventory.</td></tr>`;
+  items.forEach(i=>{
+    const low=i.stock<=(i.reorderLevel||10);
+    h+=`<tr>
+      <td><b>${i.name}</b>${i.strength?`<br><span style="font-size:11px;color:var(--mu);">${i.strength}</span>`:''}</td>
+      <td><span class="badge bgr" style="font-size:10px;">${i.drugClass||'—'}</span></td>
+      <td style="${low?'color:#dc2626;font-weight:700;':''}">${i.stock||0}</td>
+      <td>${i.unit||'—'}</td>
+      <td>$${(i.price||0).toFixed(2)}</td>
+      <td><span class="badge ${low?'bp2':'bpd'}">${low?'⚠ Low':'OK'}</span></td>
+    </tr>`;
+  });
+  const el=document.getElementById('ent-supplies-table');
+  if(el)el.innerHTML=h;
+}
+
+function renderENTGuide(){
+  const el=document.getElementById('ent-guide-content');if(!el)return;
+  el.innerHTML=ENT_GUIDE_DATA.map(g=>`
+    <div style="background:${g.bg};border-left:4px solid ${g.color};border-radius:6px;padding:12px 16px;margin-bottom:10px;">
+      <h4 style="color:${g.color};margin:0 0 6px;">${g.title}</h4>
+      <div style="font-size:13px;line-height:1.7;color:#374151;">${g.content}</div>
+    </div>`).join('');
+}
+
+function populateENTPatientSelect(){
+  const sel=document.getElementById('ent-audio-patient');if(!sel)return;
+  const entPats=[...new Map(visits.filter(v=>['ENT','REVIEW_ENT'].includes(v.consultType)).map(v=>[v.patId,v])).values()];
+  sel.innerHTML='<option value="">— Select an ENT patient —</option>'+entPats.map(v=>`<option value="${v.patId}">${v.name}</option>`).join('');
+}
+
+function renderAudiogram(){
+  const patId=document.getElementById('ent-audio-patient')?.value;
+  const wrap=document.getElementById('audiogram-wrap');
+  const entry=document.getElementById('audiogram-entry');
+  if(!patId){if(wrap)wrap.innerHTML='<p class="emp">Select a patient to record hearing assessment.</p>';if(entry)entry.style.display='none';return;}
+  const p=patients.find(x=>x.id===patId);if(!p)return;
+  if(!p.audiogram)p.audiogram={right:{},left:{},notes:''};
+  if(wrap)wrap.innerHTML=p.audiogram&&Object.keys(p.audiogram.right||{}).length
+    ?`<div style="overflow-x:auto;padding:4px 0;"><table style="font-size:12px;border-collapse:collapse;min-width:380px;">
+        <tr><th style="padding:5px 9px;background:#f0fdf4;">Frequency (Hz)</th>${ENT_FREQ.map(f=>`<th style="padding:5px 9px;background:#f0fdf4;text-align:center;">${f}</th>`).join('')}</tr>
+        <tr style="background:#ede9fe;"><td style="padding:5px 9px;font-weight:700;color:#6d28d9;">🔵 Right (dB)</td>${ENT_FREQ.map(f=>`<td style="text-align:center;font-weight:700;">${p.audiogram.right[f]??'—'}</td>`).join('')}</tr>
+        <tr style="background:#fee2e2;"><td style="padding:5px 9px;font-weight:700;color:#dc2626;">🔴 Left (dB)</td>${ENT_FREQ.map(f=>`<td style="text-align:center;font-weight:700;">${p.audiogram.left[f]??'—'}</td>`).join('')}</tr>
+      </table>
+      ${p.audiogram.notes?`<div style="margin-top:8px;font-size:12px;background:#f8fafc;border-radius:5px;padding:7px 10px;"><b>Notes:</b> ${p.audiogram.notes}</div>`:''}</div>`
+    :'<p class="emp">No audiogram on record for this patient. Fill in the entry form below.</p>';
+  if(entry){entry.style.display='block';
+    // Build frequency inputs
+    const makeEarInputs=(side,color)=>{
+      const divId=`ent-${side}-ear`;
+      const el=document.getElementById(divId);if(!el)return;
+      el.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;">${ENT_FREQ.map(f=>`
+        <div style="text-align:center;">
+          <div style="font-size:10px;color:var(--mu);font-weight:700;margin-bottom:3px;">${f} Hz</div>
+          <input type="number" id="ent-${side}-${f}" value="${p.audiogram?.[side]?.[f]??''}" placeholder="dB" min="0" max="120" style="width:56px;text-align:center;border:1.5px solid ${color};padding:4px;font-weight:700;">
+        </div>`).join('')}</div>`;
+    };
+    makeEarInputs('right','#7c3aed');
+    makeEarInputs('left','#dc2626');
+    const ta=document.getElementById('ent-audio-notes');if(ta)ta.value=p.audiogram?.notes||'';
+  }
+}
+
+function saveAudiogram(){
+  const patId=document.getElementById('ent-audio-patient')?.value;
+  if(!patId)return alert('Select a patient first.');
+  const p=patients.find(x=>x.id===patId);if(!p)return;
+  if(!p.audiogram)p.audiogram={right:{},left:{},notes:''};
+  ENT_FREQ.forEach(f=>{
+    const rv=document.getElementById(`ent-right-${f}`)?.value;
+    const lv=document.getElementById(`ent-left-${f}`)?.value;
+    if(rv!=='')p.audiogram.right[f]=parseInt(rv);
+    if(lv!=='')p.audiogram.left[f]=parseInt(lv);
+  });
+  p.audiogram.notes=document.getElementById('ent-audio-notes')?.value||'';
+  save();renderAudiogram();
+  _showToast('✅ Audiogram saved.','#6d28d9');
+}
+
+function openENTConsModal(){
+  showSection('reception');
+  setTimeout(()=>{
+    const ct=document.getElementById('pConsultType');if(ct)ct.value='ENT';
+    document.getElementById('pName')?.focus();
+    _showToast('Register patient below — select "Special — ENT" as consultation type.','#6d28d9');
+  },300);
+}
+
+function printENTSummary(){
+  const today=new Date().toLocaleDateString();
+  const recs=visits.filter(v=>['ENT','REVIEW_ENT'].includes(v.consultType)&&v.date===today);
+  document.getElementById('pra-con').innerHTML=printHeader('ENT CLINIC — DAILY SUMMARY')+
+    `<p style="font-size:12px;margin-bottom:10px;">Date: ${today} &nbsp;|&nbsp; Total ENT Patients: ${recs.length}</p>`+
+    `<table class="pit"><tr><th>Patient</th><th>Consult Type</th><th>Diagnosis</th><th>Status</th></tr>`+
+    (recs.length?recs.map(v=>`<tr><td>${v.name}</td><td>${v.consultType}</td><td>${(v.clinical||{}).finalDx||'—'}</td><td>${v.status.replace(/_/g,' ')}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#94a3b8;">No ENT patients today</td></tr>')+
+    `</table>`+printFooter();
+  doPrint();
+}
+
 
 // ══════════════════════════════════════════════
 //  PHYSIOTHERAPY SECTION
@@ -5759,9 +5957,9 @@ function printPhysioReport(){
 }
 
 // ══════════════════════════════════════════════
-//  PATCH: Inventory show suppliers button
+//  LAB SUMMARY
 // ══════════════════════════════════════════════
-
+function buildLabSummary(){
   const now=new Date();const m=now.getMonth();const y=now.getFullYear();
   const allLabs=visits.flatMap(v=>(v.labs||[]).filter(l=>l.name));
   const mLabs=visits.filter(v=>{const d=new Date(v.date);return d.getMonth()===m&&d.getFullYear()===y;}).flatMap(v=>(v.labs||[]).filter(l=>l.name));
@@ -14487,8 +14685,90 @@ window.saveClinical = function(){
       <button onclick="confirmImport()" class="ba" style="padding:7px 22px;">✅ Confirm &amp; Save</button>
     </div>
   </div>
+</div><!-- /inv-import-modal -->
 
-    <!-- SUPPLIERS -->
+    <!-- ══ ENT SECTION ══ -->
+    <section id="sec-ent">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+        <h3>👂 ENT Clinic — Ear, Nose &amp; Throat</h3>
+        <div style="display:flex;gap:6px;">
+          <button class="ba" onclick="openENTConsModal()">+ New ENT Consultation</button>
+          <button class="bo" onclick="printENTSummary()">🖨 Print Daily</button>
+        </div>
+      </div>
+      <div class="stabs" id="ent-tabs">
+        <button class="st active" onclick="swENT('queue',this)">👂 Queue</button>
+        <button class="st" onclick="swENT('audiogram',this)">🎧 Audiogram</button>
+        <button class="st" onclick="swENT('records',this)">📋 Records</button>
+        <button class="st" onclick="swENT('supplies',this)">📦 Supplies</button>
+        <button class="st" onclick="swENT('guide',this)">📖 ENT Guide</button>
+      </div>
+
+      <!-- Queue panel -->
+      <div id="ent-queue-panel">
+        <div id="ent-stats" class="g4" style="margin-bottom:10px;"></div>
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">Today's ENT Queue</h4>
+          <table id="ent-queue-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- Audiogram panel -->
+      <div id="ent-audiogram-panel" style="display:none;">
+        <div class="card">
+          <h4 style="margin-bottom:10px;color:var(--p);">🎧 Hearing Assessment — Audiogram</h4>
+          <div style="background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:7px;padding:10px;margin-bottom:12px;">
+            <label style="font-size:11px;">Select Patient</label>
+            <select id="ent-audio-patient" onchange="renderAudiogram()" style="max-width:280px;">
+              <option value="">— Select an ENT patient —</option>
+            </select>
+          </div>
+          <div id="audiogram-wrap">
+            <p class="emp">Select a patient to record hearing assessment.</p>
+          </div>
+          <div id="audiogram-entry" style="display:none;margin-top:12px;">
+            <div class="g2" style="margin-bottom:10px;">
+              <div>
+                <h5 style="color:var(--pu);margin-bottom:8px;">🔵 Right Ear (dB HL)</h5>
+                <div id="ent-right-ear"></div>
+              </div>
+              <div>
+                <h5 style="color:#dc2626;margin-bottom:8px;">🔴 Left Ear (dB HL)</h5>
+                <div id="ent-left-ear"></div>
+              </div>
+            </div>
+            <div><label>Tympanometry / Notes</label><textarea id="ent-audio-notes" rows="3" placeholder="Type A/B/C, acoustic reflex, speech discrimination score…"></textarea></div>
+            <div class="ab"><button onclick="saveAudiogram()" class="ba">💾 Save Assessment</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Records panel -->
+      <div id="ent-records-panel" style="display:none;">
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">ENT Records</h4>
+          <input id="ent-rec-search" placeholder="🔍 Search patient name…" oninput="renderENTRecords()" style="max-width:260px;margin-bottom:8px;font-size:12px;">
+          <table id="ent-records-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- Supplies panel -->
+      <div id="ent-supplies-panel" style="display:none;">
+        <div class="card" style="padding:9px;">
+          <h4 style="margin-bottom:8px;color:var(--p);">👂 ENT Supplies</h4>
+          <table id="ent-supplies-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- ENT Guide panel -->
+      <div id="ent-guide-panel" style="display:none;">
+        <div class="card">
+          <h4 style="margin-bottom:10px;color:var(--pu);">📖 ENT Clinical Quick Reference</h4>
+          <div id="ent-guide-content"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ══ DENTAL SECTION ══ -->
     <section id="sec-dental">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
