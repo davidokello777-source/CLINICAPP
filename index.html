@@ -355,14 +355,6 @@ document.addEventListener("DOMContentLoaded", function(){
     <button onclick="login()" class="bp" style="width:100%;padding:9px;font-size:14px;font-weight:700;">🔐 Sign In</button>
     <div id="le" style="color:#dc2626;font-size:12px;margin-top:7px;min-height:16px;text-align:center;"></div>
     <div id="login-quick-info" style="display:none;"></div>
-    <div style="margin-top:10px;background:#f8fafc;border-radius:7px;padding:8px;">
-      <details><summary style="font-size:11px;font-weight:600;cursor:pointer;color:#64748b;">Demo Credentials</summary>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px;font-size:11px;">
-          <div style="background:#fff;border-radius:5px;padding:5px 8px;border:1px solid #e2e8f0;"><b>Director</b><br>director<br>TaliDir#2025</div>
-          <div style="background:#fff;border-radius:5px;padding:5px 8px;border:1px solid #e2e8f0;"><b>Admin</b><br>admin<br>TaliAdm#2025</div>
-        </div>
-      </details>
-    </div>
     <div style="margin-top:8px;font-size:10px;color:#94a3b8;text-align:center;">TALI HIMS v3.3 · Secure Health Information System</div>
   </div>
 </div>
@@ -1269,6 +1261,21 @@ document.addEventListener("DOMContentLoaded", function(){
               <div class="g2" style="margin-top:6px;">
                 <div><label><span class="abbr-hdr">(Mx)</span> Management Plan / Clinical Notes</label><textarea id="cNotes" rows="3" placeholder="Management plan, clinical notes..."></textarea></div>
                 <div><label><span class="abbr-hdr">(Rec)</span> Doctor's Recommendations to Patient</label><textarea id="cRecommendations" rows="3" placeholder="Patient education, lifestyle advice, dietary recommendations, activity restrictions..."></textarea></div>
+              </div>
+              <!-- Internal Referrals -->
+              <div style="margin-top:8px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:6px;padding:8px 12px;">
+                <div style="font-size:11px;font-weight:700;color:#065f46;margin-bottom:6px;">🔀 Internal Referrals</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;background:#fff;border:1.5px solid #6ee7b7;border-radius:5px;padding:4px 10px;">
+                    <input type="checkbox" id="ref-physio" onchange="setPhysioRef(this.checked)" style="width:auto;margin:0;"> 🏃 Physiotherapy
+                  </label>
+                  <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;background:#fff;border:1.5px solid #93c5fd;border-radius:5px;padding:4px 10px;">
+                    <input type="checkbox" id="ref-dental" onchange="setDentalRef(this.checked)" style="width:auto;margin:0;"> 🦷 Dental
+                  </label>
+                  <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;background:#fff;border:1.5px solid #c4b5fd;border-radius:5px;padding:4px 10px;">
+                    <input type="checkbox" id="ref-ent" onchange="setENTRef(this.checked)" style="width:auto;margin:0;"> 👂 ENT
+                  </label>
+                </div>
               </div>
             </div></div>
             <div style="display:flex;justify-content:space-between;margin-top:10px;align-items:center;">
@@ -4086,7 +4093,7 @@ function ctBadge(consultType){
 }
 
 function renderTriage(){
-  const q=visits.filter(v=>v.status==='WAITING_TRIAGE').slice().reverse();
+  const q=visits.filter(v=>v.status==='WAITING_TRIAGE');
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Type</th><th>Date</th><th>Pay Status</th><th>Action</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No patients waiting for triage</td></tr>`;
   q.forEach(v=>{const p=patients.find(x=>x.id===v.patId);
@@ -4213,8 +4220,8 @@ function swDoc(tab,btn){
 }
 
 function renderCons(){
-  let q=visits.filter(v=>!['DISCHARGED','ADMITTED'].includes(v.status)).slice().reverse();
-  // Sort: emergencies always first
+  let q=visits.filter(v=>!['DISCHARGED','ADMITTED'].includes(v.status));
+  // Sort: emergencies first, then by registration order (ascending — first in, first seen)
   q.sort((a,b)=>(b.consultType==='EMERGENCY'?1:0)-(a.consultType==='EMERGENCY'?1:0));
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Type</th><th>Status</th><th>Pay</th><th>Labs</th><th>Rad</th><th>Rx</th><th>Action</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="9" class="emp"><div>No active patients in queue</div><button onclick="renderCons()" style="margin-top:6px;background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;">🔄 Refresh Queue</button></td></tr>`;
@@ -4443,6 +4450,7 @@ function openCons(id){
   document.getElementById('queue-list-card').style.display='none';
   document.getElementById('cons-form').style.display='block';
   document.getElementById('cons-form').scrollIntoView({behavior:'smooth'});
+  _restoreRefCheckboxes(v);
 }
 
 // Lab checkbox multi-select
@@ -4757,6 +4765,31 @@ function saveClinical(){
   v.clinical.peOther=document.getElementById('hPEOther').value;
   if(!v.cleared.includes('Doctor'))v.cleared.push('Doctor');
   lg(v,'Clinical notes saved');save();
+}
+
+function setPhysioRef(checked){
+  const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  v.clinical=v.clinical||{};
+  v.clinical.physioRef=checked?'Referred by Doctor':'';
+  save();if(checked)_showToast('✅ Patient referred to Physiotherapy','#059669');
+}
+function setDentalRef(checked){
+  const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  v.clinical=v.clinical||{};
+  v.clinical.dentalRef=checked?'Referred by Doctor':'';
+  save();if(checked)_showToast('✅ Patient referred to Dental Clinic','#0891b2');
+}
+function setENTRef(checked){
+  const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  v.clinical=v.clinical||{};
+  v.clinical.entRef=checked?'Referred by Doctor':'';
+  save();if(checked)_showToast('✅ Patient referred to ENT Clinic','#7c3aed');
+}
+function _restoreRefCheckboxes(v){
+  const cl=v.clinical||{};
+  const rp=document.getElementById('ref-physio');if(rp)rp.checked=!!(cl.physioRef);
+  const rd=document.getElementById('ref-dental');if(rd)rd.checked=!!(cl.dentalRef);
+  const re=document.getElementById('ref-ent');if(re)re.checked=!!(cl.entRef);
 }
 
 function _showQueueList(){
@@ -5701,8 +5734,9 @@ function swDental(tab,btn){
 }
 
 function renderDental(){
-  renderDentalQueue();
-  renderDentalStats();
+  // Initialise: activate queue tab and hide all others
+  const firstTab=document.querySelector('#dental-tabs .st');
+  swDental('queue', firstTab);
 }
 
 function renderDentalStats(){
@@ -5723,7 +5757,9 @@ function renderDentalStats(){
 function renderDentalQueue(){
   renderDentalStats();
   const today=new Date().toLocaleDateString();
-  const q=visits.filter(v=>['DENTAL','REVIEW_DENTAL'].includes(v.consultType)&&v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status));
+  const q=visits.filter(v=>v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status)&&(
+    ['DENTAL','REVIEW_DENTAL'].includes(v.consultType)||(v.clinical&&v.clinical.dentalRef)
+  ));
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Consult Type</th><th>Pay Status</th><th>Status</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No dental patients in queue today. Patients are directed here when registered as Dental consultations.</td></tr>`;
   q.forEach(v=>{
@@ -5896,8 +5932,8 @@ function swENT(tab,btn){
 }
 
 function renderENT(){
-  renderENTQueue();
-  renderENTStatsBar();
+  const firstTab=document.querySelector('#ent-tabs .st');
+  swENT('queue', firstTab);
 }
 
 function renderENTStatsBar(){
@@ -5917,7 +5953,9 @@ function renderENTStatsBar(){
 function renderENTQueue(){
   renderENTStatsBar();
   const today=new Date().toLocaleDateString();
-  const q=visits.filter(v=>['ENT','REVIEW_ENT'].includes(v.consultType)&&v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status));
+  const q=visits.filter(v=>v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status)&&(
+    ['ENT','REVIEW_ENT'].includes(v.consultType)||(v.clinical&&v.clinical.entRef)
+  ));
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Consult Type</th><th>Pay Status</th><th>Status</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No ENT patients in queue today. Patients appear here when registered as ENT consultations.</td></tr>`;
   q.forEach(v=>{
@@ -6079,12 +6117,12 @@ function swPhysio(tab,btn){
 }
 
 function renderPhysio(){
-  renderPhysioQueue();
-  renderPhysioStatsBar();
+  const firstTab=document.querySelector('#physio-tabs .st');
+  swPhysio('queue', firstTab);
 }
 
 function renderPhysioStatsBar(){
-  const pVisits=visits.filter(v=>v.consultType==='PHYSIOTHERAPY'||(v.clinical||{}).physio);
+  const pVisits=visits.filter(v=>_isPhysioReferred(v));
   const today=new Date().toLocaleDateString();
   const todayP=pVisits.filter(v=>v.date===today);
   const sessions=(window.physioSessions||[]);
@@ -6097,11 +6135,19 @@ function renderPhysioStatsBar(){
   ].map(x=>`<div style="background:${x.c};color:#fff;border-radius:7px;padding:9px 12px;"><div style="font-size:10px;opacity:.8;font-weight:700;">${x.l}</div><div style="font-size:18px;font-weight:800;margin-top:2px;">${x.v}</div></div>`).join('');
 }
 
+function _isPhysioReferred(v){
+  // Matches: direct physio consult type, explicit physioRef flag, or doctor wrote "physio" in recommendations/notes
+  if(v.consultType==='PHYSIOTHERAPY') return true;
+  const cl=v.clinical||{};
+  if(cl.physioRef) return true;
+  const text=(cl.recommendations||'')+' '+(cl.notes||'');
+  return /physio/i.test(text);
+}
+
 function renderPhysioQueue(){
   renderPhysioStatsBar();
   const today=new Date().toLocaleDateString();
-  // Show patients referred to physio OR any visit with physio notes
-  const q=visits.filter(v=>v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status)&&(v.consultType==='PHYSIOTHERAPY'||(v.clinical&&v.clinical.physioRef)));
+  const q=visits.filter(v=>v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status)&&_isPhysioReferred(v));
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Referred For</th><th>Pay Status</th><th>Status</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No physiotherapy patients today. Patients appear here when referred for physiotherapy by a doctor, or registered directly as Physiotherapy consultations.</td></tr>`;
   q.forEach(v=>{
@@ -6153,7 +6199,7 @@ function renderPhysioSessions(){
 function populatePhysioPatientSelect(){
   const sel=document.getElementById('physio-plan-patient');if(!sel)return;
   // All patients who've ever had a physio session or referral
-  const ids=new Set([...(window.physioSessions||[]).map(s=>s.patId),...visits.filter(v=>v.consultType==='PHYSIOTHERAPY'||(v.clinical&&v.clinical.physioRef)).map(v=>v.patId)]);
+  const ids=new Set([...(window.physioSessions||[]).map(s=>s.patId),...visits.filter(v=>_isPhysioReferred(v)).map(v=>v.patId)]);
   const pats=patients.filter(p=>ids.has(p.id));
   sel.innerHTML='<option value="">— Select a patient —</option>'+pats.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
 }
@@ -6374,8 +6420,8 @@ function renderPharm(){
     renderPharmWalkin();return;
   }
   let q;
-  if(pharmTab==='pending')q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.name&&!r.dispensed)).slice().reverse();
-  else q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.dispensed)).slice().reverse();
+  if(pharmTab==='pending')q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.name&&!r.dispensed));
+  else q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.dispensed));
   let h=`<tr><th>Patient</th><th>Date</th><th>Type</th><th>Pay Status</th><th>Medications</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No records</td></tr>`;
   q.forEach(v=>{
@@ -6395,7 +6441,7 @@ function renderPharm(){
 }
 
 function renderPharmWalkin(){
-  const q=visits.filter(v=>v.consultType==='PHARMACY_ONLY'&&!['DISCHARGED'].includes(v.status)).slice().reverse();
+  const q=visits.filter(v=>v.consultType==='PHARMACY_ONLY'&&!['DISCHARGED'].includes(v.status));
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Date</th><th>Pay Status</th><th>Note</th><th>Action</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No pharmacy walk-in patients waiting</td></tr>`;
   q.forEach(v=>{
@@ -9803,7 +9849,7 @@ function renderProcPatients(){
 // ══════════════════════════════════════════════
 function renderNurseQueue(){
   const nurseTypes=['IMMUNISATION','PROCEDURE_ONLY'];
-  const q=visits.filter(v=>nurseTypes.includes(v.consultType)&&!['DISCHARGED','ADMITTED'].includes(v.status)).slice().reverse();
+  const q=visits.filter(v=>nurseTypes.includes(v.consultType)&&!['DISCHARGED','ADMITTED'].includes(v.status));
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Service</th><th>Date</th><th>Pay Status</th><th>Action</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No patients in nurse queue</td></tr>`;
   q.forEach(v=>{
