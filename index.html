@@ -1024,7 +1024,7 @@ document.addEventListener("DOMContentLoaded", function(){
           <!-- Vitals summary -->
           <div id="c-vitals" style="display:none;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:6px;padding:9px;margin-bottom:8px;font-size:13px;"></div>
           <!-- Vitals trend chart -->
-          <div id="vitals-trend-wrap" style="display:none;background:#fff;border:1.5px solid #bfdbfe;border-radius:7px;padding:10px;margin-bottom:12px;">
+          <div id="vitals-history-wrap" style="display:none;background:#fff;border:1.5px solid #bfdbfe;border-radius:7px;padding:10px;margin-bottom:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <span style="font-size:11px;font-weight:700;color:var(--p);text-transform:uppercase;">📈 Vitals Trend — Last 8 Visits</span>
               <span style="font-size:11px;color:var(--mu);" id="vitals-trend-label"></span>
@@ -2842,8 +2842,40 @@ window.addEventListener('DOMContentLoaded',async()=>{
   },12000);
   await loadData();
   clearTimeout(safetyTimer);
-  document.getElementById('ls').style.display='none';
-  document.getElementById('lp').style.display='flex';
+
+  // ── SESSION RESTORE: if user was logged in, skip login screen ──
+  try{
+    const sess=JSON.parse(sessionStorage.getItem('tali_session')||'null');
+    if(sess){
+      const s=staffList.find(x=>x.id===sess.id&&x.username===sess.username);
+      if(s&&s.accountStatus!=='Suspended'){
+        currentUser=s;
+        document.getElementById('ls').style.display='none';
+        document.getElementById('lp').style.display='none';
+        document.getElementById('app').style.display='block';
+        document.getElementById('du').innerText=s.name;
+        const devBadge=document.getElementById('device-badge');
+        if(devBadge){devBadge.style.display='inline';}
+        window._sessionStart=window._sessionStart||new Date();
+        renderNav();
+        const landing=s.isAdmin?'director':(s.landing||s.sections?.[0]||'reception');
+        showSection(landing);
+        _startAlertPolling();
+        // skip to end — don't show login page
+      } else {
+        // session stale or account suspended — clear and show login
+        sessionStorage.removeItem('tali_session');
+        document.getElementById('ls').style.display='none';
+        document.getElementById('lp').style.display='flex';
+      }
+    } else {
+      document.getElementById('ls').style.display='none';
+      document.getElementById('lp').style.display='flex';
+    }
+  }catch(e){
+    document.getElementById('ls').style.display='none';
+    document.getElementById('lp').style.display='flex';
+  }
   // Auto-refresh data every 30s when logged in (keeps doctor queue live)
   setInterval(async()=>{
     if(!currentUser) return;
@@ -2902,6 +2934,7 @@ function login(){
   const pol=_getSystemPolicies();
   currentUser=s;
   _recordLogin(s,true);_auditLog('LOGIN','User logged in',s.id);
+  try{sessionStorage.setItem('tali_session',JSON.stringify({id:s.id,username:s.username}));}catch(e){}
   document.getElementById('lp').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('du').innerText=s.name;
@@ -2922,6 +2955,7 @@ function login(){
 function doLogout(){
   _auditLog('LOGOUT','User logged out',currentUser?.id||'');
   _recordLogout();
+  try{sessionStorage.removeItem('tali_session');}catch(e){}
   location.reload();
 }
 
@@ -4093,12 +4127,12 @@ function ctBadge(consultType){
 }
 
 function renderTriage(){
-  const q=visits.filter(v=>v.status==='WAITING_TRIAGE');
-  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Type</th><th>Date</th><th>Pay Status</th><th>Action</th></tr>`;
+  const q=_sortQueue(visits.filter(v=>v.status==='WAITING_TRIAGE'));
+  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Type</th><th>Registered</th><th>Pay Status</th><th>Action</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No patients waiting for triage</td></tr>`;
   q.forEach(v=>{const p=patients.find(x=>x.id===v.patId);
     const isEmg=v.consultType==='EMERGENCY';
-    h+=`<tr${isEmg?' class="emg-row"':''}><td><b>${v.name}</b></td><td>${p?p.ageVal+' '+p.ageUnit+'/'+p.gender:'—'}</td><td>${ctBadge(v.consultType)}</td><td>${v.date}</td><td>${payBadge(v)}</td><td><button onclick="openTriage('${v.id}')">Record Vitals</button></td></tr>`;
+    h+=`<tr${isEmg?' class="emg-row"':''}><td><b>${v.name}</b></td><td>${p?p.ageVal+' '+p.ageUnit+'/'+p.gender:'—'}</td><td>${ctBadge(v.consultType)}</td><td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td><td>${payBadge(v)}</td><td><button onclick="openTriage('${v.id}')">Record Vitals</button></td></tr>`;
   });
   document.getElementById('table-triage').innerHTML=h;
 }
@@ -4221,10 +4255,11 @@ function swDoc(tab,btn){
 
 function renderCons(){
   let q=visits.filter(v=>!['DISCHARGED','ADMITTED'].includes(v.status));
-  // Sort: emergencies first, then by registration order (ascending — first in, first seen)
+  // Sort: emergencies first, then ascending by registeredAt (first in, first seen)
+  q=_sortQueue(q);
   q.sort((a,b)=>(b.consultType==='EMERGENCY'?1:0)-(a.consultType==='EMERGENCY'?1:0));
-  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Type</th><th>Status</th><th>Pay</th><th>Labs</th><th>Rad</th><th>Rx</th><th>Action</th></tr>`;
-  if(!q.length)h+=`<tr><td colspan="9" class="emp"><div>No active patients in queue</div><button onclick="renderCons()" style="margin-top:6px;background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;">🔄 Refresh Queue</button></td></tr>`;
+  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Type</th><th>Registered</th><th>Status</th><th>Pay</th><th>Labs</th><th>Rad</th><th>Rx</th><th>Action</th></tr>`;
+  if(!q.length)h+=`<tr><td colspan="10" class="emp"><div>No active patients in queue</div><button onclick="renderCons()" style="margin-top:6px;background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;">🔄 Refresh Queue</button></td></tr>`;
   q.forEach(v=>{
     const p=patients.find(x=>x.id===v.patId);
     const info=p?`${p.ageVal}${p.ageUnit[0]}/${p.gender}`:'—';
@@ -4233,7 +4268,7 @@ function renderCons(){
     const rxc=(v.prescriptions||[]).length,rxd=(v.prescriptions||[]).filter(r=>r.dispensed).length;
     const bcls=v.status==='LAB_READY'||v.status==='RAD_READY'?'bgn':v.status==='WAITING_CONSULTATION'?'bbl':'bgr';
     const isEmg=v.consultType==='EMERGENCY';
-    h+=`<tr${isEmg?' class="emg-row"':''}><td><b>${v.name}</b></td><td>${info}</td><td>${ctBadge(v.consultType)}</td><td><span class="badge ${bcls}" style="font-size:10px;">${v.status.replace(/_/g,' ')}</span></td><td>${payBadge(v)}</td><td style="font-size:12px;">${lc?`${ld}/${lc}`:'—'}</td><td style="font-size:12px;">${rc?`${rd}/${rc}`:'—'}</td><td style="font-size:12px;">${rxc?`${rxd}/${rxc}`:'—'}</td><td><button onclick="openCons('${v.id}')">Open</button></td></tr>`;
+    h+=`<tr${isEmg?' class="emg-row"':''}><td><b>${v.name}</b></td><td>${info}</td><td>${ctBadge(v.consultType)}</td><td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td><td><span class="badge ${bcls}" style="font-size:10px;">${v.status.replace(/_/g,' ')}</span></td><td>${payBadge(v)}</td><td style="font-size:12px;">${lc?`${ld}/${lc}`:'—'}</td><td style="font-size:12px;">${rc?`${rd}/${rc}`:'—'}</td><td style="font-size:12px;">${rxc?`${rxd}/${rxc}`:'—'}</td><td><button onclick="openCons('${v.id}')">Open</button></td></tr>`;
   });
   document.getElementById('table-cons').innerHTML=h;
 }
@@ -4308,8 +4343,13 @@ function viewVisitRecord(vid){
     document.getElementById('c-vitals').style.display='block';
     document.getElementById('c-vitals').innerHTML=`<b>Vitals (${vt.time}):</b> ${[vt.bp?'BP:'+vt.bp:'',vt.temp?'T:'+vt.temp+'°C':'',vt.weight?'Wt:'+vt.weight+'kg':'',vt.height?'Ht:'+vt.height+'cm':'',vt.pulse?'PR:'+vt.pulse:'',vt.spo2?'SpO2:'+vt.spo2+'%':'',vt.rr?'RR:'+vt.rr:''].filter(Boolean).join(' | ')}${vt.weight&&vt.height?' | BMI:'+(vt.weight/((vt.height/100)*(vt.height/100))).toFixed(1):''}`;
   }else{document.getElementById('c-vitals').style.display='none';}
-  // Vitals trend chart
-  buildVitalsTrendChart(v.patId);
+  // Vitals trend chart — default to BP metric, reset button highlights
+  _activeVitalMetric='bp';
+  ['bp','temp','weight','pulse'].forEach(m=>{
+    const btn=document.getElementById('vct-'+m);
+    if(btn){btn.style.background=m==='bp'?'var(--p)':'';btn.style.color=m==='bp'?'#fff':'';}
+  });
+  _buildConsVitalsChart(v.patId,'bp');
   document.getElementById('ogBlock').style.display=(p&&p.gender==='Female')?'block':'none';
   const cl=v.clinical||{};
   [{id:'hPC',k:'pc'},{id:'hHPC',k:'hpc'},{id:'hPMH',k:'pmh'},{id:'hOG',k:'obsGyn'},{id:'hFSH',k:'fsh'},{id:'hDrug',k:'drugHx'},{id:'cDiffDx',k:'diffDx'},{id:'cFinalDx',k:'finalDx'},{id:'cNotes',k:'notes'}].forEach(({id,k})=>{const el=document.getElementById(id);if(el){el.value=cl[k]||'';el.disabled=true;}});
@@ -4917,14 +4957,15 @@ function printPatientReport(){
 // ══════════════════════════════════════════════
 function fBill(f,btn){billFilter=f;document.querySelectorAll('#sec-billing .st').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderBilling();}
 function renderBilling(){
-  let q=visits.filter(v=>totalBill(v)>0||v.payments?.length>0);
+  let q=_sortQueue(visits.filter(v=>totalBill(v)>0||v.payments?.length>0));
   if(billFilter!=='all')q=q.filter(v=>billStatus(v)===billFilter);
-  let h=`<tr><th>Patient</th><th>Date</th><th>Type</th><th>Bill Items</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr>`;
+  let h=`<tr><th>Patient</th><th>Registered</th><th>Type</th><th>Bill Items</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="9" class="emp">No records</td></tr>`;
   q.forEach(v=>{
     const tot=totalBill(v),bal=tot-v.totalPaid;const bs=billStatus(v);
     const bcls=bs==='PAID'?'bpd':bs==='PARTIAL'?'bpa':'bp2';
-    h+=`<tr><td><b>${v.name}</b><br><span style="font-size:10px;color:var(--mu);">${v.status.replace(/_/g,' ')}</span></td><td>${v.date}</td>
+    h+=`<tr><td><b>${v.name}</b><br><span style="font-size:10px;color:var(--mu);">${v.status.replace(/_/g,' ')}</span></td>
+      <td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td>
       <td><span class="consult-type-badge ct-${(v.consultType||'GEN').toLowerCase().split('_')[0]}">${v.consultType||'GEN'}</span></td>
       <td><details><summary style="font-size:12px;">${(v.labs||[]).filter(l=>l.name).length+(v.radiology||[]).filter(r=>r.name).length+(v.prescriptions||[]).filter(r=>r.name).length+(v.consultFee?1:0)} item(s)</summary>
         <div style="margin-top:5px;">
@@ -5696,15 +5737,15 @@ function renderLab(){
   document.getElementById('lab-entry').style.display='none';
   if(labTab==='summary'){buildLabSummary();return;}
   let q;
-  if(labTab==='pending')q=visits.filter(v=>(v.labs||[]).some(l=>l.name&&!l.done));
-  else if(labTab==='completed')q=visits.filter(v=>(v.labs||[]).some(l=>l.done));
-  else q=visits.filter(v=>(v.labs||[]).some(l=>l.name));
-  let h=`<tr><th>Patient</th><th>Date</th><th>Type</th><th>Pay Status</th><th>Tests</th><th>Status</th><th>Actions</th></tr>`;
+  if(labTab==='pending')q=_sortQueue(visits.filter(v=>(v.labs||[]).some(l=>l.name&&!l.done)));
+  else if(labTab==='completed')q=_sortQueue(visits.filter(v=>(v.labs||[]).some(l=>l.done)));
+  else q=_sortQueue(visits.filter(v=>(v.labs||[]).some(l=>l.name)));
+  let h=`<tr><th>Patient</th><th>Registered</th><th>Type</th><th>Pay Status</th><th>Tests</th><th>Status</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="7" class="emp">No records</td></tr>`;
   q.forEach(v=>{
     const labs=v.labs||[];const pending=labs.filter(l=>l.name&&!l.done);const done=labs.filter(l=>l.done);
     const testsHtml=labs.filter(l=>l.name).map(l=>`<span class="badge ${l.done?'bpd':'bwn'}" style="font-size:10px;margin:1px;">${l.name}${l.done?' ✓':''}</span>`).join(' ');
-    h+=`<tr><td><b style="cursor:pointer;color:var(--p);text-decoration:underline dotted;" onclick="openClinicalPeek('${v.id}','lab')">${v.name}</b></td><td>${v.date}</td><td>${ctBadge(v.consultType)}</td><td>${payBadge(v)}</td><td style="font-size:12px;">${testsHtml}</td>
+    h+=`<tr><td><b style="cursor:pointer;color:var(--p);text-decoration:underline dotted;" onclick="openClinicalPeek('${v.id}','lab')">${v.name}</b></td><td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td><td>${ctBadge(v.consultType)}</td><td>${payBadge(v)}</td><td style="font-size:12px;">${testsHtml}</td>
       <td>${pending.length?`<span class="badge bwn">${pending.length} Pending</span>`:`<span class="badge bpd">All Done</span>`}</td>
       <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
         <button class="bsm" style="background:#6366f1;color:#fff;" onclick="openClinicalPeek('${v.id}','lab')">📋 Notes</button>
@@ -5757,17 +5798,18 @@ function renderDentalStats(){
 function renderDentalQueue(){
   renderDentalStats();
   const today=new Date().toLocaleDateString();
-  const q=visits.filter(v=>v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status)&&(
+  const q=_sortQueue(visits.filter(v=>v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status)&&(
     ['DENTAL','REVIEW_DENTAL'].includes(v.consultType)||(v.clinical&&v.clinical.dentalRef)
-  ));
-  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Consult Type</th><th>Pay Status</th><th>Status</th><th>Actions</th></tr>`;
-  if(!q.length)h+=`<tr><td colspan="6" class="emp">No dental patients in queue today. Patients are directed here when registered as Dental consultations.</td></tr>`;
+  )));
+  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Consult Type</th><th>Registered</th><th>Pay Status</th><th>Status</th><th>Actions</th></tr>`;
+  if(!q.length)h+=`<tr><td colspan="7" class="emp">No dental patients in queue today. Patients are directed here when registered as Dental consultations.</td></tr>`;
   q.forEach(v=>{
     const p=patients.find(x=>x.id===v.patId)||{};
     h+=`<tr>
       <td><b>${v.name}</b></td>
       <td>${p.ageVal||'—'} ${p.ageUnit||''} / ${p.gender||'—'}</td>
       <td>${ctBadge(v.consultType)}</td>
+      <td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td>
       <td>${payBadge(v)}</td>
       <td><span class="badge bbl">${v.status.replace(/_/g,' ')}</span></td>
       <td><div style="display:flex;gap:4px;">
@@ -5953,17 +5995,18 @@ function renderENTStatsBar(){
 function renderENTQueue(){
   renderENTStatsBar();
   const today=new Date().toLocaleDateString();
-  const q=visits.filter(v=>v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status)&&(
+  const q=_sortQueue(visits.filter(v=>v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status)&&(
     ['ENT','REVIEW_ENT'].includes(v.consultType)||(v.clinical&&v.clinical.entRef)
-  ));
-  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Consult Type</th><th>Pay Status</th><th>Status</th><th>Actions</th></tr>`;
-  if(!q.length)h+=`<tr><td colspan="6" class="emp">No ENT patients in queue today. Patients appear here when registered as ENT consultations.</td></tr>`;
+  )));
+  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Consult Type</th><th>Registered</th><th>Pay Status</th><th>Status</th><th>Actions</th></tr>`;
+  if(!q.length)h+=`<tr><td colspan="7" class="emp">No ENT patients in queue today. Patients appear here when registered as ENT consultations.</td></tr>`;
   q.forEach(v=>{
     const p=patients.find(x=>x.id===v.patId)||{};
     h+=`<tr>
       <td><b>${v.name}</b></td>
       <td>${p.ageVal||'—'} ${p.ageUnit||''} / ${p.gender||'—'}</td>
       <td>${ctBadge(v.consultType)}</td>
+      <td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td>
       <td>${payBadge(v)}</td>
       <td><span class="badge bbl">${v.status.replace(/_/g,' ')}</span></td>
       <td><div style="display:flex;gap:4px;">
@@ -6147,9 +6190,9 @@ function _isPhysioReferred(v){
 function renderPhysioQueue(){
   renderPhysioStatsBar();
   const today=new Date().toLocaleDateString();
-  const q=visits.filter(v=>v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status)&&_isPhysioReferred(v));
-  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Referred For</th><th>Pay Status</th><th>Status</th><th>Actions</th></tr>`;
-  if(!q.length)h+=`<tr><td colspan="6" class="emp">No physiotherapy patients today. Patients appear here when referred for physiotherapy by a doctor, or registered directly as Physiotherapy consultations.</td></tr>`;
+  const q=_sortQueue(visits.filter(v=>v.date===today&&!['DISCHARGED','ADMITTED'].includes(v.status)&&_isPhysioReferred(v)));
+  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Referred For</th><th>Registered</th><th>Pay Status</th><th>Status</th><th>Actions</th></tr>`;
+  if(!q.length)h+=`<tr><td colspan="7" class="emp">No physiotherapy patients today. Patients appear here when referred for physiotherapy by a doctor, or registered directly as Physiotherapy consultations.</td></tr>`;
   q.forEach(v=>{
     const p=patients.find(x=>x.id===v.patId)||{};
     const ref=(v.clinical||{}).physioRef||v.consultType||'Physiotherapy';
@@ -6157,6 +6200,7 @@ function renderPhysioQueue(){
       <td><b>${v.name}</b></td>
       <td>${p.ageVal||'—'} ${p.ageUnit||''} / ${p.gender||'—'}</td>
       <td style="font-size:12px;">${ref}</td>
+      <td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td>
       <td>${payBadge(v)}</td>
       <td><span class="badge bbl">${v.status.replace(/_/g,' ')}</span></td>
       <td><div style="display:flex;gap:4px;">
@@ -6420,9 +6464,9 @@ function renderPharm(){
     renderPharmWalkin();return;
   }
   let q;
-  if(pharmTab==='pending')q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.name&&!r.dispensed));
-  else q=visits.filter(v=>(v.prescriptions||[]).some(r=>r.dispensed));
-  let h=`<tr><th>Patient</th><th>Date</th><th>Type</th><th>Pay Status</th><th>Medications</th><th>Actions</th></tr>`;
+  if(pharmTab==='pending')q=_sortQueue(visits.filter(v=>(v.prescriptions||[]).some(r=>r.name&&!r.dispensed)));
+  else q=_sortQueue(visits.filter(v=>(v.prescriptions||[]).some(r=>r.dispensed)));
+  let h=`<tr><th>Patient</th><th>Registered</th><th>Type</th><th>Pay Status</th><th>Medications</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No records</td></tr>`;
   q.forEach(v=>{
     const rxs=(v.prescriptions||[]).filter(r=>r.name);
@@ -6430,7 +6474,7 @@ function renderPharm(){
       <div><span style="margin-right:6px;">${r.dispensed?'✅':'⏳'}</span><b>${r.name}</b> ${r.strength||''} ${formBadge(r.formulation||'')} × ${r.qty} <span style="color:var(--mu);font-size:11px;">(${r.instructions})</span>${r.patientInstructions?`<div style="font-size:11px;color:#1e40af;margin-top:2px;padding-left:20px;">📋 ${r.patientInstructions}</div>`:''} ${r.dispensed?`<span style="font-size:11px;color:var(--a);margin-left:6px;">${r.dispensedTime} — ${r.dispensedBy}</span>`:''}</div>
       ${!r.dispensed?`<button class="bsm ba" onclick="dispenseOne('${v.id}','${r.id}')">Dispense</button>`:''}
     </div>`).join('');
-    h+=`<tr><td><b>${v.name}</b></td><td>${v.date}</td><td>${ctBadge(v.consultType)}</td><td>${payBadge(v)}</td><td style="min-width:300px;">${medHtml}</td>
+    h+=`<tr><td><b>${v.name}</b></td><td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td><td>${ctBadge(v.consultType)}</td><td>${payBadge(v)}</td><td style="min-width:300px;">${medHtml}</td>
       <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
         ${rxs.some(r=>!r.dispensed)?`<button onclick="dispenseAll('${v.id}')" class="bsm ba">Dispense All</button>`:''}
         <button class="bsm bo" onclick="printPharmReceipt('${v.id}')">🖨 Receipt</button>
@@ -6441,8 +6485,8 @@ function renderPharm(){
 }
 
 function renderPharmWalkin(){
-  const q=visits.filter(v=>v.consultType==='PHARMACY_ONLY'&&!['DISCHARGED'].includes(v.status));
-  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Date</th><th>Pay Status</th><th>Note</th><th>Action</th></tr>`;
+  const q=_sortQueue(visits.filter(v=>v.consultType==='PHARMACY_ONLY'&&!['DISCHARGED'].includes(v.status)));
+  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Registered</th><th>Pay Status</th><th>Note</th><th>Action</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No pharmacy walk-in patients waiting</td></tr>`;
   q.forEach(v=>{
     const p=patients.find(x=>x.id===v.patId);
@@ -6450,7 +6494,7 @@ function renderPharmWalkin(){
     h+=`<tr>
       <td><b>${v.name}</b></td>
       <td>${p?p.ageVal+' '+p.ageUnit+'/'+p.gender:'—'}</td>
-      <td>${v.date}</td>
+      <td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td>
       <td>${payBadge(v)}</td>
       <td style="font-size:12px;color:var(--mu);">${note?note.val:'—'}</td>
       <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
@@ -6515,15 +6559,15 @@ function checkFullyDispensed(v){
 function swRad(tab,btn){radTab=tab;document.querySelectorAll('#sec-radiology .st').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderRad();}
 function renderRad(){
   let q;
-  if(radTab==='pending')q=visits.filter(v=>(v.radiology||[]).some(r=>r.name&&!r.done));
-  else if(radTab==='completed')q=visits.filter(v=>(v.radiology||[]).some(r=>r.done));
-  else q=visits.filter(v=>(v.radiology||[]).some(r=>r.name));
-  let h=`<tr><th>Patient</th><th>Date</th><th>Pay</th><th>Procedures</th><th>Status</th><th>Actions</th></tr>`;
+  if(radTab==='pending')q=_sortQueue(visits.filter(v=>(v.radiology||[]).some(r=>r.name&&!r.done)));
+  else if(radTab==='completed')q=_sortQueue(visits.filter(v=>(v.radiology||[]).some(r=>r.done)));
+  else q=_sortQueue(visits.filter(v=>(v.radiology||[]).some(r=>r.name)));
+  let h=`<tr><th>Patient</th><th>Registered</th><th>Pay</th><th>Procedures</th><th>Status</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No radiology requests</td></tr>`;
   q.forEach(v=>{
     const rads=v.radiology||[];const pending=rads.filter(r=>r.name&&!r.done);const done=rads.filter(r=>r.done);
     const radHtml=rads.filter(r=>r.name).map(r=>`<span class="badge ${r.done?'bpd':'bwn'}" style="font-size:10px;margin:1px;">${r.name}${r.done?' ✓':''}</span>`).join(' ');
-    h+=`<tr><td><b style="cursor:pointer;color:var(--p);text-decoration:underline dotted;" onclick="openClinicalPeek('${v.id}','rad')">${v.name}</b></td><td>${v.date}</td><td>${payBadge(v)}</td><td style="font-size:12px;">${radHtml}</td>
+    h+=`<tr><td><b style="cursor:pointer;color:var(--p);text-decoration:underline dotted;" onclick="openClinicalPeek('${v.id}','rad')">${v.name}</b></td><td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td><td>${payBadge(v)}</td><td style="font-size:12px;">${radHtml}</td>
       <td>${pending.length?`<span class="badge bwn">${pending.length} Pending</span>`:`<span class="badge bpd">All Done</span>`}</td>
       <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
         <button class="bsm" style="background:#6366f1;color:#fff;" onclick="openClinicalPeek('${v.id}','rad')">📋 Notes</button>
@@ -9345,8 +9389,49 @@ function startVisitFromFollowup(patId,eName){
 // ══════════════════════════════════════════════
 //  FEATURE 1: VITALS TRENDING CHART
 // ══════════════════════════════════════════════
-function buildVitalsTrendChart(patId){
+// Switch which vital metric is highlighted in the consultation-form vitals chart
+let _activeVitalMetric='bp';
+function switchVitalChart(metric){
+  _activeVitalMetric=metric;
+  // Update button styles
+  ['bp','temp','weight','pulse'].forEach(m=>{
+    const btn=document.getElementById('vct-'+m);
+    if(btn){btn.style.background=m===metric?'var(--p)':'';btn.style.color=m===metric?'#fff':'';}
+  });
+  // Rebuild the chart for the current active patient
+  const v=visits.find(x=>x.id===activeVid);
+  if(v)_buildConsVitalsChart(v.patId,metric);
+}
+
+function _buildConsVitalsChart(patId,metric){
+  metric=metric||_activeVitalMetric||'bp';
   const wrap=document.getElementById('vitals-trend-wrap');
+  if(!wrap)return;
+  const pvs=visits.filter(v=>v.patId===patId&&v.vitals).sort((a,b)=>(a.registeredAt||0)-(b.registeredAt||0)).slice(-8);
+  if(pvs.length<1){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  const labels=pvs.map(v=>{const d=new Date(v.registeredAt||v.date);return d.toLocaleDateString('default',{month:'short',day:'numeric'});});
+  const datasets=[];
+  if(metric==='bp'){
+    const sys=pvs.map(v=>{const b=(v.vitals.bp||'').split('/');return b[0]?parseInt(b[0]):null;});
+    const dia=pvs.map(v=>{const b=(v.vitals.bp||'').split('/');return b[1]?parseInt(b[1]):null;});
+    datasets.push({label:'Systolic',data:sys,borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.12)',tension:.35,spanGaps:true,pointRadius:4,fill:false});
+    datasets.push({label:'Diastolic',data:dia,borderColor:'#f97316',backgroundColor:'rgba(249,115,22,.12)',tension:.35,spanGaps:true,pointRadius:4,fill:false});
+  } else if(metric==='temp'){
+    datasets.push({label:'Temp °C',data:pvs.map(v=>v.vitals.temp?parseFloat(v.vitals.temp):null),borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,.12)',tension:.35,spanGaps:true,pointRadius:4,fill:true});
+  } else if(metric==='weight'){
+    datasets.push({label:'Weight kg',data:pvs.map(v=>v.vitals.weight?parseFloat(v.vitals.weight):null),borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.12)',tension:.35,spanGaps:true,pointRadius:4,fill:true});
+  } else if(metric==='pulse'){
+    datasets.push({label:'Pulse bpm',data:pvs.map(v=>v.vitals.pulse?parseFloat(v.vitals.pulse):null),borderColor:'#8b5cf6',backgroundColor:'rgba(139,92,246,.12)',tension:.35,spanGaps:true,pointRadius:4,fill:true});
+  }
+  const ctx=document.getElementById('vitals-chart');
+  if(!ctx)return;
+  if(charts['vcons'])charts['vcons'].destroy();
+  charts['vcons']=new Chart(ctx,{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:12}}},scales:{y:{beginAtZero:false}}}});
+}
+
+function buildVitalsTrendChart(patId){
+  const wrap=document.getElementById('vitals-history-wrap');
   const lbl=document.getElementById('vitals-trend-label');
   if(!wrap)return;
   const pvs=visits.filter(v=>v.patId===patId&&v.vitals).slice(-8);
@@ -9849,8 +9934,8 @@ function renderProcPatients(){
 // ══════════════════════════════════════════════
 function renderNurseQueue(){
   const nurseTypes=['IMMUNISATION','PROCEDURE_ONLY'];
-  const q=visits.filter(v=>nurseTypes.includes(v.consultType)&&!['DISCHARGED','ADMITTED'].includes(v.status));
-  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Service</th><th>Date</th><th>Pay Status</th><th>Action</th></tr>`;
+  const q=_sortQueue(visits.filter(v=>nurseTypes.includes(v.consultType)&&!['DISCHARGED','ADMITTED'].includes(v.status)));
+  let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Service</th><th>Registered</th><th>Pay Status</th><th>Action</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="6" class="emp">No patients in nurse queue</td></tr>`;
   q.forEach(v=>{
     const p=patients.find(x=>x.id===v.patId);
@@ -9858,7 +9943,7 @@ function renderNurseQueue(){
       <td><b>${v.name}</b></td>
       <td>${p?p.ageVal+' '+p.ageUnit+'/'+p.gender:'—'}</td>
       <td>${ctBadge(v.consultType)}</td>
-      <td>${v.date}</td>
+      <td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td>
       <td>${payBadge(v)}</td>
       <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
         <button class="bsm bp" onclick="openTriage('${v.id}')">Record Vitals</button>
@@ -14165,6 +14250,24 @@ const SLA_LABELS = {
   WAITING_LAB:      'Lab Wait',
   WAITING_RADIOLOGY:'Radiology',
 };
+
+// Format registeredAt timestamp → "DD/MM HH:MM" for queue columns
+function _fmtReg(v){
+  const ts=v.registeredAt;
+  if(!ts)return v.date||'—';
+  const d=new Date(ts);
+  const dd=String(d.getDate()).padStart(2,'0');
+  const mm=String(d.getMonth()+1).padStart(2,'0');
+  const hh=String(d.getHours()).padStart(2,'0');
+  const mi=String(d.getMinutes()).padStart(2,'0');
+  const today=new Date();
+  const sameDay=d.getDate()===today.getDate()&&d.getMonth()===today.getMonth()&&d.getFullYear()===today.getFullYear();
+  return sameDay?`<span style="font-weight:700;">${hh}:${mi}</span>`:`<span style="font-size:11px;">${dd}/${mm}</span> <span style="font-weight:700;">${hh}:${mi}</span>`;
+}
+// Sort visits ascending by registeredAt (oldest first = first to be seen)
+function _sortQueue(arr){
+  return arr.slice().sort((a,b)=>(a.registeredAt||0)-(b.registeredAt||0));
+}
 
 function _waitMins(v) {
   // Use statusLog to get time patient entered current status
