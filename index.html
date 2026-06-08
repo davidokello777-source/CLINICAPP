@@ -4255,7 +4255,7 @@ function swDoc(tab,btn){
 
 function renderCons(){
   let q=visits.filter(v=>!['DISCHARGED','ADMITTED'].includes(v.status));
-  // Sort: emergencies first, then ascending by registeredAt (first in, first seen)
+  // Sort: emergencies first, then most recently registered at top
   q=_sortQueue(q);
   q.sort((a,b)=>(b.consultType==='EMERGENCY'?1:0)-(a.consultType==='EMERGENCY'?1:0));
   let h=`<tr><th>Patient</th><th>Age/Gender</th><th>Type</th><th>Registered</th><th>Status</th><th>Pay</th><th>Labs</th><th>Rad</th><th>Rx</th><th>Action</th></tr>`;
@@ -14264,9 +14264,9 @@ function _fmtReg(v){
   const sameDay=d.getDate()===today.getDate()&&d.getMonth()===today.getMonth()&&d.getFullYear()===today.getFullYear();
   return sameDay?`<span style="font-weight:700;">${hh}:${mi}</span>`:`<span style="font-size:11px;">${dd}/${mm}</span> <span style="font-weight:700;">${hh}:${mi}</span>`;
 }
-// Sort visits ascending by registeredAt (oldest first = first to be seen)
+// Sort visits descending by registeredAt (most recently registered = top of queue)
 function _sortQueue(arr){
-  return arr.slice().sort((a,b)=>(a.registeredAt||0)-(b.registeredAt||0));
+  return arr.slice().sort((a,b)=>(b.registeredAt||0)-(a.registeredAt||0));
 }
 
 function _waitMins(v) {
