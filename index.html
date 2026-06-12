@@ -1464,7 +1464,7 @@ document.addEventListener("DOMContentLoaded", function(){
       <div id="lab-summary-panel" style="display:none;">
         <div class="g2">
           <div class="card"><h4 style="margin-bottom:8px;">📊 Lab Test Statistics (This Month)</h4><table id="lab-stats-table"></table></div>
-          <div class="card"><h4 style="margin-bottom:8px;">🏆 Most Requested Tests</h4><div class="chart-box"><canvas id="ch-lab-stats"></canvas></div></div>
+          <div class="card"><h4 style="margin-bottom:8px;">🏆 Most Requested Tests</h4><div class="chart-box" style="height:260px;"><canvas id="ch-lab-summary-stats"></canvas></div></div>
         </div>
       </div>
       <!-- Lab services catalogue -->
@@ -6314,25 +6314,77 @@ function printPhysioReport(){
 function buildLabSummary(){
   const now=new Date();const m=now.getMonth();const y=now.getFullYear();
   const allLabs=visits.flatMap(v=>(v.labs||[]).filter(l=>l.name));
-  const mLabs=visits.filter(v=>{const d=new Date(v.date);return d.getMonth()===m&&d.getFullYear()===y;}).flatMap(v=>(v.labs||[]).filter(l=>l.name));
-  const counts={};mLabs.forEach(l=>{counts[l.name]=(counts[l.name]||0)+1;});
+  const mLabs=visits.filter(v=>{
+    const d=new Date(v.registeredAt||v.date);
+    return d.getMonth()===m&&d.getFullYear()===y;
+  }).flatMap(v=>(v.labs||[]).filter(l=>l.name));
+
   const totalOrdered=allLabs.length,totalDone=allLabs.filter(l=>l.done).length;
   const mOrdered=mLabs.length,mDone=mLabs.filter(l=>l.done).length;
-  let h=`<tr><th>Test</th><th>This Month</th><th>Completed</th><th>Total Ever</th></tr>`;
-  LAB_TESTS.forEach(t=>{
-    const mo=mLabs.filter(l=>l.name===t.name).length;
-    const mc=mLabs.filter(l=>l.name===t.name&&l.done).length;
-    const tot=allLabs.filter(l=>l.name===t.name).length;
-    if(tot>0)h+=`<tr><td>${t.name}</td><td>${mo}</td><td>${mc}</td><td>${tot}</td></tr>`;
-  });
-  h+=`<tr style="font-weight:700;"><td>TOTAL</td><td>${mOrdered}</td><td>${mDone}</td><td>${totalOrdered}</td></tr>`;
-  document.getElementById('lab-stats-table').innerHTML=h;
-  // Chart
-  dChart('labch');
-  const ctx=document.getElementById('ch-lab-stats');if(!ctx)return;
+
+  // Build stats table — show any test that has ever been ordered
+  let h=`<tr><th>Test Name</th><th>This Month</th><th>Completed</th><th>All Time</th></tr>`;
+  const labsWithData=(window._labTests||LAB_TESTS).filter(t=>allLabs.some(l=>l.name===t.name));
+  if(!labsWithData.length){
+    h+=`<tr><td colspan="4" class="emp">No lab tests ordered yet.</td></tr>`;
+  } else {
+    labsWithData.sort((a,b)=>{
+      const at=allLabs.filter(l=>l.name===b.name).length-allLabs.filter(l=>l.name===a.name).length;
+      return at;
+    }).forEach(t=>{
+      const mo=mLabs.filter(l=>l.name===t.name).length;
+      const mc=mLabs.filter(l=>l.name===t.name&&l.done).length;
+      const tot=allLabs.filter(l=>l.name===t.name).length;
+      h+=`<tr><td>${t.name}</td><td>${mo||'—'}</td><td>${mc||'—'}</td><td><b>${tot}</b></td></tr>`;
+    });
+    h+=`<tr style="font-weight:700;background:var(--lt);"><td>TOTAL</td><td>${mOrdered}</td><td>${mDone}</td><td>${totalOrdered}</td></tr>`;
+  }
+  const tbl=document.getElementById('lab-stats-table');
+  if(tbl)tbl.innerHTML=h;
+
+  // Chart — use all-time counts if this-month is empty
+  dChart('labsumch');
+  const ctx=document.getElementById('ch-lab-summary-stats');
+  if(!ctx)return;
+
+  // Use month counts if available, fall back to all-time
+  const useMLabs=mLabs.length>0?mLabs:allLabs;
+  const chartLabel=mLabs.length>0?'This Month':'All Time';
+  const counts={};
+  useMLabs.forEach(l=>{counts[l.name]=(counts[l.name]||0)+1;});
   const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  if(!sorted.length)return;
-  charts.labch=new Chart(ctx,{type:'bar',data:{labels:sorted.map(x=>x[0]),datasets:[{label:'Requests this month',data:sorted.map(x=>x[1]),backgroundColor:'rgba(124,58,237,.7)'}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}});
+
+  if(!sorted.length){
+    ctx.parentElement.innerHTML=`<p class="emp" style="padding:20px;text-align:center;">No lab tests ordered yet — data will appear here once tests are requested.</p>`;
+    return;
+  }
+
+  charts.labsumch=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:sorted.map(x=>x[0]),
+      datasets:[{
+        label:`Requests (${chartLabel})`,
+        data:sorted.map(x=>x[1]),
+        backgroundColor:sorted.map((_,i)=>`hsl(${260+i*8},70%,${55+i*3}%)`),
+        borderRadius:5,
+        borderSkipped:false
+      }]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.parsed.x} request${ctx.parsed.x!==1?'s':''}`}}
+      },
+      scales:{
+        x:{beginAtZero:true,ticks:{stepSize:1,precision:0}},
+        y:{ticks:{font:{size:11}}}
+      }
+    }
+  });
 }
 
 function openLab(id){
