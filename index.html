@@ -2356,6 +2356,72 @@ document.addEventListener("DOMContentLoaded", function(){
       </div>
     </section>
 
+    <!-- ══ INSURANCE SECTION ══ -->
+    <section id="sec-insurance">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
+        <h3>🛡️ Insurance Claims Management</h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="ba" onclick="oNewClaimModal()">+ New Claim</button>
+          <button class="bo" onclick="oInsuranceModal()">+ Add Provider</button>
+          <button class="bo" onclick="printInsuranceReport()">🖨 Report</button>
+        </div>
+      </div>
+      <div id="ins-stats" class="g4" style="margin-bottom:12px;"></div>
+      <div class="stabs" id="insurance-tabs">
+        <button class="st active" onclick="swInsurance('claims',this)">📋 Claims</button>
+        <button class="st" onclick="swInsurance('preauth',this)">✅ Pre-Auth</button>
+        <button class="st" onclick="swInsurance('providers',this)">🏢 Providers</button>
+        <button class="st" onclick="swInsurance('analytics',this)">📊 Analytics</button>
+        <button class="st" onclick="swInsurance('guide',this)">📖 Guide</button>
+      </div>
+      <!-- CLAIMS PANEL -->
+      <div id="ins-claims-panel">
+        <div class="card" style="padding:9px;">
+          <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:9px;align-items:center;">
+            <input id="ins-claim-search" placeholder="🔍 Patient name or claim ID…" oninput="renderClaimsTable()" style="max-width:220px;margin:0;font-size:12px;">
+            <select id="ins-claim-status" onchange="renderClaimsTable()" style="margin:0;font-size:12px;"><option value="">All Statuses</option><option>Draft</option><option>Submitted</option><option>Under Review</option><option>Approved</option><option>Partially Approved</option><option>Rejected</option><option>Paid</option></select>
+            <select id="ins-claim-provider" onchange="renderClaimsTable()" style="margin:0;font-size:12px;"><option value="">All Providers</option></select>
+          </div>
+          <table id="ins-claims-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+      <!-- PRE-AUTH PANEL -->
+      <div id="ins-preauth-panel" style="display:none;">
+        <div class="card" style="padding:9px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
+            <h4 style="margin:0;color:var(--p);">Pre-Authorisation Requests</h4>
+            <button class="ba bsm" onclick="oPreAuthModal()">+ Request Pre-Auth</button>
+          </div>
+          <table id="ins-preauth-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+      <!-- PROVIDERS PANEL -->
+      <div id="ins-providers-panel" style="display:none;">
+        <div class="card" style="padding:9px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
+            <h4 style="margin:0;color:var(--p);">Insurance Providers</h4>
+            <button class="ba bsm" onclick="oInsuranceModal()">+ Add Provider</button>
+          </div>
+          <table id="ins-providers-table" style="font-size:13px;"></table>
+        </div>
+      </div>
+      <!-- ANALYTICS PANEL -->
+      <div id="ins-analytics-panel" style="display:none;">
+        <div class="g2" style="margin-bottom:12px;">
+          <div class="card"><h4 style="margin-bottom:8px;">💰 Claims by Provider</h4><div style="position:relative;height:220px;"><canvas id="ch-ins-by-provider"></canvas></div></div>
+          <div class="card"><h4 style="margin-bottom:8px;">📈 Monthly Claims Value</h4><div style="position:relative;height:220px;"><canvas id="ch-ins-monthly"></canvas></div></div>
+        </div>
+        <div class="g2">
+          <div class="card"><h4 style="margin-bottom:8px;">🔵 Status Breakdown</h4><div style="position:relative;height:220px;"><canvas id="ch-ins-status"></canvas></div></div>
+          <div class="card"><h4 style="margin-bottom:8px;">📋 Summary Statistics</h4><table id="ins-analytics-table" style="font-size:13px;"></table></div>
+        </div>
+      </div>
+      <!-- GUIDE PANEL -->
+      <div id="ins-guide-panel" style="display:none;">
+        <div class="card"><div id="ins-guide-content"></div></div>
+      </div>
+    </section>
+
     <section id="sec-suppliers">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
         <h3>🏪 Supplier Management</h3>
@@ -2587,12 +2653,13 @@ const STAFF_ROLES={
   'System Admin':{color:'#374151',bg:'#f3f4f6',sections:[],landing:'admin',canEditInv:true,canAddInv:true,isAdmin:true,desc:'Full access including staff & system management'},
   'Dentist':{color:'#0891b2',bg:'#e0f2fe',sections:['dental','chat'],landing:'dental',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Dental consultations, charting & procedures'},
   'Dental Nurse':{color:'#0e7490',bg:'#cffafe',sections:['dental','chat'],landing:'dental',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Dental nursing, sterilisation & patient care'},
+  'Insurance Officer':{color:'#0369a1',bg:'#e0f2fe',sections:['insurance','billing','chat'],landing:'insurance',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Insurance claims, pre-authorisation & provider liaison'},
   'ENT Specialist':{color:'#6d28d9',bg:'#ede9fe',sections:['ent','doctor','chat'],landing:'ent',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Ear, Nose & Throat consultations, audiometry & procedures'},
   'ENT Nurse':{color:'#7c3aed',bg:'#f5f3ff',sections:['ent','nurse','chat'],landing:'ent',canEditInv:false,canAddInv:false,isAdmin:false,desc:'ENT nursing support, otoscopy & patient care'},
   'Physiotherapist':{color:'#059669',bg:'#d1fae5',sections:['physiotherapy','chat'],landing:'physiotherapy',canEditInv:false,canAddInv:false,isAdmin:false,desc:'Physiotherapy assessments, exercise plans & sessions'},
 };
-const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','expenses','dental','ent','physiotherapy','suppliers','chat'];
-const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',suppliers:'Suppliers',expenses:'Expenses',dental:'Dental',ent:'ENT',physiotherapy:'Physiotherapy',chat:'Staff Chat'};
+const ALL_SECS=['reception','nurse','doctor','billing','lab','pharmacy','radiology','inventory','expenses','dental','ent','physiotherapy','suppliers','insurance','chat'];
+const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'Billing',lab:'Lab',pharmacy:'Pharmacy',radiology:'Radiology',inventory:'Inventory',suppliers:'Suppliers',expenses:'Expenses',dental:'Dental',ent:'ENT',physiotherapy:'Physiotherapy',insurance:'Insurance',chat:'Staff Chat'};
 const CONSULT_FEE=10;
 
 // ══════════════════════════════════════════════
@@ -2962,7 +3029,7 @@ function doLogout(){
 function renderNav(){
   const secs=currentUser.isAdmin?['director',...ALL_SECS,'admin','feedbacks']:(currentUser.sections||[]);
   const lbl={director:'Dashboard',...SEC_LABELS,admin:'Admin',feedbacks:'Feedback'};
-  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',expenses:'💰',dental:'🦷',ent:'👂',physiotherapy:'🏃',suppliers:'🏪',chat:'💬',admin:'⚙️',feedbacks:'⭐'};
+  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',expenses:'💰',dental:'🦷',ent:'👂',physiotherapy:'🏃',suppliers:'🏪',insurance:'🛡️',chat:'💬',admin:'⚙️',feedbacks:'⭐'};
   const hiddenFromNav=['suppliers']; // Suppliers managed via Admin tab only
   document.getElementById('dn').innerHTML=secs.filter(s=>!hiddenFromNav.includes(s)).map(s=>`<button id="btn-${s}" class="nb" onclick="showSection('${s}')">${icons[s]||'•'} ${lbl[s]||s.toUpperCase()}</button>`).join('');
 }
@@ -2980,7 +3047,7 @@ function showSection(id){
     doctor:renderCons,billing:()=>renderBilling(),
     lab:()=>renderLab(),pharmacy:()=>renderPharm(),
     radiology:()=>renderRad(),inventory:()=>{renderInventory();checkNearExpiry();},
-    expenses:()=>renderExpenses(),dental:()=>renderDental(),ent:()=>renderENT(),physiotherapy:()=>renderPhysio(),suppliers:()=>renderSuppliers(),admin:()=>{swAdmin('staff',document.querySelector('#sec-admin .stabs .st'));loadFacilitySettingsUI();},feedbacks:renderFeedbacks,chat:renderChat
+    expenses:()=>renderExpenses(),dental:()=>renderDental(),ent:()=>renderENT(),physiotherapy:()=>renderPhysio(),suppliers:()=>renderSuppliers(),insurance:()=>renderInsuranceSection(),admin:()=>{swAdmin('staff',document.querySelector('#sec-admin .stabs .st'));loadFacilitySettingsUI();},feedbacks:renderFeedbacks,chat:renderChat
   })[id]?.();},'showSection:'+id);
 }
 
@@ -6308,9 +6375,527 @@ function printPhysioReport(){
   doPrint();
 }
 
-// ══════════════════════════════════════════════
-//  LAB SUMMARY
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════
+//  INSURANCE CLAIMS MODULE
+// ════════════════════════════════════════════════════
+if(!window.claims)window.claims=[];
+if(!window.preAuths)window.preAuths=[];
+
+const INS_STATUS_COLORS={
+  'Draft':'#64748b','Submitted':'#2563eb','Under Review':'#d97706',
+  'Approved':'#16a34a','Partially Approved':'#0891b2','Rejected':'#dc2626','Paid':'#059669'
+};
+const INS_GUIDE_DATA=[
+  {title:'What is a Health Insurance Claim?',color:'#0369a1',bg:'#e0f2fe',
+   content:'A claim is a formal request submitted to an insurance company asking for payment of services rendered to an insured patient.<br><br><b>Claim Lifecycle:</b> Draft → Submitted → Under Review → Approved/Rejected → Paid<br><br><b>Key Documents Required:</b><ul style="margin:5px 0 0 16px;"><li>Completed claim form (insurer-specific)</li><li>Original receipts / invoices</li><li>Clinical notes / discharge summary</li><li>Lab/radiology results (if applicable)</li><li>Referral letter (if specialist visit)</li><li>Patient ID and insurance card copy</li></ul>'},
+  {title:'Pre-Authorisation (Pre-Auth)',color:'#059669',bg:'#d1fae5',
+   content:'Pre-authorisation is written approval from an insurer <b>before</b> a non-emergency service is performed.<br><br><b>Usually Required For:</b> Elective surgery · Inpatient admissions · Specialist referrals · High-cost investigations (MRI, CT) · Chemotherapy · Long-term rehab<br><br><b>Process:</b><ol style="margin:5px 0 0 16px;"><li>Doctor identifies need for service</li><li>Obtain pre-auth form from insurer</li><li>Submit clinical justification + estimated cost</li><li>Insurer responds (usually 24–72h; emergency 1–4h)</li><li>Record PA number on claim form</li></ol><b>Emergency services do NOT require pre-auth.</b>'},
+  {title:'Co-payment, Co-insurance & Deductibles',color:'#7c3aed',bg:'#ede9fe',
+   content:'<b>Deductible:</b> Fixed amount patient pays before insurance kicks in (e.g. $200/year). Track remaining deductible each visit.<br><br><b>Co-payment (Co-pay):</b> Fixed amount per visit regardless of total bill (e.g. $10 per outpatient visit).<br><br><b>Co-insurance:</b> Percentage patient pays after deductible (e.g. 20%). Insurer pays 80%.<br><br><b>Out-of-Pocket Maximum:</b> Once reached, insurer pays 100%.<br><br><b>Example:</b> Bill $500, deductible met, 20% co-insurance → Patient pays $100, Insurer pays $400.<br><br>Always collect patient portion AT TIME OF SERVICE. Create a billing split record.'},
+  {title:'Common Rejection Reasons & How to Avoid',color:'#dc2626',bg:'#fee2e2',
+   content:'<b>TOP REJECTION REASONS:</b><br><br>\u274C <b>Non-covered service</b> \u2014 verify coverage BEFORE service. Call insurer helpline.<br>\u274C <b>Expired policy</b> \u2014 always verify policy validity on presentation.<br>\u274C <b>Missing pre-auth</b> \u2014 obtain PA number before elective procedures.<br>\u274C <b>Incorrect member number</b> \u2014 transcription errors. Photocopy insurance card.<br>\u274C <b>Duplicate claim</b> \u2014 track submissions; do not resubmit without denial letter.<br>\u274C <b>Incomplete documentation</b> \u2014 clinical notes, ICD codes, itemised bill all required.<br>\u274C <b>Claim submitted late</b> \u2014 most insurers have 30-90 day filing deadline from date of service.<br>\u274C <b>Wrong ICD/CPT code</b> \u2014 use correct diagnostic and procedure codes.<br><br><b>ON REJECTION:</b> Request written explanation. Gather missing docs. Re-submit with cover letter within appeal window (usually 30-60 days).'},
+  {title:'Fraud Prevention & Compliance',color:'#92400e',bg:'#fef3c7',
+   content:'<b>Insurance fraud is a criminal offence.</b><br><br><b>Prohibited:</b> Billing for services not rendered · Upcoding (billing higher code than performed) · Phantom billing · Waiving co-pays without insurer approval · Duplicate billing<br><br><b>Controls to implement:</b><ul style="margin:5px 0 0 16px;"><li>Reconcile all claims with visit records monthly</li><li>Two-person approval for claims over policy threshold</li><li>Audit trail for all claim modifications</li><li>Segregation: the person who orders services should not be the same person who submits the claim</li></ul><b>Whistleblower protection:</b> Staff who report suspected fraud are protected. Report to facility management or directly to the insurer\'s compliance department.'},
+  {title:'Claim Coding — ICD-10 Essentials',color:'#0891b2',bg:'#e0f2fe',
+   content:'<b>ICD-10 Structure:</b> Letter + 2 digits (category) + decimal + up to 4 more characters<br>e.g. <b>J18.9</b> = J (respiratory) · 18 (pneumonia) · .9 (unspecified)<br><br><b>Common Codes:</b><br>A09 — Gastroenteritis/diarrhoea · J06.9 — URTI · J18.9 — Pneumonia · B50 — Malaria · A01 — Typhoid · K29 — Gastritis · E11 — Type 2 DM · I10 — Hypertension · J45 — Asthma · N39.0 — UTI · K35 — Appendicitis · O80 — Normal delivery<br><br><b>Rules:</b> Code the primary diagnosis first. Use the most specific code available. Code co-morbidities that affect management. Don\'t code signs/symptoms when a definitive diagnosis is known. External cause codes (V/W/X/Y) supplement injury codes.'},
+];
+
+// ── Data persistence ──────────────────────────────
+function _saveClaims(){
+  try{localStorage.setItem('tali_claims',JSON.stringify(window.claims));
+  localStorage.setItem('tali_preauths',JSON.stringify(window.preAuths));}catch(e){}
+}
+function _loadClaims(){
+  try{window.claims=JSON.parse(localStorage.getItem('tali_claims')||'[]');
+  window.preAuths=JSON.parse(localStorage.getItem('tali_preauths')||'[]');}catch(e){window.claims=[];window.preAuths=[];}
+}
+
+// ── Section entry ─────────────────────────────────
+function renderInsuranceSection(){
+  _loadClaims();_loadInsurances();
+  renderInsStatsBar();
+  const firstTab=document.querySelector('#insurance-tabs .st');
+  swInsurance('claims',firstTab);
+}
+
+function swInsurance(tab,btn){
+  document.querySelectorAll('#insurance-tabs .st').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  ['claims','preauth','providers','analytics','guide'].forEach(t=>{
+    const el=document.getElementById('ins-'+t+'-panel');if(el)el.style.display='none';
+  });
+  const panel=document.getElementById('ins-'+tab+'-panel');if(panel)panel.style.display='block';
+  if(tab==='claims'){populateClaimFilters();renderClaimsTable();}
+  else if(tab==='preauth')renderPreAuthTable();
+  else if(tab==='providers')renderInsProvidersTab();
+  else if(tab==='analytics')renderInsAnalytics();
+  else if(tab==='guide')renderInsGuide();
+}
+
+// ── Stats Bar ─────────────────────────────────────
+function renderInsStatsBar(){
+  _loadClaims();
+  const total=window.claims.length;
+  const pending=window.claims.filter(c=>['Submitted','Under Review'].includes(c.status)).length;
+  const approved=window.claims.filter(c=>['Approved','Partially Approved'].includes(c.status)).length;
+  const paid=window.claims.filter(c=>c.status==='Paid').length;
+  const totalVal=window.claims.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const paidVal=window.claims.filter(c=>c.status==='Paid').reduce((s,c)=>s+(parseFloat(c.paidAmount||c.amount)||0),0);
+  const el=document.getElementById('ins-stats');if(!el)return;
+  el.innerHTML=[
+    {l:'Total Claims',v:total,c:'#0369a1'},
+    {l:'Pending/Review',v:pending,c:'#d97706'},
+    {l:'Approved',v:approved,c:'#16a34a'},
+    {l:'Paid Out',v:'$'+paidVal.toFixed(0),c:'#059669'},
+  ].map(x=>`<div style="background:${x.c};color:#fff;border-radius:7px;padding:9px 12px;">
+    <div style="font-size:10px;opacity:.8;font-weight:700;">${x.l}</div>
+    <div style="font-size:18px;font-weight:800;margin-top:2px;">${x.v}</div>
+  </div>`).join('');
+}
+
+// ── Claims Table ──────────────────────────────────
+function populateClaimFilters(){
+  _loadInsurances();
+  const sel=document.getElementById('ins-claim-provider');if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">All Providers</option>'+insurances.map(ins=>`<option value="${ins.name}" ${ins.name===cur?'selected':''}>${ins.name}</option>`).join('');
+}
+
+function renderClaimsTable(){
+  _loadClaims();
+  const q=(document.getElementById('ins-claim-search')?.value||'').toLowerCase();
+  const st=document.getElementById('ins-claim-status')?.value||'';
+  const prov=document.getElementById('ins-claim-provider')?.value||'';
+  let list=window.claims.filter(c=>{
+    if(q&&!c.patientName.toLowerCase().includes(q)&&!c.id.toLowerCase().includes(q))return false;
+    if(st&&c.status!==st)return false;
+    if(prov&&c.provider!==prov)return false;
+    return true;
+  }).sort((a,b)=>b.createdAt-a.createdAt);
+
+  let h=`<tr><th>Claim ID</th><th>Patient</th><th>Provider</th><th>Type</th><th>Date</th><th>Amount</th><th>Status</th><th>Actions</th></tr>`;
+  if(!list.length)h+=`<tr><td colspan="8" class="emp">No claims found. Click "+ New Claim" to submit one.</td></tr>`;
+  list.forEach(c=>{
+    const col=INS_STATUS_COLORS[c.status]||'#64748b';
+    h+=`<tr>
+      <td style="font-family:monospace;font-size:11px;color:var(--mu);">${c.id}</td>
+      <td><b>${c.patientName}</b><br><span style="font-size:10px;color:var(--mu);">${c.memberNo||'No member no.'}</span></td>
+      <td style="font-size:12px;">${c.provider||'—'}</td>
+      <td><span style="font-size:10px;background:#e0f2fe;color:#0369a1;padding:2px 7px;border-radius:8px;font-weight:700;">${c.type||'—'}</span></td>
+      <td style="font-size:12px;">${c.date||'—'}</td>
+      <td><b>$${parseFloat(c.amount||0).toFixed(2)}</b>${c.paidAmount&&c.paidAmount!==c.amount?`<br><span style="font-size:10px;color:#059669;">Paid: $${parseFloat(c.paidAmount).toFixed(2)}</span>`:''}</td>
+      <td><span style="background:${col}18;color:${col};border:1.5px solid ${col}40;padding:2px 9px;border-radius:8px;font-size:11px;font-weight:700;">${c.status}</span></td>
+      <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
+        <button class="bsm bo" onclick="viewClaimDetail('${c.id}')">View</button>
+        <button class="bsm bp" onclick="editClaim('${c.id}')">Edit</button>
+        ${['Submitted','Under Review','Approved','Partially Approved'].includes(c.status)?`<button class="bsm ba" onclick="markClaimPaid('${c.id}')">Mark Paid</button>`:''}
+        <button class="bsm bd2" onclick="deleteClaim('${c.id}')">🗑</button>
+      </div></td>
+    </tr>`;
+  });
+  const el=document.getElementById('ins-claims-table');if(el)el.innerHTML=h;
+}
+
+// ── New / Edit Claim ──────────────────────────────
+function oNewClaimModal(editId){
+  _loadClaims();_loadInsurances();
+  const claim=editId?window.claims.find(c=>c.id===editId):null;
+  document.getElementById('claimEditId').value=claim?claim.id:'';
+
+  // Populate visit dropdown (insurance patients)
+  const vSel=document.getElementById('claimVisit');
+  const insVisits=visits.filter(v=>['Insurance','NHIF','Corporate'].includes(v.paymentType)||v.insuranceProvider);
+  vSel.innerHTML='<option value="">— Select patient visit —</option>'+
+    insVisits.map(v=>`<option value="${v.id}" ${claim&&claim.visitId===v.id?'selected':''}>${v.name} — ${v.date} (${v.insuranceProvider||v.paymentType})</option>`).join('');
+
+  // Populate provider dropdown
+  const pSel=document.getElementById('claimProvider');
+  pSel.innerHTML='<option value="">— Select provider —</option>'+
+    insurances.map(ins=>`<option value="${ins.name}" ${claim&&claim.provider===ins.name?'selected':''}>${ins.name}</option>`).join('');
+
+  if(claim){
+    document.getElementById('claimMemberNo').value=claim.memberNo||'';
+    document.getElementById('claimPreAuth').value=claim.preAuthNo||'';
+    document.getElementById('claimAmount').value=claim.amount||'';
+    document.getElementById('claimDate').value=claim.date||new Date().toISOString().slice(0,10);
+    document.getElementById('claimType').value=claim.type||'Outpatient';
+    document.getElementById('claimPriority').value=claim.priority||'Normal';
+    document.getElementById('claimDx').value=claim.diagnosis||'';
+    document.getElementById('claimServices').value=claim.services||'';
+    document.getElementById('claimNotes').value=claim.notes||'';
+    if(claim.visitId)populateClaimFromVisit(claim.visitId);
+  } else {
+    ['claimMemberNo','claimPreAuth','claimAmount','claimDx','claimServices','claimNotes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    document.getElementById('claimDate').value=new Date().toISOString().slice(0,10);
+    document.getElementById('claim-items-breakdown').style.display='none';
+  }
+  oModal('new-claim-modal');
+}
+
+function populateClaimFromVisit(vid){
+  const visitId=vid||document.getElementById('claimVisit')?.value;
+  if(!visitId)return;
+  const v=visits.find(x=>x.id===visitId);if(!v)return;
+  // Auto-fill provider and member no from visit
+  const pSel=document.getElementById('claimProvider');
+  if(pSel&&v.insuranceProvider){for(let o of pSel.options)if(o.value===v.insuranceProvider){o.selected=true;break;}}
+  const mn=document.getElementById('claimMemberNo');
+  if(mn&&v.insuranceMemberNo)mn.value=v.insuranceMemberNo;
+  // Build bill breakdown
+  const lines=[];
+  if(v.consultFee)lines.push({desc:'Consultation Fee',amt:v.consultFee});
+  (v.labs||[]).filter(l=>l.name&&l.price).forEach(l=>lines.push({desc:`Lab: ${l.name}`,amt:l.price}));
+  (v.radiology||[]).filter(r=>r.name&&r.price).forEach(r=>lines.push({desc:`Radiology: ${r.name}`,amt:r.price}));
+  (v.prescriptions||[]).filter(r=>r.name&&r.price).forEach(r=>lines.push({desc:`Rx: ${r.name} ×${r.qty||1}`,amt:r.price}));
+  (v.procedures||[]).filter(p=>p.name&&p.price).forEach(p=>lines.push({desc:`Procedure: ${p.name}`,amt:p.price}));
+  const total=lines.reduce((s,l)=>s+(l.amt||0),0);
+  const breakdown=document.getElementById('claim-items-breakdown');
+  const list=document.getElementById('claim-items-list');
+  const totEl=document.getElementById('claim-totals');
+  if(lines.length){
+    if(breakdown)breakdown.style.display='block';
+    if(list)list.innerHTML=lines.map(l=>`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dashed #bae6fd;"><span>${l.desc}</span><b>$${(l.amt||0).toFixed(2)}</b></div>`).join('');
+    if(totEl)totEl.innerHTML=`<div style="display:flex;justify-content:space-between;font-weight:800;font-size:14px;color:#0369a1;"><span>Total Claimable</span><span>$${total.toFixed(2)}</span></div>`;
+    const amt=document.getElementById('claimAmount');if(amt&&!amt.value)amt.value=total.toFixed(2);
+    const svc=document.getElementById('claimServices');if(svc&&!svc.value)svc.value=lines.map(l=>l.desc).join(', ');
+  }
+  // Auto-fill diagnosis
+  const dx=document.getElementById('claimDx');
+  if(dx&&!dx.value)dx.value=(v.clinical?.finalDx||v.clinical?.diffDx||'');
+  // Auto-fill type
+  const ct=document.getElementById('claimType');
+  if(ct){
+    if(v.status==='ADMITTED')ct.value='Inpatient';
+    else if(v.consultType==='EMERGENCY')ct.value='Emergency';
+    else if(v.labs?.some(l=>l.name))ct.value='Laboratory';
+    else if(v.radiology?.some(r=>r.name))ct.value='Radiology';
+  }
+}
+
+function saveClaim(status){
+  _loadClaims();
+  const eid=document.getElementById('claimEditId')?.value||'';
+  const visitId=document.getElementById('claimVisit')?.value||'';
+  const v=visits.find(x=>x.id===visitId);
+  const provider=document.getElementById('claimProvider')?.value||'';
+  if(!provider)return alert('Please select an insurance provider.');
+  const amount=parseFloat(document.getElementById('claimAmount')?.value||0);
+  if(!amount)return alert('Please enter the claim amount.');
+  const obj={
+    id:eid||'CLM-'+Date.now().toString().slice(-7),
+    visitId,
+    patientName:v?v.name:(document.getElementById('claimVisit')?.selectedOptions?.[0]?.text||'Unknown'),
+    provider,
+    memberNo:document.getElementById('claimMemberNo')?.value.trim()||'',
+    preAuthNo:document.getElementById('claimPreAuth')?.value.trim()||'',
+    amount,
+    date:document.getElementById('claimDate')?.value||new Date().toLocaleDateString(),
+    type:document.getElementById('claimType')?.value||'Outpatient',
+    priority:document.getElementById('claimPriority')?.value||'Normal',
+    diagnosis:document.getElementById('claimDx')?.value.trim()||'',
+    services:document.getElementById('claimServices')?.value.trim()||'',
+    notes:document.getElementById('claimNotes')?.value.trim()||'',
+    status,
+    createdAt:Date.now(),
+    createdBy:currentUser?.name||'Staff',
+    history:[{date:new Date().toLocaleDateString(),time:new Date().toLocaleTimeString(),action:eid?`Updated — ${status}`:`Claim created — ${status}`,by:currentUser?.name||'Staff'}]
+  };
+  if(eid){
+    const idx=window.claims.findIndex(c=>c.id===eid);
+    if(idx>-1){const old=window.claims[idx];obj.paidAmount=old.paidAmount;obj.history=[...(old.history||[]),...obj.history];window.claims[idx]=obj;}
+    else window.claims.push(obj);
+  } else {
+    window.claims.push(obj);
+  }
+  _saveClaims();cModal('new-claim-modal');renderInsuranceSection();
+  _showToast(status==='Submitted'?`✅ Claim ${obj.id} submitted to ${provider}`:`💾 Draft saved — ${obj.id}`,'#0369a1');
+}
+
+function editClaim(id){oNewClaimModal(id);}
+
+function deleteClaim(id){
+  if(!confirm('Delete this claim? This cannot be undone.'))return;
+  _loadClaims();window.claims=window.claims.filter(c=>c.id!==id);
+  _saveClaims();renderClaimsTable();renderInsStatsBar();
+}
+
+function markClaimPaid(id){
+  _loadClaims();
+  const c=window.claims.find(x=>x.id===id);if(!c)return;
+  const amt=prompt(`Mark claim ${id} as Paid.\nEnter amount received from insurer:`,c.amount||'');
+  if(amt===null)return;
+  c.paidAmount=parseFloat(amt)||parseFloat(c.amount)||0;
+  c.status='Paid';
+  c.paidDate=new Date().toLocaleDateString();
+  (c.history=c.history||[]).push({date:new Date().toLocaleDateString(),time:new Date().toLocaleTimeString(),action:`Marked Paid — $${c.paidAmount}`,by:currentUser?.name||'Staff'});
+  _saveClaims();renderClaimsTable();renderInsStatsBar();
+  _showToast(`✅ Claim ${id} marked as Paid — $${c.paidAmount}`,'#059669');
+}
+
+function viewClaimDetail(id){
+  _loadClaims();
+  const c=window.claims.find(x=>x.id===id);if(!c)return;
+  const col=INS_STATUS_COLORS[c.status]||'#64748b';
+  const hist=(c.history||[]).map(h=>`<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px dashed var(--bd);font-size:12px;"><span style="color:var(--mu);white-space:nowrap;">${h.date} ${h.time}</span><span><b>${h.action}</b> — ${h.by}</span></div>`).join('');
+  document.getElementById('claim-detail-content').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+      <div><h3 style="color:#0369a1;margin:0;">🛡️ Claim ${c.id}</h3><div style="font-size:12px;color:var(--mu);">Created ${c.date} by ${c.createdBy}</div></div>
+      <span style="background:${col}18;color:${col};border:2px solid ${col}40;padding:4px 14px;border-radius:10px;font-weight:800;font-size:13px;">${c.status}</span>
+    </div>
+    <div class="g2" style="margin-bottom:12px;">
+      <div style="background:#f0f9ff;border-radius:7px;padding:10px;">
+        <div style="font-size:11px;color:var(--mu);font-weight:700;margin-bottom:6px;">PATIENT</div>
+        <div style="font-weight:700;">${c.patientName}</div>
+        <div style="font-size:12px;">Member No: ${c.memberNo||'—'}</div>
+        <div style="font-size:12px;">Pre-Auth: ${c.preAuthNo||'—'}</div>
+      </div>
+      <div style="background:#f0fdf4;border-radius:7px;padding:10px;">
+        <div style="font-size:11px;color:var(--mu);font-weight:700;margin-bottom:6px;">CLAIM</div>
+        <div style="font-weight:700;font-size:16px;color:#0369a1;">$${parseFloat(c.amount||0).toFixed(2)}</div>
+        <div style="font-size:12px;">Provider: ${c.provider}</div>
+        <div style="font-size:12px;">Type: ${c.type} · ${c.priority}</div>
+        ${c.paidAmount?`<div style="font-size:12px;color:#059669;font-weight:700;">Paid: $${parseFloat(c.paidAmount).toFixed(2)} on ${c.paidDate||'—'}</div>`:''}
+      </div>
+    </div>
+    <div style="margin-bottom:10px;"><b>Diagnosis:</b> ${c.diagnosis||'—'}</div>
+    <div style="margin-bottom:10px;"><b>Services:</b> ${c.services||'—'}</div>
+    ${c.notes?`<div style="margin-bottom:10px;"><b>Notes:</b> ${c.notes}</div>`:''}
+    <div style="margin-bottom:8px;font-weight:700;font-size:12px;color:var(--mu);">HISTORY</div>
+    <div>${hist||'<span class="emp">No history recorded.</span>'}</div>
+    <div class="ab" style="margin-top:12px;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${['Submitted','Under Review','Approved','Partially Approved'].includes(c.status)?`<button onclick="markClaimPaid('${c.id}');cModal('claim-detail-modal')" class="ba bsm">Mark Paid</button>`:''}
+        <select onchange="updateClaimStatus('${c.id}',this.value)" style="font-size:12px;margin:0;padding:5px 9px;">
+          <option value="">Change Status…</option>
+          ${['Draft','Submitted','Under Review','Approved','Partially Approved','Rejected','Paid'].map(s=>`<option value="${s}" ${s===c.status?'disabled':''}>${s}</option>`).join('')}
+        </select>
+        <button onclick="printClaim('${c.id}')" class="bsm bo">🖨 Print</button>
+      </div>
+    </div>`;
+  oModal('claim-detail-modal');
+}
+
+function updateClaimStatus(id,newStatus){
+  if(!newStatus)return;
+  _loadClaims();
+  const c=window.claims.find(x=>x.id===id);if(!c)return;
+  if(newStatus==='Paid'){markClaimPaid(id);return;}
+  c.status=newStatus;
+  (c.history=c.history||[]).push({date:new Date().toLocaleDateString(),time:new Date().toLocaleTimeString(),action:`Status → ${newStatus}`,by:currentUser?.name||'Staff'});
+  _saveClaims();viewClaimDetail(id);renderClaimsTable();renderInsStatsBar();
+}
+
+function printClaim(id){
+  _loadClaims();
+  const c=window.claims.find(x=>x.id===id);if(!c)return;
+  document.getElementById('pra-con').innerHTML=printHeader('INSURANCE CLAIM FORM')+
+    `<table class="pit" style="margin-bottom:10px;">
+      <tr><td><b>Claim ID:</b> ${c.id}</td><td><b>Date:</b> ${c.date}</td><td><b>Status:</b> ${c.status}</td></tr>
+      <tr><td><b>Patient:</b> ${c.patientName}</td><td><b>Member No:</b> ${c.memberNo||'—'}</td><td><b>Pre-Auth:</b> ${c.preAuthNo||'—'}</td></tr>
+      <tr><td><b>Provider:</b> ${c.provider}</td><td><b>Claim Type:</b> ${c.type}</td><td><b>Priority:</b> ${c.priority}</td></tr>
+    </table>
+    <p><b>Diagnosis:</b> ${c.diagnosis||'—'}</p>
+    <p><b>Services Rendered:</b> ${c.services||'—'}</p>
+    <p><b>Claim Amount:</b> <b style="font-size:16px;">$${parseFloat(c.amount||0).toFixed(2)}</b></p>
+    ${c.paidAmount?`<p><b>Amount Paid:</b> $${parseFloat(c.paidAmount).toFixed(2)} on ${c.paidDate||'—'}</p>`:''}
+    ${c.notes?`<p><b>Notes:</b> ${c.notes}</p>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:30px;">
+      <div><div style="border-top:1.5px solid #333;padding-top:4px;">Insurance Officer Signature</div></div>
+      <div><div style="border-top:1.5px solid #333;padding-top:4px;">Insurer Representative Signature</div></div>
+    </div>`+printFooter();
+  doPrint();
+}
+
+// ── Pre-Authorisation ─────────────────────────────
+function oPreAuthModal(editId){
+  _loadInsurances();
+  const pa=editId?window.preAuths.find(x=>x.id===editId):null;
+  document.getElementById('preauthEditId').value=pa?pa.id:'';
+  const pSel=document.getElementById('preauthPatient');
+  pSel.innerHTML='<option value="">— Select patient —</option>'+patients.map(p=>`<option value="${p.id}" ${pa&&pa.patId===p.id?'selected':''}>${p.name}</option>`).join('');
+  const prSel=document.getElementById('preauthProvider');
+  prSel.innerHTML='<option value="">— Select provider —</option>'+insurances.map(ins=>`<option value="${ins.name}" ${pa&&pa.provider===ins.name?'selected':''}>${ins.name}</option>`).join('');
+  if(pa){
+    document.getElementById('preauthMemberNo').value=pa.memberNo||'';
+    document.getElementById('preauthDate').value=pa.date||'';
+    document.getElementById('preauthProcedure').value=pa.procedure||'';
+    document.getElementById('preauthJustification').value=pa.justification||'';
+    document.getElementById('preauthCost').value=pa.cost||'';
+  } else {
+    ['preauthMemberNo','preauthProcedure','preauthJustification','preauthCost'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    document.getElementById('preauthDate').value=new Date().toISOString().slice(0,10);
+  }
+  oModal('preauth-modal');
+}
+
+function savePreAuth(){
+  _loadClaims();
+  const eid=document.getElementById('preauthEditId')?.value||'';
+  const patId=document.getElementById('preauthPatient')?.value||'';
+  const provider=document.getElementById('preauthProvider')?.value||'';
+  if(!patId||!provider)return alert('Please select a patient and provider.');
+  const procedure=document.getElementById('preauthProcedure')?.value.trim()||'';
+  if(!procedure)return alert('Please describe the procedure requiring authorisation.');
+  const pat=patients.find(x=>x.id===patId);
+  const obj={
+    id:eid||'PA-'+Date.now().toString().slice(-6),
+    patId,patientName:pat?.name||'Unknown',provider,
+    memberNo:document.getElementById('preauthMemberNo')?.value.trim()||'',
+    date:document.getElementById('preauthDate')?.value||new Date().toLocaleDateString(),
+    procedure,
+    justification:document.getElementById('preauthJustification')?.value.trim()||'',
+    cost:parseFloat(document.getElementById('preauthCost')?.value)||0,
+    status:'Pending',createdAt:Date.now(),createdBy:currentUser?.name||'Staff'
+  };
+  if(eid){const idx=window.preAuths.findIndex(x=>x.id===eid);if(idx>-1)window.preAuths[idx]=obj;else window.preAuths.push(obj);}
+  else window.preAuths.push(obj);
+  _saveClaims();cModal('preauth-modal');renderPreAuthTable();
+  _showToast(`✅ Pre-Auth request ${obj.id} submitted for ${pat?.name}`,'#059669');
+}
+
+function renderPreAuthTable(){
+  _loadClaims();
+  const list=[...window.preAuths].sort((a,b)=>b.createdAt-a.createdAt);
+  const paColors={'Pending':'#d97706','Approved':'#16a34a','Rejected':'#dc2626','Expired':'#64748b'};
+  let h=`<tr><th>PA Number</th><th>Patient</th><th>Provider</th><th>Procedure</th><th>Est. Cost</th><th>Date</th><th>Status</th><th>Actions</th></tr>`;
+  if(!list.length)h+=`<tr><td colspan="8" class="emp">No pre-authorisation requests. Click "+ Request Pre-Auth" to add one.</td></tr>`;
+  list.forEach(pa=>{
+    const col=paColors[pa.status]||'#64748b';
+    h+=`<tr>
+      <td style="font-family:monospace;font-size:11px;">${pa.id}</td>
+      <td><b>${pa.patientName}</b><br><span style="font-size:10px;color:var(--mu);">${pa.memberNo||'—'}</span></td>
+      <td style="font-size:12px;">${pa.provider}</td>
+      <td style="font-size:12px;">${pa.procedure}</td>
+      <td>$${(pa.cost||0).toFixed(2)}</td>
+      <td style="font-size:12px;">${pa.date}</td>
+      <td><span style="background:${col}18;color:${col};border:1.5px solid ${col}40;padding:2px 9px;border-radius:8px;font-size:11px;font-weight:700;">${pa.status}</span></td>
+      <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
+        <select onchange="updatePAStatus('${pa.id}',this.value)" style="font-size:11px;margin:0;padding:3px 5px;">
+          <option value="">Status…</option>
+          ${['Pending','Approved','Rejected','Expired'].map(s=>`<option value="${s}" ${s===pa.status?'disabled':''}>${s}</option>`).join('')}
+        </select>
+        <button class="bsm bo" onclick="oPreAuthModal('${pa.id}')">Edit</button>
+        <button class="bsm bd2" onclick="deletePreAuth('${pa.id}')">🗑</button>
+      </div></td>
+    </tr>`;
+  });
+  const el=document.getElementById('ins-preauth-table');if(el)el.innerHTML=h;
+}
+
+function updatePAStatus(id,status){
+  if(!status)return;
+  _loadClaims();
+  const pa=window.preAuths.find(x=>x.id===id);if(!pa)return;
+  pa.status=status;_saveClaims();renderPreAuthTable();
+  _showToast(`Pre-Auth ${id} updated to: ${status}`,status==='Approved'?'#059669':'#dc2626');
+}
+function deletePreAuth(id){
+  if(!confirm('Delete this pre-auth request?'))return;
+  _loadClaims();window.preAuths=window.preAuths.filter(x=>x.id!==id);
+  _saveClaims();renderPreAuthTable();
+}
+
+// ── Providers tab ─────────────────────────────────
+function renderInsProvidersTab(){
+  _loadInsurances();
+  let h=`<tr><th>Provider</th><th>Code</th><th>Contact</th><th>Inpatient Limit</th><th>Outpatient Limit</th><th>Pharmacy</th><th>Lab</th><th>Claims Count</th><th>Actions</th></tr>`;
+  if(!insurances.length)h+=`<tr><td colspan="9" class="emp">No insurance providers configured. Click "+ Add Provider" to add one.</td></tr>`;
+  insurances.forEach(ins=>{
+    const cnt=(window.claims||[]).filter(c=>c.provider===ins.name).length;
+    h+=`<tr>
+      <td><b>${ins.name}</b>${ins.notes?`<br><span style="font-size:10px;color:var(--mu);">${ins.notes}</span>`:''}</td>
+      <td style="font-family:monospace;font-size:11px;">${ins.code||'—'}</td>
+      <td style="font-size:12px;">${ins.phone||ins.email||'—'}</td>
+      <td>${ins.inpatientLimit?'$'+ins.inpatientLimit.toLocaleString():'—'}</td>
+      <td>${ins.outpatientLimit?'$'+ins.outpatientLimit.toLocaleString():'—'}</td>
+      <td>${ins.pharmLimit?'$'+ins.pharmLimit.toLocaleString():'—'}</td>
+      <td>${ins.labLimit?'$'+ins.labLimit.toLocaleString():'—'}</td>
+      <td><b>${cnt}</b> claim${cnt!==1?'s':''}</td>
+      <td><div style="display:flex;gap:3px;">
+        <button class="bsm bo" onclick="oInsuranceModal('${ins.id}')">Edit</button>
+        <button class="bsm bd2" onclick="deleteInsurance('${ins.id}')">🗑</button>
+      </div></td>
+    </tr>`;
+  });
+  const el=document.getElementById('ins-providers-table');if(el)el.innerHTML=h;
+}
+
+// ── Analytics ─────────────────────────────────────
+function renderInsAnalytics(){
+  _loadClaims();_loadInsurances();
+  const claims=window.claims;
+  const now=new Date();
+
+  // Stats table
+  const total=claims.length;
+  const totalVal=claims.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const paidVal=claims.filter(c=>c.status==='Paid').reduce((s,c)=>s+(parseFloat(c.paidAmount||c.amount)||0),0);
+  const pending=claims.filter(c=>['Submitted','Under Review'].includes(c.status));
+  const pendingVal=pending.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const rejected=claims.filter(c=>c.status==='Rejected').length;
+  const rej_rate=total?((rejected/total)*100).toFixed(1):0;
+  const tbl=document.getElementById('ins-analytics-table');
+  if(tbl)tbl.innerHTML=`
+    <tr><td>Total Claims</td><td><b>${total}</b></td></tr>
+    <tr><td>Total Claimed ($)</td><td><b>$${totalVal.toFixed(2)}</b></td></tr>
+    <tr><td>Total Paid ($)</td><td><b style="color:#059669;">$${paidVal.toFixed(2)}</b></td></tr>
+    <tr><td>Pending Value ($)</td><td><b style="color:#d97706;">$${pendingVal.toFixed(2)}</b></td></tr>
+    <tr><td>Rejected Claims</td><td><b style="color:#dc2626;">${rejected} (${rej_rate}%)</b></td></tr>
+    <tr><td>Active Providers</td><td><b>${insurances.length}</b></td></tr>
+  `;
+
+  // Claims by provider chart
+  const provCounts={};
+  claims.forEach(c=>{provCounts[c.provider||'Unknown']=(provCounts[c.provider||'Unknown']||0)+(parseFloat(c.amount)||0);});
+  const provSorted=Object.entries(provCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  dChart('insbyprov');
+  const ctx1=document.getElementById('ch-ins-by-provider');
+  if(ctx1&&provSorted.length)charts.insbyprov=new Chart(ctx1,{type:'bar',data:{labels:provSorted.map(x=>x[0]),datasets:[{label:'Claimed ($)',data:provSorted.map(x=>x[1]),backgroundColor:'rgba(3,105,161,.72)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'$'+v}}}}});
+
+  // Monthly claims
+  const months=[];const mVals=[];
+  for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push(d.toLocaleString('default',{month:'short'}));mVals.push(claims.filter(c=>{const cd=new Date(c.createdAt||0);return cd.getMonth()===d.getMonth()&&cd.getFullYear()===d.getFullYear();}).reduce((s,c)=>s+(parseFloat(c.amount)||0),0));}
+  dChart('insmonthly');
+  const ctx2=document.getElementById('ch-ins-monthly');
+  if(ctx2)charts.insmonthly=new Chart(ctx2,{type:'line',data:{labels:months,datasets:[{label:'Monthly Claim Value ($)',data:mVals,borderColor:'#0369a1',backgroundColor:'rgba(3,105,161,.12)',tension:.4,fill:true,pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'$'+v}}}}});
+
+  // Status doughnut
+  const statLabels=['Draft','Submitted','Under Review','Approved','Partially Approved','Rejected','Paid'];
+  const statData=statLabels.map(s=>claims.filter(c=>c.status===s).length);
+  const statColors=statLabels.map(s=>INS_STATUS_COLORS[s]||'#94a3b8');
+  dChart('insstatus');
+  const ctx3=document.getElementById('ch-ins-status');
+  if(ctx3)charts.insstatus=new Chart(ctx3,{type:'doughnut',data:{labels:statLabels,datasets:[{data:statData,backgroundColor:statColors,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:12}}},cutout:'55%'}});
+}
+
+// ── Guide ─────────────────────────────────────────
+function renderInsGuide(){
+  const el=document.getElementById('ins-guide-content');if(!el)return;
+  el.innerHTML=`<h4 style="margin:0 0 14px;color:var(--p);">📖 Insurance Claims Guide</h4>`+
+    INS_GUIDE_DATA.map(g=>`
+    <div style="background:${g.bg};border-left:4px solid ${g.color};border-radius:6px;padding:12px 16px;margin-bottom:10px;">
+      <h4 style="color:${g.color};margin:0 0 6px;">${g.title}</h4>
+      <div style="font-size:13px;line-height:1.75;color:#374151;">${g.content}</div>
+    </div>`).join('');
+}
+
+// ── Print Insurance Report ────────────────────────
+function printInsuranceReport(){
+  _loadClaims();
+  const today=new Date().toLocaleDateString();
+  const total=window.claims.length;
+  const totalVal=window.claims.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const paidVal=window.claims.filter(c=>c.status==='Paid').reduce((s,c)=>s+(parseFloat(c.paidAmount||c.amount)||0),0);
+  document.getElementById('pra-con').innerHTML=printHeader('INSURANCE CLAIMS REPORT')+
+    `<p style="font-size:12px;margin-bottom:10px;">Generated: ${today} | Total Claims: ${total} | Total Value: $${totalVal.toFixed(2)} | Paid: $${paidVal.toFixed(2)}</p>`+
+    `<table class="pit"><tr><th>Claim ID</th><th>Patient</th><th>Provider</th><th>Type</th><th>Date</th><th>Amount</th><th>Status</th></tr>`+
+    (window.claims.length?[...window.claims].sort((a,b)=>b.createdAt-a.createdAt).map(c=>`<tr><td>${c.id}</td><td>${c.patientName}</td><td>${c.provider}</td><td>${c.type}</td><td>${c.date}</td><td>$${parseFloat(c.amount||0).toFixed(2)}</td><td>${c.status}</td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:#94a3b8;">No claims</td></tr>')+
+    `</table>`+printFooter();
+  doPrint();
+}
+
+// ── Persist in main save/load ─────────────────────
+
 function buildLabSummary(){
   const now=new Date();const m=now.getMonth();const y=now.getFullYear();
   const allLabs=visits.flatMap(v=>(v.labs||[]).filter(l=>l.name));
@@ -15152,7 +15737,100 @@ window.saveClinical = function(){
   </div>
 </div><!-- /inv-import-modal -->
 
-<!-- ══ CLINICAL PEEK PANEL (Lab / Radiology read-only view) ══ -->
+<!-- ══ NEW CLAIM MODAL ══ -->
+<div id="new-claim-modal" class="mo">
+  <div class="mb" style="max-width:620px;">
+    <button class="mc" onclick="cModal('new-claim-modal')">✕</button>
+    <h3 style="color:#0369a1;margin-bottom:12px;">🛡️ Submit Insurance Claim</h3>
+    <input type="hidden" id="claimEditId">
+    <div class="g2">
+      <div>
+        <label>Patient Visit</label>
+        <select id="claimVisit" onchange="populateClaimFromVisit()" style="font-size:12px;"><option value="">— Select patient visit —</option></select>
+      </div>
+      <div>
+        <label>Insurance Provider</label>
+        <select id="claimProvider" style="font-size:12px;"><option value="">— Select provider —</option></select>
+      </div>
+    </div>
+    <div class="g2">
+      <div><label>Member / Policy Number</label><input id="claimMemberNo" placeholder="e.g. GHS-2024-001234"></div>
+      <div><label>Pre-Auth Number (if applicable)</label><input id="claimPreAuth" placeholder="PA-XXXXXX"></div>
+    </div>
+    <div id="claim-items-breakdown" style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:7px;padding:10px;margin:10px 0;display:none;">
+      <div style="font-weight:700;font-size:12px;color:#0369a1;margin-bottom:7px;">📋 Bill Breakdown</div>
+      <div id="claim-items-list" style="font-size:12px;"></div>
+      <div id="claim-totals" style="margin-top:8px;font-size:13px;"></div>
+    </div>
+    <div class="g2">
+      <div><label>Claim Amount ($)</label><input type="number" id="claimAmount" min="0" step="0.01" placeholder="0.00"></div>
+      <div><label>Claim Date</label><input type="date" id="claimDate"></div>
+    </div>
+    <div class="g2">
+      <div>
+        <label>Claim Type</label>
+        <select id="claimType" style="font-size:12px;">
+          <option>Outpatient</option><option>Inpatient</option><option>Emergency</option>
+          <option>Pharmacy</option><option>Laboratory</option><option>Radiology</option><option>Dental</option><option>ENT</option><option>Physiotherapy</option>
+        </select>
+      </div>
+      <div>
+        <label>Priority</label>
+        <select id="claimPriority" style="font-size:12px;">
+          <option>Normal</option><option>Urgent</option><option>Emergency</option>
+        </select>
+      </div>
+    </div>
+    <div><label>Diagnosis / Reason for Claim</label><input id="claimDx" placeholder="ICD-10 code or description, e.g. J18.1 Lobar pneumonia"></div>
+    <div><label>Services Claimed</label><textarea id="claimServices" rows="3" placeholder="List specific services, procedures, medications included in this claim…"></textarea></div>
+    <div><label>Notes / Supporting Information</label><textarea id="claimNotes" rows="2" placeholder="Any additional notes, referral info, prior conditions…"></textarea></div>
+    <div class="ab">
+      <button onclick="saveClaim('Draft')" style="background:#64748b;color:#fff;padding:7px 18px;border-radius:6px;font-weight:700;border:none;cursor:pointer;">💾 Save Draft</button>
+      <button onclick="saveClaim('Submitted')" class="ba" style="padding:7px 22px;">📤 Submit Claim</button>
+      <button onclick="cModal('new-claim-modal')" style="background:#e2e8f0;color:#475569;padding:7px 18px;border-radius:6px;border:none;cursor:pointer;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CLAIM DETAIL MODAL ══ -->
+<div id="claim-detail-modal" class="mo">
+  <div class="mb" style="max-width:640px;">
+    <button class="mc" onclick="cModal('claim-detail-modal')">✕</button>
+    <div id="claim-detail-content"></div>
+  </div>
+</div>
+
+<!-- ══ PRE-AUTH MODAL ══ -->
+<div id="preauth-modal" class="mo">
+  <div class="mb" style="max-width:560px;">
+    <button class="mc" onclick="cModal('preauth-modal')">✕</button>
+    <h3 style="color:#0369a1;margin-bottom:12px;">✅ Pre-Authorisation Request</h3>
+    <input type="hidden" id="preauthEditId">
+    <div class="g2">
+      <div>
+        <label>Patient</label>
+        <select id="preauthPatient" style="font-size:12px;"><option value="">— Select patient —</option></select>
+      </div>
+      <div>
+        <label>Insurance Provider</label>
+        <select id="preauthProvider" style="font-size:12px;"><option value="">— Select provider —</option></select>
+      </div>
+    </div>
+    <div class="g2">
+      <div><label>Member / Policy Number</label><input id="preauthMemberNo"></div>
+      <div><label>Requested Date</label><input type="date" id="preauthDate"></div>
+    </div>
+    <div><label>Procedure / Service Requiring Authorisation</label><input id="preauthProcedure" placeholder="e.g. MRI Brain, Elective Surgery, Specialist Referral…"></div>
+    <div><label>Clinical Justification / Diagnosis</label><textarea id="preauthJustification" rows="3" placeholder="Clinical reason, diagnosis codes, referral basis…"></textarea></div>
+    <div><label>Estimated Cost ($)</label><input type="number" id="preauthCost" min="0" step="0.01" placeholder="0.00"></div>
+    <div class="ab">
+      <button onclick="savePreAuth()" class="ba" style="padding:7px 22px;">📤 Submit Request</button>
+      <button onclick="cModal('preauth-modal')" style="background:#e2e8f0;color:#475569;padding:7px 18px;border-radius:6px;border:none;cursor:pointer;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ (existing insurance-modal continues below) ══ -->
 <div id="clinical-peek-modal" class="mo">
   <div class="mb" style="max-width:640px;">
     <button class="mc" onclick="cModal('clinical-peek-modal')">✕</button>
