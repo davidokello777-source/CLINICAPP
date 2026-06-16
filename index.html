@@ -621,28 +621,86 @@ document.addEventListener("DOMContentLoaded", function(){
           </div>
           <div><label>Notes / Reason for Visit</label><input id="pRegNote" placeholder="Brief reason for visit"></div>
         </div>
-        <div class="g2" style="margin-top:8px;">
-          <div>
-            <label>Payment Type *</label>
-            <select id="pPayType" onchange="toggleInsuranceField()" style="font-size:13px;">
-              <option value="Cash">💵 Cash / Self-pay</option>
-              <option value="Insurance">🏥 Insurance</option>
-              <option value="NHIF">🏛 NHIF / National Health</option>
-              <option value="Corporate">🏢 Corporate / Company</option>
-              <option value="Free">🎁 Free / Subsidised</option>
-            </select>
-          </div>
-          <div id="insurance-field" style="display:none;">
-            <label>Insurance Provider</label>
-            <select id="pInsuranceProvider" style="font-size:13px;">
-              <option value="">— Select insurance —</option>
-            </select>
-          </div>
+        <div style="margin-top:10px;">
+          <label>Payment / Registration Type *</label>
+          <select id="pPayType" onchange="toggleInsuranceField()" style="font-size:13px;">
+            <option value="Cash">💵 Cash / Self-Pay</option>
+            <option value="Insurance">🛡️ Insurance</option>
+            <option value="NHIF">🏛 NHIF / National Health Scheme</option>
+            <option value="Corporate">🏢 Corporate / Company Account</option>
+            <option value="Free">🎁 Free / Subsidised</option>
+          </select>
         </div>
-        <div id="insurance-member-field" style="display:none;margin-top:6px;">
-          <label>Member / Policy Number</label>
-          <input id="pInsuranceMemberNo" placeholder="e.g. INS-123456">
+
+        <!-- ═══ CASH BLOCK ═══ -->
+        <div id="pay-cash-block" style="margin-top:8px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:7px;padding:10px 12px;">
+          <div style="font-size:11px;font-weight:700;color:#166534;margin-bottom:6px;">💵 CASH / SELF-PAY REGISTRATION</div>
+          <p style="font-size:12px;color:#166534;margin:0;">Patient pays directly at point of service. Standard consultation fee and itemised charges apply — no provider verification needed. Bill will be settled in full at the Billing desk.</p>
         </div>
+
+        <!-- ═══ INSURANCE / NHIF BLOCK ═══ -->
+        <div id="insurance-field" style="display:none;margin-top:8px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:7px;padding:10px 12px;">
+          <div style="font-size:11px;font-weight:700;color:#1e40af;margin-bottom:8px;">🛡️ INSURANCE / NHIF REGISTRATION DETAILS</div>
+          <div class="g2">
+            <div>
+              <label>Insurance / Scheme Provider *</label>
+              <select id="pInsuranceProvider" style="font-size:13px;">
+                <option value="">— Select insurance provider —</option>
+              </select>
+            </div>
+            <div>
+              <label>Member / Policy Number *</label>
+              <input id="pInsuranceMemberNo" placeholder="e.g. INS-123456">
+            </div>
+          </div>
+          <div class="g2" style="margin-top:6px;">
+            <div>
+              <label>Principal Member Name (if dependant)</label>
+              <input id="pInsurancePrincipal" placeholder="Leave blank if patient is the principal member">
+            </div>
+            <div>
+              <label>Relationship to Principal</label>
+              <select id="pInsuranceRelation" style="font-size:13px;">
+                <option value="Self">Self / Principal Member</option>
+                <option value="Spouse">Spouse</option>
+                <option value="Child">Child</option>
+                <option value="Other">Other Dependant</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="pInsuranceVerified" style="width:auto;margin:0;">
+            <label style="margin:0;font-size:12px;font-weight:600;color:#1e40af;cursor:pointer;" for="pInsuranceVerified">✅ Insurance card / membership verified at desk (call provider helpline or scan card)</label>
+          </div>
+          <p style="font-size:11px;color:#1e40af;margin:8px 0 0;">⚠️ Pre-authorisation may be required for inpatient admission, surgery, or high-cost investigations. A claim can be raised for this visit from the <b>Insurance</b> section once registered.</p>
+        </div>
+
+        <!-- ═══ CORPORATE BLOCK ═══ -->
+        <div id="corporate-field" style="display:none;margin-top:8px;background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:7px;padding:10px 12px;">
+          <div style="font-size:11px;font-weight:700;color:#7e22ce;margin-bottom:8px;">🏢 CORPORATE / COMPANY ACCOUNT DETAILS</div>
+          <div class="g2">
+            <div>
+              <label>Company / Employer Name *</label>
+              <input id="pCorporateName" placeholder="e.g. Tali Logistics Ltd">
+            </div>
+            <div>
+              <label>Employee / Staff ID *</label>
+              <input id="pCorporateEmpId" placeholder="e.g. EMP-00231">
+            </div>
+          </div>
+          <div class="g2" style="margin-top:6px;">
+            <div>
+              <label>Company Contact / HR Reference</label>
+              <input id="pCorporateContact" placeholder="HR contact name or phone">
+            </div>
+            <div>
+              <label>Authorisation / LPO Number</label>
+              <input id="pCorporateAuthNo" placeholder="Letter of credit / LPO reference, if issued">
+            </div>
+          </div>
+          <p style="font-size:11px;color:#7e22ce;margin:8px 0 0;">📋 Verify the patient is an active employee/dependant on the company's medical scheme before proceeding. Invoice will be billed to the company account, not the patient.</p>
+        </div>
+
         <button onclick="registerPatient()" class="bp" style="margin-top:11px;" id="reg-btn">📝 Register &amp; Route Patient</button>
       </div>
       <div class="card">
@@ -3520,13 +3578,40 @@ function registerPatient(){
   const payType=document.getElementById('pPayType')?.value||'Cash';
   const insuranceProv=document.getElementById('pInsuranceProvider')?.value||'';
   const memberNo=document.getElementById('pInsuranceMemberNo')?.value.trim()||'';
+  const insurancePrincipal=document.getElementById('pInsurancePrincipal')?.value.trim()||'';
+  const insuranceRelation=document.getElementById('pInsuranceRelation')?.value||'Self';
+  const insuranceVerified=document.getElementById('pInsuranceVerified')?.checked||false;
+  const corpName=document.getElementById('pCorporateName')?.value.trim()||'';
+  const corpEmpId=document.getElementById('pCorporateEmpId')?.value.trim()||'';
+  const corpContact=document.getElementById('pCorporateContact')?.value.trim()||'';
+  const corpAuthNo=document.getElementById('pCorporateAuthNo')?.value.trim()||'';
+
+  // Validate required fields per payment type
+  if(['Insurance','NHIF'].includes(payType)){
+    if(!insuranceProv)return alert('Please select the insurance/scheme provider.');
+    if(!memberNo)return alert('Please enter the member/policy number.');
+  }
+  if(payType==='Corporate'){
+    if(!corpName)return alert('Please enter the company/employer name.');
+    if(!corpEmpId)return alert('Please enter the employee/staff ID.');
+  }
+
   const vId='V-'+Date.now().toString().slice(-7);
   const v=newVisit(vId,pId,name,consultType);
   v.paymentType=payType;
   v.insuranceProvider=insuranceProv;
   v.insuranceMemberNo=memberNo;
-  if(payType==='Insurance'||payType==='NHIF'||payType==='Corporate'){
-    v.billingNotes=`${payType}${insuranceProv?' — '+insuranceProv:''}${memberNo?' | No: '+memberNo:''}`;
+  v.insurancePrincipal=insurancePrincipal;
+  v.insuranceRelation=insuranceRelation;
+  v.insuranceVerified=insuranceVerified;
+  v.corporateName=corpName;
+  v.corporateEmpId=corpEmpId;
+  v.corporateContact=corpContact;
+  v.corporateAuthNo=corpAuthNo;
+  if(payType==='Insurance'||payType==='NHIF'){
+    v.billingNotes=`${payType} — ${insuranceProv} | Member No: ${memberNo}${insuranceRelation!=='Self'?' | '+insuranceRelation+' of '+insurancePrincipal:''}${insuranceVerified?' | ✅ Verified':' | ⚠️ Not yet verified'}`;
+  } else if(payType==='Corporate'){
+    v.billingNotes=`Corporate — ${corpName} | Emp ID: ${corpEmpId}${corpContact?' | Contact: '+corpContact:''}${corpAuthNo?' | Auth/LPO: '+corpAuthNo:''}`;
   }
   const note=document.getElementById('pRegNote').value.trim();
   if(note)lg(v,'Registration Note',note);
@@ -3544,6 +3629,14 @@ function registerPatient(){
   _speakRegistrationAlert(name, consultType, ctSpeech[consultType]||consultType);
   ['pName','pPhone','pAddress','pKinName','pKinPhone'].forEach(f=>document.getElementById(f).value='');
   document.getElementById('pAgeVal').value='';
+  // Reset payment-type specific fields back to Cash default
+  document.getElementById('pRegNote').value='';
+  const payTypeEl=document.getElementById('pPayType');if(payTypeEl)payTypeEl.value='Cash';
+  ['pInsuranceMemberNo','pInsurancePrincipal','pCorporateName','pCorporateEmpId','pCorporateContact','pCorporateAuthNo'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
+  const insSel=document.getElementById('pInsuranceProvider');if(insSel)insSel.value='';
+  const insRel=document.getElementById('pInsuranceRelation');if(insRel)insRel.value='Self';
+  const insVer=document.getElementById('pInsuranceVerified');if(insVer)insVer.checked=false;
+  toggleInsuranceField();
   // Clear smart search and returning patient state
   _returningPatId=null;
   const sns=document.getElementById('smart-name-search');if(sns)sns.value='';
@@ -9871,6 +9964,21 @@ function billStatus(v){
   if(v.totalPaid<t-0.001)return'PARTIAL';
   return'PAID';
 }
+function payTypeBadge(v){
+  const t=v.paymentType||'Cash';
+  const m={
+    Cash:{bg:'#f0fdf4',c:'#166534',ic:'💵'},
+    Insurance:{bg:'#eff6ff',c:'#1e40af',ic:'🛡️'},
+    NHIF:{bg:'#eff6ff',c:'#1e40af',ic:'🏛'},
+    Corporate:{bg:'#fdf4ff',c:'#7e22ce',ic:'🏢'},
+    Free:{bg:'#fff7ed',c:'#c2410c',ic:'🎁'}
+  };
+  const s=m[t]||m.Cash;
+  let tip='';
+  if(t==='Insurance'||t==='NHIF')tip=`${v.insuranceProvider||''}${v.insuranceMemberNo?' · '+v.insuranceMemberNo:''}${v.insuranceVerified?' · Verified':' · Not verified'}`;
+  else if(t==='Corporate')tip=`${v.corporateName||''}${v.corporateEmpId?' · '+v.corporateEmpId:''}`;
+  return `<span title="${tip}" style="background:${s.bg};color:${s.c};border:1.5px solid ${s.c}30;padding:1px 7px;border-radius:7px;font-size:10px;font-weight:700;white-space:nowrap;">${s.ic} ${t}</span>`;
+}
 function payBadge(v){
   const t=totalBill(v);if(!t)return`<span class="pb" style="background:#f1f5f9;color:#64748b;">NO BILL</span>`;
   const bs=billStatus(v);
@@ -13466,12 +13574,16 @@ function populateInsuranceDropdowns(){
 }
 function toggleInsuranceField(){
   const payType=document.getElementById('pPayType')?.value||'Cash';
+  const cashBlock=document.getElementById('pay-cash-block');
   const insField=document.getElementById('insurance-field');
-  const memField=document.getElementById('insurance-member-field');
-  const show=['Insurance','NHIF','Corporate'].includes(payType);
-  if(insField)insField.style.display=show?'block':'none';
-  if(memField)memField.style.display=show?'block':'none';
-  if(show)populateInsuranceDropdowns();
+  const corpField=document.getElementById('corporate-field');
+  const isInsurance=['Insurance','NHIF'].includes(payType);
+  const isCorporate=payType==='Corporate';
+  const isCash=payType==='Cash'||payType==='Free';
+  if(cashBlock)cashBlock.style.display=isCash?'block':'none';
+  if(insField)insField.style.display=isInsurance?'block':'none';
+  if(corpField)corpField.style.display=isCorporate?'block':'none';
+  if(isInsurance)populateInsuranceDropdowns();
 }
 
 // ══════════════════════════════════════════════
