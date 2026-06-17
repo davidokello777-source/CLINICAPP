@@ -1735,6 +1735,7 @@ document.addEventListener("DOMContentLoaded", function(){
         <button class="st" onclick="swAdmin('activity',this)">🕐 Activity</button>
         <button class="st" onclick="swAdmin('suppliers',this)">🏪 Suppliers</button>
         <button class="st" onclick="swAdmin('insurance',this)">🏥 Insurance</button>
+        <button class="st" onclick="swAdmin('pricelists',this)">💲 Price Lists</button>
         <button class="st" onclick="swAdmin('hrguide',this)">👔 HR Guide</button>
         <button class="st" onclick="swAdmin('patients',this)">🧾 Patients</button>
         <button class="st" onclick="swAdmin('import',this)">📥 Import</button>
@@ -1763,6 +1764,21 @@ document.addEventListener("DOMContentLoaded", function(){
             <button onclick="oInsuranceModal()" class="ba">+ Add Insurance</button>
           </div>
           <table id="table-insurance" style="font-size:13px;"></table>
+        </div>
+      </div>
+
+      <!-- ══ TAB: PRICE LISTS ══ -->
+      <div id="admin-tab-pricelists" style="display:none;">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+            <div>
+              <h3 style="margin:0;color:var(--p);">💲 Price Lists</h3>
+              <p style="font-size:12px;color:var(--mu);margin:2px 0 0;">Set different rates for Cash clients, each insurance company, and each corporate account. The correct price list is applied automatically based on the patient's registration type at the point of ordering.</p>
+            </div>
+            <button onclick="oPriceListModal()" class="ba">+ New Price List</button>
+          </div>
+          <div id="pricelist-cards" class="g3" style="margin-bottom:14px;"></div>
+          <table id="table-pricelists" style="font-size:13px;"></table>
         </div>
       </div>
 
@@ -2721,8 +2737,59 @@ const SEC_LABELS={reception:'Reception',nurse:'Nurse',doctor:'Doctor',billing:'B
 const CONSULT_FEE=10;
 
 // ══════════════════════════════════════════════
-//  STATE
+//  PRICE LISTS — Cash / Insurance / Corporate
 // ══════════════════════════════════════════════
+// Structure: { id, name, payerType:'Cash'|'Insurance'|'Corporate', linkedTo:providerName|companyName|'',
+//              consultFee, items:{ 'Lab:TestName':price, 'Rad:ProcName':price, 'Proc:ProcName':price }, isDefault, active }
+if(!window.priceLists)window.priceLists=[];
+
+function _savePriceLists(){
+  try{localStorage.setItem('tali_pricelists',JSON.stringify(window.priceLists));}catch(e){}
+}
+function _loadPriceLists(){
+  try{
+    const stored=localStorage.getItem('tali_pricelists');
+    window.priceLists=stored?JSON.parse(stored):[];
+  }catch(e){window.priceLists=[];}
+  // Ensure a default Cash price list always exists
+  if(!window.priceLists.some(p=>p.payerType==='Cash'&&p.isDefault)){
+    window.priceLists.unshift({
+      id:'PL-CASH-DEFAULT',name:'Cash / Self-Pay (Standard Rates)',payerType:'Cash',linkedTo:'',
+      consultFee:CONSULT_FEE,items:{},isDefault:true,active:true,createdAt:Date.now()
+    });
+    _savePriceLists();
+  }
+}
+
+// Resolve which price list applies to a given visit
+function _resolvePriceList(v){
+  _loadPriceLists();
+  if(!v)return window.priceLists.find(p=>p.isDefault)||window.priceLists[0];
+  const payType=v.paymentType||'Cash';
+  if((payType==='Insurance'||payType==='NHIF')&&v.insuranceProvider){
+    const match=window.priceLists.find(p=>p.payerType==='Insurance'&&p.linkedTo===v.insuranceProvider&&p.active!==false);
+    if(match)return match;
+  }
+  if(payType==='Corporate'&&v.corporateName){
+    const match=window.priceLists.find(p=>p.payerType==='Corporate'&&p.linkedTo===v.corporateName&&p.active!==false);
+    if(match)return match;
+  }
+  return window.priceLists.find(p=>p.payerType==='Cash'&&p.isDefault)||window.priceLists[0];
+}
+
+// Get the price for a specific billable item under the visit's applicable price list.
+// category: 'Lab' | 'Rad' | 'Proc' | 'Consult'
+// fallbackPrice: the standard/default price (from LAB_TESTS, RADIOLOGY_PROCS, etc.)
+function getPrice(category,itemName,v,fallbackPrice){
+  const pl=_resolvePriceList(v);
+  if(!pl)return fallbackPrice;
+  if(category==='Consult')return (pl.consultFee!=null&&pl.consultFee!=='')?parseFloat(pl.consultFee):fallbackPrice;
+  const key=`${category}:${itemName}`;
+  if(pl.items&&pl.items[key]!=null&&pl.items[key]!=='')return parseFloat(pl.items[key]);
+  return fallbackPrice;
+}
+
+
 let patients=[],visits=[],inventory=[],staffList=[],expenses=[],suppliers=[],chatMessages=[];
 // logo embedded in printHeader()
 let currentUser=null,activeVid=null,activePayVid=null;
@@ -2755,6 +2822,9 @@ async function loadData(){
     if(d.radProcs&&d.radProcs.length)window._radProcs=[...d.radProcs];
     window.feedbacks=d.feedbacks||window.feedbacks||[];
     if(d.physioSessions&&d.physioSessions.length)window.physioSessions=d.physioSessions;
+    if(d.claims&&d.claims.length)window.claims=d.claims;
+    if(d.preAuths&&d.preAuths.length)window.preAuths=d.preAuths;
+    if(d.priceLists&&d.priceLists.length)window.priceLists=d.priceLists;
   }
   try{
     const ls=localStorage.getItem('tali_data');
@@ -2864,6 +2934,9 @@ function save(){
     labTests:window._labTests||LAB_TESTS,
     radProcs:window._radProcs||RADIOLOGY_PROCS,
     nursingProcs:window._nursingProcs||NURSING_PROCEDURES,
+    claims:window.claims||[],
+    preAuths:window.preAuths||[],
+    priceLists:window.priceLists||[],
     suppliers,chatMessages};
   try{localStorage.setItem('tali_data',JSON.stringify(payload));}catch(e){console.warn('localStorage full',e);}
   si('Saved ✓',true);
@@ -4666,6 +4739,7 @@ function renderLabCheckList(filter){
 function filterLabTests(){renderLabCheckList(document.getElementById('lab-search').value);}
 function toggleLabTest(name,price){
   const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  const finalPrice=getPrice('Lab',name,v,price);
   if(selectedLabTests.has(name)){
     selectedLabTests.delete(name);
     v.labs=(v.labs||[]).filter(l=>l.name!==name);
@@ -4674,11 +4748,11 @@ function toggleLabTest(name,price){
     selectedLabTests.add(name);
     if(!(v.labs||[]).find(l=>l.name===name)){
       v.labs=v.labs||[];
-      v.labs.push({id:'L-'+Date.now().toString().slice(-6),name,price,result:'',resultTime:'',resultBy:'',done:false});
+      v.labs.push({id:'L-'+Date.now().toString().slice(-6),name,price:finalPrice,result:'',resultTime:'',resultBy:'',done:false});
       lg(v,'Lab Ordered',name);
     }
   }
-  if(!v.consultFee&&v.labs.length)v.consultFee=CONSULT_FEE;
+  if(!v.consultFee&&v.labs.length)v.consultFee=getPrice('Consult',null,v,CONSULT_FEE);
   renderLabCheckList(document.getElementById('lab-search').value);
   updateSelectedLabsDisplay(v);updateOrderSummary(v);save();
 }
@@ -4722,10 +4796,11 @@ function onRadSelect(rowId,radId){
   const v=visits.find(x=>x.id===activeVid);if(!v)return;
   const row=document.getElementById(`rad-row-${rowId}`);
   const val=row?.querySelector('select')?.value;if(!val)return;
-  const[name,price]=val.split('|');
+  const[name,catalogPrice]=val.split('|');
+  const finalPrice=getPrice('Rad',name,v,parseFloat(catalogPrice));
   const rad=(v.radiology||[]).find(r=>r.id===radId);
-  if(rad){rad.name=name;rad.price=parseFloat(price);}
-  if(!v.consultFee)v.consultFee=CONSULT_FEE;
+  if(rad){rad.name=name;rad.price=finalPrice;}
+  if(!v.consultFee)v.consultFee=getPrice('Consult',null,v,CONSULT_FEE);
   lg(v,'Radiology Ordered',name);
   if((v.radiology||[]).filter(r=>r.name).length===1)speak(`Attention radiology. Patient ${v.name} has imaging orders. Please attend.`);
   save();updateOrderSummary(v);
@@ -4757,7 +4832,7 @@ function selectDrug(eName,eStr,eForm,price,eDrugClass){
   v.prescriptions=v.prescriptions||[];
   v.prescriptions.push({id:rid,name,strength,formulation:form,drugClass,price,qty:1,instructions:'Once daily (OD)',duration:'7 days',patientInstructions:'',dispensed:false,dispensedTime:'',dispensedBy:''});
   medRows.push({id:medRowId++,rxId:rid,locked:false});
-  if(!v.consultFee)v.consultFee=CONSULT_FEE;
+  if(!v.consultFee)v.consultFee=getPrice('Consult',null,v,CONSULT_FEE);
   lg(v,'Prescribed',`${name} ${strength} ${form}`);
   if((v.prescriptions||[]).length===1)speak(`Attention pharmacy. Prescription ready for patient ${v.name}.`);
   document.getElementById('med-search').value='';document.getElementById('drug-results').style.display='none';
@@ -6989,6 +7064,208 @@ function printInsuranceReport(){
 
 // ── Persist in main save/load ─────────────────────
 
+// ══════════════════════════════════════════════
+//  PRICE LIST ADMIN UI
+// ══════════════════════════════════════════════
+let _plActiveCat='lab';
+
+function renderPriceListsTab(){
+  _loadPriceLists();
+  const cash=window.priceLists.filter(p=>p.payerType==='Cash').length;
+  const ins=window.priceLists.filter(p=>p.payerType==='Insurance').length;
+  const corp=window.priceLists.filter(p=>p.payerType==='Corporate').length;
+  const cardsEl=document.getElementById('pricelist-cards');
+  if(cardsEl)cardsEl.innerHTML=[
+    {l:'💵 Cash Price Lists',v:cash,c:'#166534',bg:'#f0fdf4'},
+    {l:'🛡️ Insurance Price Lists',v:ins,c:'#1e40af',bg:'#eff6ff'},
+    {l:'🏢 Corporate Price Lists',v:corp,c:'#7e22ce',bg:'#fdf4ff'},
+  ].map(x=>`<div style="background:${x.bg};border:1.5px solid ${x.c}30;border-radius:8px;padding:10px 14px;">
+    <div style="font-size:11px;font-weight:700;color:${x.c};">${x.l}</div>
+    <div style="font-size:22px;font-weight:800;color:${x.c};margin-top:2px;">${x.v}</div>
+  </div>`).join('');
+
+  let h=`<tr><th>Price List</th><th>Payer Type</th><th>Linked To</th><th>Consult Fee</th><th>Itemised Rates</th><th>Status</th><th>Actions</th></tr>`;
+  if(!window.priceLists.length)h+=`<tr><td colspan="7" class="emp">No price lists configured.</td></tr>`;
+  const typeColors={Cash:'#166534',Insurance:'#1e40af',Corporate:'#7e22ce'};
+  const typeIcons={Cash:'💵',Insurance:'🛡️',Corporate:'🏢'};
+  window.priceLists.forEach(pl=>{
+    const col=typeColors[pl.payerType]||'#64748b';
+    const itemCount=Object.keys(pl.items||{}).length;
+    h+=`<tr>
+      <td><b>${pl.name}</b>${pl.isDefault?' <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:6px;font-weight:700;">DEFAULT</span>':''}</td>
+      <td><span style="background:${col}18;color:${col};border:1.5px solid ${col}40;padding:2px 9px;border-radius:8px;font-size:11px;font-weight:700;">${typeIcons[pl.payerType]} ${pl.payerType}</span></td>
+      <td style="font-size:12px;">${pl.linkedTo||'<span style="color:var(--mu);">All / N-A</span>'}</td>
+      <td><b>$${parseFloat(pl.consultFee||0).toFixed(2)}</b></td>
+      <td style="font-size:12px;">${itemCount} item${itemCount!==1?'s':''} priced</td>
+      <td>${pl.active===false?'<span style="color:#dc2626;font-weight:700;font-size:11px;">Inactive</span>':'<span style="color:#16a34a;font-weight:700;font-size:11px;">Active</span>'}</td>
+      <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
+        <button class="bsm bo" onclick="oPriceListModal('${pl.id}')">Edit</button>
+        <button class="bsm bp" onclick="duplicatePriceList('${pl.id}')">⧉ Copy</button>
+        <button class="bsm" style="background:${pl.active===false?'#d1fae5':'#fef3c7'};color:${pl.active===false?'#065f46':'#92400e'};" onclick="togglePriceListActive('${pl.id}')">${pl.active===false?'Activate':'Deactivate'}</button>
+        ${pl.id!=='PL-CASH-DEFAULT'?`<button class="bsm bd2" onclick="deletePriceList('${pl.id}')">🗑</button>`:''}
+      </div></td>
+    </tr>`;
+  });
+  const tbl=document.getElementById('table-pricelists');if(tbl)tbl.innerHTML=h;
+}
+
+function oPriceListModal(editId){
+  _loadPriceLists();_loadInsurances();
+  const pl=editId?window.priceLists.find(p=>p.id===editId):null;
+  document.getElementById('plEditId').value=pl?pl.id:'';
+  document.getElementById('pl-modal-title').textContent=pl?`💲 Edit Price List — ${pl.name}`:'💲 New Price List';
+  document.getElementById('plName').value=pl?pl.name:'';
+  document.getElementById('plPayerType').value=pl?pl.payerType:'Cash';
+  document.getElementById('plConsultFee').value=pl?pl.consultFee:CONSULT_FEE;
+  document.getElementById('plNotes').value=pl?(pl.notes||''):'';
+  document.getElementById('plIsDefault').checked=pl?!!pl.isDefault:false;
+  onPlPayerTypeChange(pl?pl.linkedTo:'');
+  _plActiveCat='lab';
+  document.querySelectorAll('#pl-cat-tabs .st').forEach((b,i)=>b.classList.toggle('active',i===0));
+  ['lab','rad','proc'].forEach(c=>{const el=document.getElementById('pl-items-'+c);if(el)el.style.display=c==='lab'?'block':'none';});
+  renderPlItemsEditor(pl);
+  oModal('pricelist-modal');
+}
+
+function onPlPayerTypeChange(presetLinkedTo){
+  const type=document.getElementById('plPayerType')?.value||'Cash';
+  const row=document.getElementById('pl-link-row');
+  const sel=document.getElementById('plLinkedTo');
+  const lbl=document.getElementById('pl-link-label');
+  if(type==='Cash'){
+    if(row)row.style.display='none';
+  } else if(type==='Insurance'){
+    if(row)row.style.display='block';
+    if(lbl)lbl.textContent='Linked Insurance Provider *';
+    _loadInsurances();
+    if(sel)sel.innerHTML='<option value="">— Select provider —</option>'+insurances.map(ins=>`<option value="${ins.name}" ${presetLinkedTo===ins.name?'selected':''}>${ins.name}</option>`).join('');
+  } else if(type==='Corporate'){
+    if(row)row.style.display='block';
+    if(lbl)lbl.textContent='Linked Company Name *';
+    const corpNames=[...new Set(visits.filter(v=>v.corporateName).map(v=>v.corporateName))];
+    if(sel){
+      sel.innerHTML='<option value="">— Select or type below —</option>'+corpNames.map(n=>`<option value="${n}" ${presetLinkedTo===n?'selected':''}>${n}</option>`).join('')+`<option value="__custom__">+ Type new company name…</option>`;
+      sel.onchange=()=>{
+        if(sel.value==='__custom__'){
+          const name=prompt('Enter company name:','');
+          if(name){
+            const opt=document.createElement('option');opt.value=name;opt.text=name;opt.selected=true;
+            sel.insertBefore(opt,sel.lastChild);
+          } else sel.value='';
+        }
+      };
+      if(presetLinkedTo&&!corpNames.includes(presetLinkedTo)){
+        const opt=document.createElement('option');opt.value=presetLinkedTo;opt.text=presetLinkedTo;opt.selected=true;
+        sel.insertBefore(opt,sel.lastChild);
+      }
+    }
+  }
+}
+
+function swPlCat(cat,btn){
+  _plActiveCat=cat;
+  document.querySelectorAll('#pl-cat-tabs .st').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  ['lab','rad','proc'].forEach(c=>{const el=document.getElementById('pl-items-'+c);if(el)el.style.display=c===cat?'block':'none';});
+}
+
+function renderPlItemsEditor(pl){
+  const items=pl?(pl.items||{}):{};
+  const catalogs={
+    lab:{list:window._labTests||LAB_TESTS,prefix:'Lab',elId:'pl-items-lab'},
+    rad:{list:window._radProcs||RADIOLOGY_PROCS,prefix:'Rad',elId:'pl-items-rad'},
+    proc:{list:window._nursingProcs||NURSING_PROCEDURES,prefix:'Proc',elId:'pl-items-proc'}
+  };
+  Object.values(catalogs).forEach(({list,prefix,elId})=>{
+    const el=document.getElementById(elId);if(!el)return;
+    if(!list||!list.length){el.innerHTML='<p class="emp" style="font-size:12px;">No items in this catalog.</p>';return;}
+    el.innerHTML=`<div style="max-height:280px;overflow-y:auto;">`+list.map(t=>{
+      const key=`${prefix}:${t.name}`;
+      const val=items[key]!=null?items[key]:'';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px dashed var(--bd);font-size:12px;">
+        <span style="flex:1;">${t.name} <span style="color:var(--mu);font-size:10px;">(std: $${t.price.toFixed(2)})</span></span>
+        <input type="number" step="0.01" min="0" data-plkey="${key}" data-stdprice="${t.price}" class="pl-item-input" placeholder="${t.price.toFixed(2)}" value="${val}" style="width:90px;margin:0;text-align:right;font-size:12px;">
+      </div>`;
+    }).join('')+`</div>`;
+  });
+}
+
+function autoFillPlFromCatalog(){
+  if(!confirm('This will fill all empty rate fields with the standard catalog price. Continue?'))return;
+  document.querySelectorAll('.pl-item-input').forEach(inp=>{
+    if(!inp.value)inp.value=inp.dataset.stdprice;
+  });
+  _showToast('⚡ Auto-filled empty rates from standard catalog','#0369a1');
+}
+
+function savePriceList(){
+  const eid=document.getElementById('plEditId')?.value||'';
+  const name=document.getElementById('plName')?.value.trim();
+  if(!name)return alert('Please enter a price list name.');
+  const payerType=document.getElementById('plPayerType')?.value||'Cash';
+  let linkedTo='';
+  if(payerType!=='Cash'){
+    linkedTo=document.getElementById('plLinkedTo')?.value||'';
+    if(!linkedTo||linkedTo==='__custom__')return alert(`Please select the linked ${payerType==='Insurance'?'insurance provider':'company'}.`);
+  }
+  const consultFee=parseFloat(document.getElementById('plConsultFee')?.value)||0;
+  const isDefault=document.getElementById('plIsDefault')?.checked||false;
+  const notes=document.getElementById('plNotes')?.value.trim()||'';
+
+  const items={};
+  document.querySelectorAll('.pl-item-input').forEach(inp=>{
+    if(inp.value!=='')items[inp.dataset.plkey]=parseFloat(inp.value);
+  });
+
+  _loadPriceLists();
+  if(isDefault){
+    window.priceLists.forEach(p=>{if(p.payerType===payerType)p.isDefault=false;});
+  }
+  if(payerType!=='Cash'){
+    const dup=window.priceLists.find(p=>p.id!==eid&&p.payerType===payerType&&p.linkedTo===linkedTo&&p.active!==false);
+    if(dup&&!confirm(`"${dup.name}" is already the active price list for ${linkedTo}. Saving this will also mark it active and may cause ambiguity — recommend deactivating "${dup.name}" first. Continue anyway?`))return;
+  }
+
+  const obj={
+    id:eid||'PL-'+Date.now().toString().slice(-7),
+    name,payerType,linkedTo,consultFee,items,notes,
+    isDefault:payerType==='Cash'?(isDefault||window.priceLists.filter(p=>p.payerType==='Cash').length===0):isDefault,
+    active:true,createdAt:eid?(window.priceLists.find(p=>p.id===eid)?.createdAt||Date.now()):Date.now()
+  };
+  if(eid){
+    const idx=window.priceLists.findIndex(p=>p.id===eid);
+    if(idx>-1)window.priceLists[idx]=obj;else window.priceLists.push(obj);
+  } else {
+    window.priceLists.push(obj);
+  }
+  _savePriceLists();cModal('pricelist-modal');renderPriceListsTab();
+  _showToast(`💾 Price list "${name}" saved`,'#0369a1');
+}
+
+function duplicatePriceList(id){
+  _loadPriceLists();
+  const pl=window.priceLists.find(p=>p.id===id);if(!pl)return;
+  const copy={...pl,id:'PL-'+Date.now().toString().slice(-7),name:pl.name+' (Copy)',isDefault:false,items:{...pl.items},createdAt:Date.now()};
+  window.priceLists.push(copy);
+  _savePriceLists();renderPriceListsTab();
+  _showToast(`⧉ Duplicated as "${copy.name}"`,'#0369a1');
+}
+
+function togglePriceListActive(id){
+  _loadPriceLists();
+  const pl=window.priceLists.find(p=>p.id===id);if(!pl)return;
+  pl.active=pl.active===false?true:false;
+  _savePriceLists();renderPriceListsTab();
+}
+
+function deletePriceList(id){
+  if(id==='PL-CASH-DEFAULT')return alert('The default Cash price list cannot be deleted.');
+  if(!confirm('Delete this price list? Visits already billed under it keep their recorded prices.'))return;
+  _loadPriceLists();
+  window.priceLists=window.priceLists.filter(p=>p.id!==id);
+  _savePriceLists();renderPriceListsTab();
+}
+
 function buildLabSummary(){
   const now=new Date();const m=now.getMonth();const y=now.getFullYear();
   const allLabs=visits.flatMap(v=>(v.labs||[]).filter(l=>l.name));
@@ -8902,12 +9179,13 @@ function saveExpense(){
 function swAdmin(tab, btn){
   document.querySelectorAll('#sec-admin .stabs .st').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
-  const tabs=['staff','activity','suppliers','insurance','hrguide','patients','import','services','assets','settings'];
+  const tabs=['staff','activity','suppliers','insurance','pricelists','hrguide','patients','import','services','assets','settings'];
   tabs.forEach(t=>{const el=document.getElementById('admin-tab-'+t);if(el)el.style.display=(t===tab)?'block':'none';});
   if(tab==='staff')renderAdmin();
   if(tab==='activity'){renderLoginLog();renderOnlineStaff();renderStaffMonthSummary();}
   if(tab==='suppliers')renderAdminSuppliers();
   if(tab==='insurance'){renderInsurance();populateInsuranceDropdowns();}
+  if(tab==='pricelists')renderPriceListsTab();
   if(tab==='hrguide')renderHRGuide();
   if(tab==='patients')renderAdminPatients();
   if(tab==='services'){renderLabTestsEditor();renderRadProcsEditor();renderNursingProcsEditor();renderSOPs();}
@@ -10626,14 +10904,15 @@ function addProcOrder(){
   const sel=document.getElementById('proc-order-select');
   if(!sel||!sel.value)return alert('Select a procedure first.');
   const [rawName,priceStr]=sel.value.split('|');
-  const name=dec(rawName);const price=parseFloat(priceStr)||0;
+  const name=dec(rawName);const catalogPrice=parseFloat(priceStr)||0;
+  const price=getPrice('Proc',name,v,catalogPrice);
   if((v.procedures||[]).some(p=>p.name===name&&!p.completed))
     return alert(name+' is already ordered and pending.');
   if(!v.procedures)v.procedures=[];
   v.procedures.push({name,price,ordered:true,completed:false,
     orderedBy:currentUser.name,orderedDate:new Date().toLocaleDateString(),
     notes:'',time:'',completedBy:'',completedTime:''});
-  if(!v.consultFee)v.consultFee=CONSULT_FEE;
+  if(!v.consultFee)v.consultFee=getPrice('Consult',null,v,CONSULT_FEE);
   lg(v,'Procedure ordered',`${name} — $${price.toFixed(2)}`);
   sel.value='';
   save();renderProcOrderRows();updateOrderSummary(v);
@@ -12579,7 +12858,7 @@ window.selectDrug=function(eName,eStr,eForm,price,eDrugClass){
   v.prescriptions=v.prescriptions||[];
   v.prescriptions.push({id:rid,name,strength,formulation:form,drugClass,price,qty:1,instructions:'Once daily (OD)',duration:'7 days',patientInstructions:'',dispensed:false,dispensedTime:'',dispensedBy:''});
   medRows.push({id:medRowId++,rxId:rid,locked:false});
-  if(!v.consultFee)v.consultFee=CONSULT_FEE;
+  if(!v.consultFee)v.consultFee=getPrice('Consult',null,v,CONSULT_FEE);
   lg(v,'Prescribed',`${name} ${strength} ${form}`);
   if((v.prescriptions||[]).length===1)speak(`Attention pharmacy. Prescription ready for patient ${v.name}.`);
   document.getElementById('med-search').value='';
@@ -16062,6 +16341,63 @@ window.saveClinical = function(){
     <div class="ab">
       <button onclick="saveInsurance()" class="ba">💾 Save Insurance Provider</button>
       <button onclick="cModal('insurance-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PRICE LIST MODAL ══ -->
+<div id="pricelist-modal" class="mo">
+  <div class="mb" style="max-width:680px;">
+    <button class="mc" onclick="cModal('pricelist-modal')">✕</button>
+    <h3 id="pl-modal-title" style="color:var(--p);margin-bottom:12px;">💲 New Price List</h3>
+    <input type="hidden" id="plEditId">
+    <div class="g2">
+      <div>
+        <label>Price List Name *</label>
+        <input id="plName" placeholder="e.g. UAP Insurance Rates 2026">
+      </div>
+      <div>
+        <label>Payer Type *</label>
+        <select id="plPayerType" onchange="onPlPayerTypeChange()" style="font-size:13px;">
+          <option value="Cash">💵 Cash / Self-Pay</option>
+          <option value="Insurance">🛡️ Insurance Company</option>
+          <option value="Corporate">🏢 Corporate / Company</option>
+        </select>
+      </div>
+    </div>
+    <div id="pl-link-row" style="display:none;">
+      <label id="pl-link-label">Linked Provider</label>
+      <select id="plLinkedTo" style="font-size:13px;"><option value="">— Select —</option></select>
+    </div>
+    <div class="g2">
+      <div><label>Consultation Fee ($)</label><input type="number" id="plConsultFee" step="0.01" min="0" placeholder="e.g. 10.00"></div>
+      <div style="display:flex;align-items:flex-end;gap:8px;padding-bottom:6px;">
+        <label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;">
+          <input type="checkbox" id="plIsDefault" style="width:auto;margin:0;"> Set as default for this payer type
+        </label>
+      </div>
+    </div>
+
+    <div style="background:#f8fafc;border-radius:7px;padding:10px;margin-top:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <b style="font-size:13px;color:var(--p);">📋 Itemised Rates</b>
+        <button onclick="autoFillPlFromCatalog()" class="bsm bo">⚡ Auto-fill from Standard Catalog</button>
+      </div>
+      <div class="stabs" id="pl-cat-tabs" style="margin-bottom:8px;">
+        <button class="st active" onclick="swPlCat('lab',this)">🔬 Lab</button>
+        <button class="st" onclick="swPlCat('rad',this)">🩻 Radiology</button>
+        <button class="st" onclick="swPlCat('proc',this)">💉 Procedures</button>
+      </div>
+      <div id="pl-items-lab"></div>
+      <div id="pl-items-rad" style="display:none;"></div>
+      <div id="pl-items-proc" style="display:none;"></div>
+    </div>
+
+    <div><label>Notes</label><input id="plNotes" placeholder="Any special billing notes for this price list"></div>
+
+    <div class="ab">
+      <button onclick="savePriceList()" class="ba" style="padding:7px 22px;">💾 Save Price List</button>
+      <button onclick="cModal('pricelist-modal')" style="background:#e2e8f0;color:#475569;padding:7px 18px;border-radius:6px;border:none;cursor:pointer;">Cancel</button>
     </div>
   </div>
 </div>
