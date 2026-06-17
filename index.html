@@ -7198,6 +7198,151 @@ function autoFillPlFromCatalog(){
   _showToast('⚡ Auto-filled empty rates from standard catalog','#0369a1');
 }
 
+// ── Price List Import (covers Lab, Radiology, Procedures & Consultation in one file) ──
+function downloadPlImportTemplate(){
+  const rows=[
+    ['category','item','price'],
+    ['Consult','Consultation Fee','10.00'],
+  ];
+  (window._labTests||LAB_TESTS).forEach(t=>rows.push(['Lab',t.name,t.price.toFixed(2)]));
+  (window._radProcs||RADIOLOGY_PROCS).forEach(t=>rows.push(['Rad',t.name,t.price.toFixed(2)]));
+  (window._nursingProcs||NURSING_PROCEDURES).forEach(t=>rows.push(['Proc',t.name,t.price.toFixed(2)]));
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='price_list_template.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  _showToast('⬇ Template downloaded — edit the price column and re-upload','#0369a1');
+}
+
+let _plImportRows=[];
+function handlePlImportFile(event){
+  const file=event.target.files[0];if(!file)return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(ext==='xlsx'||ext==='xls'){
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const raw=XLSX.utils.sheet_to_csv(ws);
+        _stagePlImport(raw);
+      }catch(err){alert('Could not read Excel file: '+err.message);}
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    const reader=new FileReader();
+    reader.onload=e=>_stagePlImport(e.target.result);
+    reader.readAsText(file);
+  }
+  event.target.value='';
+}
+
+function _stagePlImport(text){
+  const parsed=parseCSV(text);
+  if(parsed.length<2)return alert('File appears empty or has no data rows.');
+  const headers=parsed[0].map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,''));
+  if(!headers.includes('category')||!headers.includes('item')||!headers.includes('price')){
+    return alert('Missing required columns. Please use the template — columns needed: category, item, price.');
+  }
+  const catIdx=headers.indexOf('category'),itemIdx=headers.indexOf('item'),priceIdx=headers.indexOf('price');
+
+  // Build a lookup of all known billable items across every department
+  const allItems={};
+  (window._labTests||LAB_TESTS).forEach(t=>allItems[`Lab:${t.name.toLowerCase()}`]={cat:'Lab',name:t.name,std:t.price});
+  (window._radProcs||RADIOLOGY_PROCS).forEach(t=>allItems[`Rad:${t.name.toLowerCase()}`]={cat:'Rad',name:t.name,std:t.price});
+  (window._nursingProcs||NURSING_PROCEDURES).forEach(t=>allItems[`Proc:${t.name.toLowerCase()}`]={cat:'Proc',name:t.name,std:t.price});
+
+  _plImportRows=[];
+  const unmatched=[];
+  for(let i=1;i<parsed.length;i++){
+    const row=parsed[i];if(!row||!row.length)continue;
+    const rawCat=(row[catIdx]||'').trim();
+    const rawItem=(row[itemIdx]||'').trim();
+    const rawPrice=(row[priceIdx]||'').trim();
+    if(!rawItem)continue;
+    const price=parseFloat(rawPrice);
+    if(isNaN(price))continue;
+
+    if(rawCat.toLowerCase()==='consult'){
+      _plImportRows.push({cat:'Consult',name:'Consultation Fee',price,matched:true});
+      continue;
+    }
+    const catNorm=rawCat.charAt(0).toUpperCase()+rawCat.slice(1).toLowerCase();
+    const lookupKey=`${catNorm}:${rawItem.toLowerCase()}`;
+    const match=allItems[lookupKey];
+    if(match){
+      _plImportRows.push({cat:match.cat,name:match.name,price,std:match.std,matched:true});
+    } else {
+      unmatched.push({cat:rawCat,name:rawItem,price});
+    }
+  }
+  if(!_plImportRows.length&&!unmatched.length)return alert('No valid data rows found in file.');
+  _renderPlImportPreview(unmatched);
+  document.getElementById('pl-import-modal').style.display='flex';
+}
+
+function _renderPlImportPreview(unmatched){
+  const consultRow=_plImportRows.find(r=>r.cat==='Consult');
+  const labCount=_plImportRows.filter(r=>r.cat==='Lab').length;
+  const radCount=_plImportRows.filter(r=>r.cat==='Rad').length;
+  const procCount=_plImportRows.filter(r=>r.cat==='Proc').length;
+  const targetName=document.getElementById('plName')?.value||'(unsaved price list)';
+  const tEl=document.getElementById('pl-import-target-name');if(tEl)tEl.textContent=targetName;
+
+  document.getElementById('pl-import-summary').innerHTML=[
+    consultRow?{l:'Consultation Fee',v:'$'+consultRow.price.toFixed(2),c:'#0369a1'}:null,
+    {l:'🔬 Lab Rates',v:labCount,c:'#7c3aed'},
+    {l:'🩻 Radiology Rates',v:radCount,c:'#0891b2'},
+    {l:'💉 Procedure Rates',v:procCount,c:'#059669'},
+    unmatched.length?{l:'⚠️ Unmatched',v:unmatched.length,c:'#dc2626'}:null,
+  ].filter(Boolean).map(x=>`<div style="background:${x.c}15;border:1.5px solid ${x.c}40;border-radius:7px;padding:6px 12px;">
+    <div style="font-size:10px;font-weight:700;color:${x.c};">${x.l}</div>
+    <div style="font-size:16px;font-weight:800;color:${x.c};">${x.v}</div>
+  </div>`).join('');
+
+  const catLabels={Lab:'🔬 Lab',Rad:'🩻 Radiology',Proc:'💉 Procedure',Consult:'📋 Consultation'};
+  let h=`<tr><th>Department</th><th>Item</th><th>Standard Price</th><th>New Price (from file)</th></tr>`;
+  _plImportRows.forEach(r=>{
+    const diff=r.std!=null?(r.price-r.std):null;
+    h+=`<tr>
+      <td><span style="font-size:11px;background:#f1f5f9;padding:2px 7px;border-radius:6px;">${catLabels[r.cat]||r.cat}</span></td>
+      <td>${r.name}</td>
+      <td style="color:var(--mu);">${r.std!=null?'$'+r.std.toFixed(2):'—'}</td>
+      <td><b style="color:${diff>0?'#dc2626':diff<0?'#16a34a':'#0369a1'};">$${r.price.toFixed(2)}</b>${diff?` <span style="font-size:10px;">(${diff>0?'+':''}${diff.toFixed(2)})</span>`:''}</td>
+    </tr>`;
+  });
+  document.getElementById('pl-import-preview-table').innerHTML=h;
+
+  const unEl=document.getElementById('pl-import-unmatched');
+  if(unmatched.length){
+    unEl.innerHTML=`<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:7px;padding:8px 12px;">
+      <b style="color:#991b1b;font-size:12px;">⚠️ ${unmatched.length} row(s) could not be matched to a known item and will be skipped:</b>
+      <div style="font-size:11px;color:#991b1b;margin-top:4px;">${unmatched.map(u=>`${u.cat||'?'}: "${u.name}"`).join(' · ')}</div>
+    </div>`;
+  } else {
+    unEl.innerHTML='';
+  }
+}
+
+function confirmPlImport(){
+  if(!_plImportRows.length)return alert('No rates to apply.');
+  _plImportRows.forEach(r=>{
+    if(r.cat==='Consult'){
+      const fee=document.getElementById('plConsultFee');
+      if(fee)fee.value=r.price.toFixed(2);
+    } else {
+      const key=`${r.cat}:${r.name}`;
+      const input=document.querySelector(`.pl-item-input[data-plkey="${CSS.escape(key)}"]`);
+      if(input)input.value=r.price.toFixed(2);
+    }
+  });
+  document.getElementById('pl-import-modal').style.display='none';
+  _showToast(`✅ Applied ${_plImportRows.length} imported rate(s) — review and click "Save Price List" to confirm`,'#16a34a');
+}
+
 function savePriceList(){
   const eid=document.getElementById('plEditId')?.value||'';
   const name=document.getElementById('plName')?.value.trim();
@@ -13784,13 +13929,15 @@ login=function(){
 let insurances=[];
 function _loadInsurances(){try{insurances=JSON.parse(localStorage.getItem('tali_insurances')||'[]');}catch(e){insurances=[];}}
 function _saveInsurances(){localStorage.setItem('tali_insurances',JSON.stringify(insurances));}
-function oInsuranceModal(id){
+function oInsuranceModal(editId){
   _loadInsurances();
-  const ins=id?insurances.find(x=>x.id===id):null;
+  const ins=editId?insurances.find(x=>x.id===editId):null;
   document.getElementById('insEditId').value=ins?ins.id:'';
   document.getElementById('ins-modal-title').textContent=ins?'Edit Insurance Provider':'Add Insurance Provider';
-  ['insName','insCode','insPhone','insEmail','insPolicy','insInpatientLimit','insOutpatientLimit','insPharmLimit','insLabLimit','insNotes'].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.value=ins?ins[id.replace('ins','').charAt(0).toLowerCase()+id.replace('ins','').slice(1)]||'':'';
+  const fieldMap={insName:'name',insCode:'code',insPhone:'phone',insEmail:'email',insPolicy:'policy',insInpatientLimit:'inpatientLimit',insOutpatientLimit:'outpatientLimit',insPharmLimit:'pharmLimit',insLabLimit:'labLimit',insNotes:'notes'};
+  Object.entries(fieldMap).forEach(([fieldId,key])=>{
+    const el=document.getElementById(fieldId);
+    if(el)el.value=ins?(ins[key]||''):'';
   });
   oModal('insurance-modal');
 }
@@ -13815,8 +13962,14 @@ function saveInsurance(){
   };
   if(eid){const idx=insurances.findIndex(x=>x.id===eid);if(idx>-1)insurances[idx]=obj;else insurances.push(obj);}
   else insurances.push(obj);
-  _saveInsurances();populateInsuranceDropdowns();cModal('insurance-modal');renderInsurance();
-  alert('Insurance provider saved: '+name);
+  _saveInsurances();
+  populateInsuranceDropdowns();
+  cModal('insurance-modal');
+  // Refresh whichever provider table(s) are currently in the DOM
+  if(document.getElementById('table-insurance'))renderInsurance();
+  if(document.getElementById('ins-providers-table'))renderInsProvidersTab();
+  if(typeof renderInsStatsBar==='function')renderInsStatsBar();
+  _showToast(`✅ Insurance provider "${name}" saved`,'#0369a1');
 }
 function renderInsurance(){
   _loadInsurances();
@@ -13841,7 +13994,10 @@ function renderInsurance(){
 function deleteInsurance(id){
   if(!confirm('Delete this insurance provider?'))return;
   _loadInsurances();insurances=insurances.filter(x=>x.id!==id);
-  _saveInsurances();renderInsurance();
+  _saveInsurances();
+  if(document.getElementById('table-insurance'))renderInsurance();
+  if(document.getElementById('ins-providers-table'))renderInsProvidersTab();
+  populateInsuranceDropdowns();
 }
 function populateInsuranceDropdowns(){
   _loadInsurances();
@@ -16381,7 +16537,12 @@ window.saveClinical = function(){
     <div style="background:#f8fafc;border-radius:7px;padding:10px;margin-top:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <b style="font-size:13px;color:var(--p);">📋 Itemised Rates</b>
-        <button onclick="autoFillPlFromCatalog()" class="bsm bo">⚡ Auto-fill from Standard Catalog</button>
+        <div style="display:flex;gap:6px;">
+          <button onclick="downloadPlImportTemplate()" class="bsm bo">⬇ Template</button>
+          <input type="file" id="pl-import-file" accept=".csv,.xlsx,.xls" style="display:none;" onchange="handlePlImportFile(event)">
+          <button onclick="document.getElementById('pl-import-file').click()" class="bsm" style="background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;">📥 Import CSV/Excel</button>
+          <button onclick="autoFillPlFromCatalog()" class="bsm bo">⚡ Auto-fill from Standard Catalog</button>
+        </div>
       </div>
       <div class="stabs" id="pl-cat-tabs" style="margin-bottom:8px;">
         <button class="st active" onclick="swPlCat('lab',this)">🔬 Lab</button>
@@ -16398,6 +16559,24 @@ window.saveClinical = function(){
     <div class="ab">
       <button onclick="savePriceList()" class="ba" style="padding:7px 22px;">💾 Save Price List</button>
       <button onclick="cModal('pricelist-modal')" style="background:#e2e8f0;color:#475569;padding:7px 18px;border-radius:6px;border:none;cursor:pointer;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PRICE LIST IMPORT PREVIEW MODAL ══ -->
+<div id="pl-import-modal" class="mo" style="display:none;">
+  <div class="mb" style="max-width:680px;">
+    <button class="mc" onclick="document.getElementById('pl-import-modal').style.display='none'">✕</button>
+    <h3 style="color:#0369a1;margin-bottom:8px;">📥 Import Price List — Preview</h3>
+    <p style="font-size:12px;color:var(--mu);margin-bottom:10px;">Review the rates detected below before applying them. Matched rows will overwrite existing rates for this price list across all departments (Lab, Radiology, Procedures, Consultation); unmatched item names are skipped and listed separately.</p>
+    <div id="pl-import-summary" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;"></div>
+    <div style="max-height:340px;overflow-y:auto;">
+      <table id="pl-import-preview-table" style="font-size:12px;"></table>
+    </div>
+    <div id="pl-import-unmatched" style="margin-top:10px;"></div>
+    <div class="ab">
+      <button onclick="confirmPlImport()" class="ba" style="padding:7px 22px;">✅ Apply Rates</button>
+      <button onclick="document.getElementById('pl-import-modal').style.display='none'" style="background:#e2e8f0;color:#475569;padding:7px 18px;border-radius:6px;border:none;cursor:pointer;">Cancel</button>
     </div>
   </div>
 </div>
