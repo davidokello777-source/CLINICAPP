@@ -2825,6 +2825,7 @@ async function loadData(){
     if(d.claims&&d.claims.length)window.claims=d.claims;
     if(d.preAuths&&d.preAuths.length)window.preAuths=d.preAuths;
     if(d.priceLists&&d.priceLists.length)window.priceLists=d.priceLists;
+    if(d.insurances&&d.insurances.length)window.insurances=d.insurances;
   }
   try{
     const ls=localStorage.getItem('tali_data');
@@ -2937,6 +2938,7 @@ function save(){
     claims:window.claims||[],
     preAuths:window.preAuths||[],
     priceLists:window.priceLists||[],
+    insurances:window.insurances||[],
     suppliers,chatMessages};
   try{localStorage.setItem('tali_data',JSON.stringify(payload));}catch(e){console.warn('localStorage full',e);}
   si('Saved ✓',true);
@@ -3083,6 +3085,11 @@ window.addEventListener('DOMContentLoaded',async()=>{
     // Do NOT refresh if lab tech is entering results - avoids wiping the form and race-condition on save
     const labEntryOpen = document.getElementById('lab-entry')?.style.display === 'block';
     if(labEntryOpen) return;
+    // Do NOT refresh while an insurance/price-list modal is open - avoids wiping in-progress edits
+    const insModalOpen = document.getElementById('insurance-modal')?.classList.contains('open')
+      || document.getElementById('pricelist-modal')?.classList.contains('open')
+      || document.getElementById('new-claim-modal')?.classList.contains('open');
+    if(insModalOpen) return;
     try{
       const r=await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
       const j=await r.json();const d=j.record||{};
@@ -3093,6 +3100,10 @@ window.addEventListener('DOMContentLoaded',async()=>{
       if(d.radProcs&&d.radProcs.length) window._radProcs=d.radProcs;
       if(d.nursingProcs&&d.nursingProcs.length) window._nursingProcs=d.nursingProcs;
       if(d.chatMessages) chatMessages=d.chatMessages;
+      if(d.insurances) window.insurances=d.insurances;
+      if(d.claims) window.claims=d.claims;
+      if(d.preAuths) window.preAuths=d.preAuths;
+      if(d.priceLists) window.priceLists=d.priceLists;
       // Refresh current visible section silently
       const activeSec=document.querySelector('section.active');
       if(activeSec){
@@ -3104,6 +3115,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
         else if(secId==='radiology')renderRad();
         else if(secId==='billing')renderBilling();
         else if(secId==='reception')renderPatients();
+        else if(secId==='insurance'){if(document.getElementById('ins-providers-table'))renderInsProvidersTab();}
       }
     }catch(e){/* silent fail */}
   }, 30000);
@@ -6626,7 +6638,7 @@ function populateClaimFilters(){
   _loadInsurances();
   const sel=document.getElementById('ins-claim-provider');if(!sel)return;
   const cur=sel.value;
-  sel.innerHTML='<option value="">All Providers</option>'+insurances.map(ins=>`<option value="${ins.name}" ${ins.name===cur?'selected':''}>${ins.name}</option>`).join('');
+  sel.innerHTML='<option value="">All Providers</option>'+window.insurances.map(ins=>`<option value="${ins.name}" ${ins.name===cur?'selected':''}>${ins.name}</option>`).join('');
 }
 
 function renderClaimsTable(){
@@ -6679,7 +6691,7 @@ function oNewClaimModal(editId){
   // Populate provider dropdown
   const pSel=document.getElementById('claimProvider');
   pSel.innerHTML='<option value="">— Select provider —</option>'+
-    insurances.map(ins=>`<option value="${ins.name}" ${claim&&claim.provider===ins.name?'selected':''}>${ins.name}</option>`).join('');
+    window.insurances.map(ins=>`<option value="${ins.name}" ${claim&&claim.provider===ins.name?'selected':''}>${ins.name}</option>`).join('');
 
   if(claim){
     document.getElementById('claimMemberNo').value=claim.memberNo||'';
@@ -6882,7 +6894,7 @@ function oPreAuthModal(editId){
   const pSel=document.getElementById('preauthPatient');
   pSel.innerHTML='<option value="">— Select patient —</option>'+patients.map(p=>`<option value="${p.id}" ${pa&&pa.patId===p.id?'selected':''}>${p.name}</option>`).join('');
   const prSel=document.getElementById('preauthProvider');
-  prSel.innerHTML='<option value="">— Select provider —</option>'+insurances.map(ins=>`<option value="${ins.name}" ${pa&&pa.provider===ins.name?'selected':''}>${ins.name}</option>`).join('');
+  prSel.innerHTML='<option value="">— Select provider —</option>'+window.insurances.map(ins=>`<option value="${ins.name}" ${pa&&pa.provider===ins.name?'selected':''}>${ins.name}</option>`).join('');
   if(pa){
     document.getElementById('preauthMemberNo').value=pa.memberNo||'';
     document.getElementById('preauthDate').value=pa.date||'';
@@ -6967,8 +6979,8 @@ function deletePreAuth(id){
 function renderInsProvidersTab(){
   _loadInsurances();
   let h=`<tr><th>Provider</th><th>Code</th><th>Contact</th><th>Inpatient Limit</th><th>Outpatient Limit</th><th>Pharmacy</th><th>Lab</th><th>Claims Count</th><th>Actions</th></tr>`;
-  if(!insurances.length)h+=`<tr><td colspan="9" class="emp">No insurance providers configured. Click "+ Add Provider" to add one.</td></tr>`;
-  insurances.forEach(ins=>{
+  if(!window.insurances.length)h+=`<tr><td colspan="9" class="emp">No insurance providers configured. Click "+ Add Provider" to add one.</td></tr>`;
+  window.insurances.forEach(ins=>{
     const cnt=(window.claims||[]).filter(c=>c.provider===ins.name).length;
     h+=`<tr>
       <td><b>${ins.name}</b>${ins.notes?`<br><span style="font-size:10px;color:var(--mu);">${ins.notes}</span>`:''}</td>
@@ -7009,7 +7021,7 @@ function renderInsAnalytics(){
     <tr><td>Total Paid ($)</td><td><b style="color:#059669;">$${paidVal.toFixed(2)}</b></td></tr>
     <tr><td>Pending Value ($)</td><td><b style="color:#d97706;">$${pendingVal.toFixed(2)}</b></td></tr>
     <tr><td>Rejected Claims</td><td><b style="color:#dc2626;">${rejected} (${rej_rate}%)</b></td></tr>
-    <tr><td>Active Providers</td><td><b>${insurances.length}</b></td></tr>
+    <tr><td>Active Providers</td><td><b>${window.insurances.length}</b></td></tr>
   `;
 
   // Claims by provider chart
@@ -7138,7 +7150,7 @@ function onPlPayerTypeChange(presetLinkedTo){
     if(row)row.style.display='block';
     if(lbl)lbl.textContent='Linked Insurance Provider *';
     _loadInsurances();
-    if(sel)sel.innerHTML='<option value="">— Select provider —</option>'+insurances.map(ins=>`<option value="${ins.name}" ${presetLinkedTo===ins.name?'selected':''}>${ins.name}</option>`).join('');
+    if(sel)sel.innerHTML='<option value="">— Select provider —</option>'+window.insurances.map(ins=>`<option value="${ins.name}" ${presetLinkedTo===ins.name?'selected':''}>${ins.name}</option>`).join('');
   } else if(type==='Corporate'){
     if(row)row.style.display='block';
     if(lbl)lbl.textContent='Linked Company Name *';
@@ -13926,12 +13938,23 @@ login=function(){
 // ══════════════════════════════════════════════
 //  INSURANCE MANAGEMENT
 // ══════════════════════════════════════════════
-let insurances=[];
-function _loadInsurances(){try{insurances=JSON.parse(localStorage.getItem('tali_insurances')||'[]');}catch(e){insurances=[];}}
-function _saveInsurances(){localStorage.setItem('tali_insurances',JSON.stringify(insurances));}
+if(!window.insurances)window.insurances=[];
+function _loadInsurances(){
+  // Migrate any legacy localStorage-only data on first run, then treat window.insurances as source of truth
+  if(!window.insurances.length){
+    try{
+      const legacy=JSON.parse(localStorage.getItem('tali_insurances')||'[]');
+      if(legacy.length)window.insurances=legacy;
+    }catch(e){}
+  }
+}
+function _saveInsurances(){
+  try{localStorage.setItem('tali_insurances',JSON.stringify(window.insurances));}catch(e){}
+  save(); // persist via main save cycle so it syncs across devices like patients/visits
+}
 function oInsuranceModal(editId){
   _loadInsurances();
-  const ins=editId?insurances.find(x=>x.id===editId):null;
+  const ins=editId?window.insurances.find(x=>x.id===editId):null;
   document.getElementById('insEditId').value=ins?ins.id:'';
   document.getElementById('ins-modal-title').textContent=ins?'Edit Insurance Provider':'Add Insurance Provider';
   const fieldMap={insName:'name',insCode:'code',insPhone:'phone',insEmail:'email',insPolicy:'policy',insInpatientLimit:'inpatientLimit',insOutpatientLimit:'outpatientLimit',insPharmLimit:'pharmLimit',insLabLimit:'labLimit',insNotes:'notes'};
@@ -13960,8 +13983,8 @@ function saveInsurance(){
     notes:(document.getElementById('insNotes')?.value||'').trim(),
     createdBy:currentUser?.name||'Admin',createdAt:new Date().toLocaleDateString()
   };
-  if(eid){const idx=insurances.findIndex(x=>x.id===eid);if(idx>-1)insurances[idx]=obj;else insurances.push(obj);}
-  else insurances.push(obj);
+  if(eid){const idx=window.insurances.findIndex(x=>x.id===eid);if(idx>-1)window.insurances[idx]=obj;else window.insurances.push(obj);}
+  else window.insurances.push(obj);
   _saveInsurances();
   populateInsuranceDropdowns();
   cModal('insurance-modal');
@@ -13974,8 +13997,8 @@ function saveInsurance(){
 function renderInsurance(){
   _loadInsurances();
   let h=`<tr><th>Provider</th><th>Code</th><th>Phone</th><th>Inpatient</th><th>Outpatient</th><th>Pharmacy</th><th>Lab</th><th>Policy</th><th>Actions</th></tr>`;
-  if(!insurances.length)h+=`<tr><td colspan="9" class="emp">No insurance providers yet. Click "+ Add Insurance" to add one.</td></tr>`;
-  insurances.forEach(ins=>{
+  if(!window.insurances.length)h+=`<tr><td colspan="9" class="emp">No insurance providers yet. Click "+ Add Insurance" to add one.</td></tr>`;
+  window.insurances.forEach(ins=>{
     h+=`<tr>
       <td><b>${ins.name}</b></td><td style="font-size:12px;">${ins.code||'—'}</td><td style="font-size:12px;">${ins.phone||'—'}</td>
       <td style="font-size:12px;">${ins.inpatientLimit?'$'+ins.inpatientLimit:'—'}</td>
@@ -13993,7 +14016,7 @@ function renderInsurance(){
 }
 function deleteInsurance(id){
   if(!confirm('Delete this insurance provider?'))return;
-  _loadInsurances();insurances=insurances.filter(x=>x.id!==id);
+  _loadInsurances();window.insurances=window.insurances.filter(x=>x.id!==id);
   _saveInsurances();
   if(document.getElementById('table-insurance'))renderInsurance();
   if(document.getElementById('ins-providers-table'))renderInsProvidersTab();
@@ -14005,7 +14028,7 @@ function populateInsuranceDropdowns(){
   if(!sel)return;
   const cur=sel.value;
   sel.innerHTML='<option value="">— Select insurance —</option>'+
-    insurances.map(ins=>`<option value="${ins.name}" ${ins.name===cur?'selected':''}>${ins.name}${ins.code?' ('+ins.code+')':''}</option>`).join('');
+    window.insurances.map(ins=>`<option value="${ins.name}" ${ins.name===cur?'selected':''}>${ins.name}${ins.code?' ('+ins.code+')':''}</option>`).join('');
 }
 function toggleInsuranceField(){
   const payType=document.getElementById('pPayType')?.value||'Cash';
