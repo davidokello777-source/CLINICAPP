@@ -15169,8 +15169,8 @@ function toggleDarkMode(){
 })();
 
 // ── CURRENCY CONVERTER ────────────────────────────────────────
-const FX_DEFAULT_RATES={USD:1,UGX:3750,KES:129,TZS:2620,RWF:1320,EUR:0.92,GBP:0.79};
-const FX_LABELS={USD:'US Dollar',UGX:'Ugandan Shilling',KES:'Kenyan Shilling',TZS:'Tanzanian Shilling',RWF:'Rwandan Franc',EUR:'Euro',GBP:'British Pound'};
+const FX_DEFAULT_RATES={USD:1,SSP:4500,UGX:3750,KES:129,TZS:2620,RWF:1320};
+const FX_LABELS={USD:'US Dollar',SSP:'South Sudanese Pound',UGX:'Ugandan Shilling',KES:'Kenyan Shilling',TZS:'Tanzanian Shilling',RWF:'Rwandan Franc'};
 function _fxGetRates(){
   try{const s=localStorage.getItem('tali_fx_rates');if(s)return Object.assign({},FX_DEFAULT_RATES,JSON.parse(s));}catch(e){}
   return Object.assign({},FX_DEFAULT_RATES);
@@ -15180,7 +15180,7 @@ function openCurrencyConverter(){
   const fromSel=document.getElementById('fx-from'), toSel=document.getElementById('fx-to');
   const opts=Object.keys(FX_DEFAULT_RATES).map(c=>`<option value="${c}">${c} — ${FX_LABELS[c]}</option>`).join('');
   fromSel.innerHTML=opts; toSel.innerHTML=opts;
-  fromSel.value='USD'; toSel.value='UGX';
+  fromSel.value='USD'; toSel.value='SSP';
   _fxRenderEditor(rates);
   document.getElementById('fx-modal').style.display='flex';
   renderFxResult();
