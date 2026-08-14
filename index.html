@@ -359,6 +359,36 @@ document.addEventListener("DOMContentLoaded", function(){
   </div>
 </div>
 
+<!-- CURRENCY CONVERTER MODAL -->
+<div id="fx-modal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(15,23,42,.55);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:340px;max-width:92vw;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.4);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="margin:0;font-size:15px;color:var(--p);">💱 Currency Converter</h3>
+      <span onclick="closeCurrencyConverter()" style="cursor:pointer;font-size:18px;color:#94a3b8;">✕</span>
+    </div>
+    <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:3px;">Amount</label>
+    <input id="fx-amount" type="number" value="1" oninput="renderFxResult()" style="width:100%;margin-bottom:10px;">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+      <div style="flex:1;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:3px;">From</label>
+        <select id="fx-from" onchange="renderFxResult()" style="width:100%;"></select>
+      </div>
+      <span onclick="fxSwap()" title="Swap" style="cursor:pointer;font-size:16px;margin-top:16px;">⇄</span>
+      <div style="flex:1;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:3px;">To</label>
+        <select id="fx-to" onchange="renderFxResult()" style="width:100%;"></select>
+      </div>
+    </div>
+    <div id="fx-result" style="background:#f0fdf4;border-radius:8px;padding:12px;text-align:center;font-size:18px;font-weight:800;color:#166534;margin-bottom:10px;">—</div>
+    <details style="font-size:12px;">
+      <summary style="cursor:pointer;color:var(--p);font-weight:600;">⚙️ Edit exchange rates</summary>
+      <div id="fx-rate-editor" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;"></div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:6px;">Rates are per 1 USD. Stored locally on this device — update periodically from your bank/forex bureau rate.</div>
+      <button onclick="saveFxRates()" class="bp" style="margin-top:8px;width:100%;padding:6px;font-size:12px;">Save Rates</button>
+    </details>
+  </div>
+</div>
+
 <!-- APP -->
 <div id="app" style="display:none;">
 
@@ -376,6 +406,7 @@ document.addEventListener("DOMContentLoaded", function(){
         <span id="device-badge" style="font-size:10px;background:rgba(255,255,255,.12);padding:2px 7px;border-radius:8px;display:none;">📱 Multi-Device</span>
         <span class="voice-badge" onclick="toggleVoice()" id="voice-badge" title="Toggle voice alerts">🔊</span>
         <span id="dark-toggle-btn" onclick="toggleDarkMode()" title="Toggle dark mode for night shifts" style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.12);padding:3px 9px;border-radius:10px;font-size:11px;cursor:pointer;color:#fff;">🌙 Night</span>
+        <span onclick="openCurrencyConverter()" title="Currency converter" style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.12);padding:3px 9px;border-radius:10px;font-size:11px;cursor:pointer;color:#fff;">💱 FX</span>
       </div>
       <button id="pwa-install-btn" onclick="installPWA()" style="display:none;background:#0ea5e9;color:#fff;border:none;font-size:11px;padding:5px 8px;border-radius:5px;cursor:pointer;width:100%;margin-bottom:5px;" title="Install app">📲 Install App</button>
       <button onclick="doLogout()" class="sb-logout">🔓 Logout</button>
@@ -3116,6 +3147,10 @@ window.addEventListener('DOMContentLoaded',async()=>{
         else if(secId==='billing')renderBilling();
         else if(secId==='reception')renderPatients();
         else if(secId==='insurance'){if(document.getElementById('ins-providers-table'))renderInsProvidersTab();}
+        else if(secId==='admin'){
+          if(document.getElementById('table-insurance')?.closest('div')?.style.display!=='none')renderInsurance();
+          if(document.getElementById('table-pricelists')?.closest('div')?.style.display!=='none')renderPriceListsTab();
+        }
       }
     }catch(e){/* silent fail */}
   }, 30000);
@@ -15132,6 +15167,57 @@ function toggleDarkMode(){
     if(btn)btn.textContent='☀️ Day';
   }
 })();
+
+// ── CURRENCY CONVERTER ────────────────────────────────────────
+const FX_DEFAULT_RATES={USD:1,UGX:3750,KES:129,TZS:2620,RWF:1320,EUR:0.92,GBP:0.79};
+const FX_LABELS={USD:'US Dollar',UGX:'Ugandan Shilling',KES:'Kenyan Shilling',TZS:'Tanzanian Shilling',RWF:'Rwandan Franc',EUR:'Euro',GBP:'British Pound'};
+function _fxGetRates(){
+  try{const s=localStorage.getItem('tali_fx_rates');if(s)return Object.assign({},FX_DEFAULT_RATES,JSON.parse(s));}catch(e){}
+  return Object.assign({},FX_DEFAULT_RATES);
+}
+function openCurrencyConverter(){
+  const rates=_fxGetRates();
+  const fromSel=document.getElementById('fx-from'), toSel=document.getElementById('fx-to');
+  const opts=Object.keys(FX_DEFAULT_RATES).map(c=>`<option value="${c}">${c} — ${FX_LABELS[c]}</option>`).join('');
+  fromSel.innerHTML=opts; toSel.innerHTML=opts;
+  fromSel.value='USD'; toSel.value='UGX';
+  _fxRenderEditor(rates);
+  document.getElementById('fx-modal').style.display='flex';
+  renderFxResult();
+}
+function closeCurrencyConverter(){document.getElementById('fx-modal').style.display='none';}
+function fxSwap(){
+  const f=document.getElementById('fx-from'), t=document.getElementById('fx-to');
+  const tmp=f.value; f.value=t.value; t.value=tmp; renderFxResult();
+}
+function renderFxResult(){
+  const rates=_fxGetRates();
+  const amt=parseFloat(document.getElementById('fx-amount').value)||0;
+  const from=document.getElementById('fx-from').value, to=document.getElementById('fx-to').value;
+  const usd=amt/(rates[from]||1);
+  const result=usd*(rates[to]||1);
+  document.getElementById('fx-result').innerHTML=
+    `${amt.toLocaleString()} ${from} =<br>${result.toLocaleString(undefined,{maximumFractionDigits:2})} ${to}`;
+}
+function _fxRenderEditor(rates){
+  const box=document.getElementById('fx-rate-editor');
+  box.innerHTML=Object.keys(FX_DEFAULT_RATES).filter(c=>c!=='USD').map(c=>
+    `<div style="display:flex;align-items:center;gap:6px;">
+      <span style="width:110px;font-size:11px;color:#374151;">1 USD = ${c}</span>
+      <input type="number" step="0.01" id="fx-rate-${c}" value="${rates[c]}" style="flex:1;margin:0;padding:4px 6px;font-size:12px;">
+    </div>`).join('');
+}
+function saveFxRates(){
+  const rates=_fxGetRates();
+  Object.keys(FX_DEFAULT_RATES).filter(c=>c!=='USD').forEach(c=>{
+    const el=document.getElementById('fx-rate-'+c);
+    if(el&&el.value)rates[c]=parseFloat(el.value);
+  });
+  try{localStorage.setItem('tali_fx_rates',JSON.stringify(rates));}catch(e){}
+  renderFxResult();
+  _auditLog('FX_RATES_UPDATED','Currency rates updated');
+  alert('Exchange rates saved.');
+}
 
 // ── AUDIT LOG RENDERER ────────────────────────────────────────
 function renderAuditLog(){
