@@ -380,12 +380,25 @@ document.addEventListener("DOMContentLoaded", function(){
       </div>
     </div>
     <div id="fx-result" style="background:#f0fdf4;border-radius:8px;padding:12px;text-align:center;font-size:18px;font-weight:800;color:#166534;margin-bottom:10px;">—</div>
-    <details style="font-size:12px;">
-      <summary style="cursor:pointer;color:var(--p);font-weight:600;">⚙️ Edit exchange rates</summary>
+    <details id="fx-rate-editor-wrap" style="display:none;font-size:12px;">
+      <summary style="cursor:pointer;color:var(--p);font-weight:600;">⚙️ Edit exchange rates (Admin)</summary>
       <div id="fx-rate-editor" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;"></div>
-      <div style="font-size:10px;color:#94a3b8;margin-top:6px;">Rates are per 1 USD. Stored locally on this device — update periodically from your bank/forex bureau rate.</div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:6px;">Rates are per 1 USD. Stored locally on this device — update periodically from your daily determined rate.</div>
       <button onclick="saveFxRates()" class="bp" style="margin-top:8px;width:100%;padding:6px;font-size:12px;">Save Rates</button>
     </details>
+    <div id="fx-rate-locked" style="display:none;font-size:11px;color:#94a3b8;text-align:center;">🔒 Only Admin can adjust exchange rates.</div>
+  </div>
+</div>
+
+<!-- INVOICE PRINT CURRENCY MODAL -->
+<div id="inv-fx-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.55);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:300px;max-width:90vw;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.4);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="margin:0;font-size:15px;color:var(--p);">🖨 Print Invoice In</h3>
+      <span onclick="closeInvoicePrintModal()" style="cursor:pointer;font-size:18px;color:#94a3b8;">✕</span>
+    </div>
+    <select id="inv-print-currency" style="width:100%;margin-bottom:12px;"></select>
+    <button onclick="confirmPrintInvoice()" class="bp" style="width:100%;padding:8px;">Print Invoice</button>
   </div>
 </div>
 
@@ -3876,7 +3889,7 @@ function openChart(pId){
           <span class="badge bgr" style="font-size:10px;">${v.status.replace(/_/g,' ')}</span>
           <button class="bsm" style="background:#6366f1;color:#fff;" onclick="cModal('chart-modal');viewVisitRecord('${v.id}')">📋 Notes</button>
           <button class="bsm bo" onclick="printVisitReport('${v.id}')">📄 Print</button>
-          <button class="bsm bo" onclick="printInvoice('${v.id}')">🖨 Invoice</button>
+          <button class="bsm bo" onclick="openInvoicePrintModal('${v.id}')">🖨 Invoice</button>
           ${(v.labs||[]).some(l=>l.done)?`<button class="bsm" style="background:var(--a);color:#fff;" onclick="printAllLabs('${v.id}')">🔬 Labs PDF</button>`:''}
           ${v.dischargeSnapshot||v.status==='DISCHARGED'?`<button class="bsm" style="background:#0c4a6e;color:#fff;" onclick="viewDischargeSnapshot('${v.id}')">📋 Discharge Summary</button>`:''}
         </div>
@@ -4662,7 +4675,7 @@ function viewVisitRecord(vid){
       🔒 Read-only view — this visit is ${v.status.replace(/_/g,' ')}
     </div>
     <button onclick="printVisitReport('${v.id}')" class="bo" style="padding:6px 14px;">📄 Print Full Report</button>
-    <button onclick="printInvoice('${v.id}')" class="bsm bo">🖨 Print Invoice</button>
+    <button onclick="openInvoicePrintModal('${v.id}')" class="bsm bo">🖨 Print Invoice</button>
     ${(v.labs||[]).some(l=>l.done)?`<button onclick="printAllLabs('${v.id}')" class="bsm" style="background:var(--a);color:#fff;">🔬 Lab PDF</button>`:''}
     <button onclick="closeVisitRecord()" class="bd2" style="padding:6px 12px;">✕ Close</button>`;
   // Switch to queue tab so cons-form is visible
@@ -5262,7 +5275,7 @@ function renderBilling(){
       <td><span class="badge ${bcls}">${bs}</span></td>
       <td><div style="display:flex;gap:3px;">
         <button class="ba bsm" onclick="openPayModal('${v.id}')">Pay</button>
-        <button class="bsm bo" onclick="printInvoice('${v.id}')">🖨</button>
+        <button class="bsm bo" onclick="openInvoicePrintModal('${v.id}')">🖨</button>
       </div></td></tr>`;
   });
   document.getElementById('table-bill').innerHTML=h;
@@ -10192,7 +10205,17 @@ function doPrint(){
 // ══════════════════════════════════════════════
 //  INVOICE PRINT
 // ══════════════════════════════════════════════
-function printInvoice(id){
+function printInvoice(id,currency){
+  currency=currency||(function(){try{return localStorage.getItem('tali_inv_print_currency')||'USD';}catch(e){return 'USD';}})();
+  const rates=_fxGetRates();
+  const rate=rates[currency]||1;
+  const sym=currency==='USD'?'$':'';
+  const suf=currency==='USD'?'':(' '+currency);
+  const fm=(usdAmt)=>{
+    const val=(usdAmt||0)*rate;
+    const formatted=currency==='USD'?val.toFixed(2):val.toLocaleString(undefined,{maximumFractionDigits:2});
+    return `${sym}${formatted}${suf}`;
+  };
   const v=visits.find(x=>x.id===id);if(!v)return;
   const p=patients.find(x=>x.id===v.patId);const tot=totalBill(v);
   document.getElementById('pra-con').innerHTML=
@@ -10204,22 +10227,23 @@ function printInvoice(id){
       <b>Date:</b> ${v.date} &nbsp;|&nbsp;
       <b>ID:</b> ${v.id}
     </p>
+    ${currency!=='USD'?`<p style="font-size:11px;color:#64748b;margin-bottom:6px;">Amounts shown in ${currency} at a rate of 1 USD = ${rate.toLocaleString()} ${currency} (manually set)</p>`:''}
     <table class="pit">
-      <tr><th>#</th><th>Description</th><th>Type</th><th>Qty</th><th>Unit $</th><th>Amount</th></tr>
-      ${v.consultFee?`<tr><td>1</td><td>Consultation Fee</td><td>CONSULT</td><td>1</td><td>$${v.consultFee.toFixed(2)}</td><td>$${v.consultFee.toFixed(2)}</td></tr>`:''}
-      ${(v.labs||[]).filter(l=>l.name).map((l,i)=>`<tr><td>${i+2}</td><td>${l.name}</td><td>LAB</td><td>1</td><td>$${l.price.toFixed(2)}</td><td>$${l.price.toFixed(2)}</td></tr>`).join('')}
-      ${(v.radiology||[]).filter(r=>r.name).map((r,i)=>`<tr><td>${i+2}</td><td>${r.name}</td><td>RAD</td><td>1</td><td>$${r.price.toFixed(2)}</td><td>$${r.price.toFixed(2)}</td></tr>`).join('')}
-      ${(v.procedures||[]).filter(p=>p.name).map((p,i)=>`<tr><td>${i+2}</td><td>${p.name}${p.completed?' ✅':' ⏳'}</td><td>PROC</td><td>1</td><td>$${p.price.toFixed(2)}</td><td>$${p.price.toFixed(2)}</td></tr>`).join('')}
-      ${(v.prescriptions||[]).filter(r=>r.name).map((r,i)=>`<tr><td>${i+2}</td><td>${r.name} ${r.strength||''}</td><td>Rx</td><td>${r.qty}</td><td>$${r.price.toFixed(2)}</td><td>$${(r.price*r.qty).toFixed(2)}</td></tr>`).join('')}
-      ${v.discount?`<tr style="color:green;"><td colspan="5" style="text-align:right;">Discount (${v.discountReason||''})</td><td>-$${v.discount.toFixed(2)}</td></tr>`:''}
-      <tr style="font-weight:700;background:#f1f5f9;"><td colspan="5" style="text-align:right;">TOTAL</td><td>$${tot.toFixed(2)}</td></tr>
+      <tr><th>#</th><th>Description</th><th>Type</th><th>Qty</th><th>Unit</th><th>Amount</th></tr>
+      ${v.consultFee?`<tr><td>1</td><td>Consultation Fee</td><td>CONSULT</td><td>1</td><td>${fm(v.consultFee)}</td><td>${fm(v.consultFee)}</td></tr>`:''}
+      ${(v.labs||[]).filter(l=>l.name).map((l,i)=>`<tr><td>${i+2}</td><td>${l.name}</td><td>LAB</td><td>1</td><td>${fm(l.price)}</td><td>${fm(l.price)}</td></tr>`).join('')}
+      ${(v.radiology||[]).filter(r=>r.name).map((r,i)=>`<tr><td>${i+2}</td><td>${r.name}</td><td>RAD</td><td>1</td><td>${fm(r.price)}</td><td>${fm(r.price)}</td></tr>`).join('')}
+      ${(v.procedures||[]).filter(p=>p.name).map((p,i)=>`<tr><td>${i+2}</td><td>${p.name}${p.completed?' ✅':' ⏳'}</td><td>PROC</td><td>1</td><td>${fm(p.price)}</td><td>${fm(p.price)}</td></tr>`).join('')}
+      ${(v.prescriptions||[]).filter(r=>r.name).map((r,i)=>`<tr><td>${i+2}</td><td>${r.name} ${r.strength||''}</td><td>Rx</td><td>${r.qty}</td><td>${fm(r.price)}</td><td>${fm(r.price*r.qty)}</td></tr>`).join('')}
+      ${v.discount?`<tr style="color:green;"><td colspan="5" style="text-align:right;">Discount (${v.discountReason||''})</td><td>-${fm(v.discount)}</td></tr>`:''}
+      <tr style="font-weight:700;background:#f1f5f9;"><td colspan="5" style="text-align:right;">TOTAL</td><td>${fm(tot)}</td></tr>
     </table>
     <div style="margin-top:9px;font-size:13px;">
-      <b>Paid:</b> $${v.totalPaid.toFixed(2)} &nbsp;&nbsp;
-      <b>Balance:</b> $${(tot-v.totalPaid).toFixed(2)} &nbsp;&nbsp;
+      <b>Paid:</b> ${fm(v.totalPaid)} &nbsp;&nbsp;
+      <b>Balance:</b> ${fm(tot-v.totalPaid)} &nbsp;&nbsp;
       <b>Status:</b> ${billStatus(v)}
     </div>
-    ${v.payments?.length?`<div style="margin-top:7px;font-size:12px;border-top:1px solid #e2e8f0;padding-top:5px;"><b>Payment History:</b><br>${v.payments.map(pp=>`${pp.time} — $${pp.amount.toFixed(2)} via ${pp.method} (${pp.by})`).join('<br>')}</div>`:''}
+    ${v.payments?.length?`<div style="margin-top:7px;font-size:12px;border-top:1px solid #e2e8f0;padding-top:5px;"><b>Payment History:</b><br>${v.payments.map(pp=>`${pp.time} — ${fm(pp.amount)} via ${pp.method} (${pp.by})`).join('<br>')}</div>`:''}
     `+printFooter();
   doPrint();
 }
@@ -15181,7 +15205,10 @@ function openCurrencyConverter(){
   const opts=Object.keys(FX_DEFAULT_RATES).map(c=>`<option value="${c}">${c} — ${FX_LABELS[c]}</option>`).join('');
   fromSel.innerHTML=opts; toSel.innerHTML=opts;
   fromSel.value='USD'; toSel.value='SSP';
-  _fxRenderEditor(rates);
+  const isAdmin=!!(currentUser&&currentUser.isAdmin);
+  document.getElementById('fx-rate-editor-wrap').style.display=isAdmin?'block':'none';
+  document.getElementById('fx-rate-locked').style.display=isAdmin?'none':'block';
+  if(isAdmin)_fxRenderEditor(rates);
   document.getElementById('fx-modal').style.display='flex';
   renderFxResult();
 }
@@ -15208,6 +15235,7 @@ function _fxRenderEditor(rates){
     </div>`).join('');
 }
 function saveFxRates(){
+  if(!(currentUser&&currentUser.isAdmin)){alert('Only Admin can adjust exchange rates.');return;}
   const rates=_fxGetRates();
   Object.keys(FX_DEFAULT_RATES).filter(c=>c!=='USD').forEach(c=>{
     const el=document.getElementById('fx-rate-'+c);
@@ -15217,6 +15245,29 @@ function saveFxRates(){
   renderFxResult();
   _auditLog('FX_RATES_UPDATED','Currency rates updated');
   alert('Exchange rates saved.');
+}
+
+// ── INVOICE PRINT CURRENCY ────────────────────────────────────
+let _pendingPrintInvoiceId=null;
+function openInvoicePrintModal(id){
+  _pendingPrintInvoiceId=id;
+  const sel=document.getElementById('inv-print-currency');
+  sel.innerHTML=Object.keys(FX_DEFAULT_RATES).map(c=>`<option value="${c}">${c} — ${FX_LABELS[c]}</option>`).join('');
+  let last='USD';
+  try{last=localStorage.getItem('tali_inv_print_currency')||'USD';}catch(e){}
+  sel.value=last;
+  document.getElementById('inv-fx-modal').style.display='flex';
+}
+function closeInvoicePrintModal(){
+  document.getElementById('inv-fx-modal').style.display='none';
+  _pendingPrintInvoiceId=null;
+}
+function confirmPrintInvoice(){
+  const currency=document.getElementById('inv-print-currency').value;
+  try{localStorage.setItem('tali_inv_print_currency',currency);}catch(e){}
+  const id=_pendingPrintInvoiceId;
+  closeInvoicePrintModal();
+  if(id)printInvoice(id,currency);
 }
 
 // ── AUDIT LOG RENDERER ────────────────────────────────────────
