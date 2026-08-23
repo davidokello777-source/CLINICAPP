@@ -14784,7 +14784,7 @@ function renderRoster(){
   tbl.innerHTML=h2;
 }
 
-function oShiftModal(id, prefDate='', prefShift=''){
+function oShiftModal(id, prefDate='', prefShift='', prefDept=''){
   let mo=document.getElementById('shift-modal');
   if(!mo){
     mo=document.createElement('div');mo.id='shift-modal';mo.className='mo';
@@ -14829,7 +14829,7 @@ function oShiftModal(id, prefDate='', prefShift=''){
   document.getElementById('shift-id').value=id||'';
   document.getElementById('shift-date').value=s.date||prefDate||new Date().toISOString().split('T')[0];
   document.getElementById('shift-type').value=s.shiftType||prefShift||'Morning (07-15)';
-  document.getElementById('shift-dept').value=s.department||'';
+  document.getElementById('shift-dept').value=s.department||prefDept||'';
   document.getElementById('shift-start').value=s.startTime||'';
   document.getElementById('shift-end').value=s.endTime||'';
   document.getElementById('shift-notes').value=s.notes||'';
@@ -14849,13 +14849,13 @@ function saveShift(){
   const existing=shifts.find(s=>s.id===id);
   const rec={id,staffId,staffName,role,date,shiftType,department:document.getElementById('shift-dept').value,startTime:document.getElementById('shift-start').value,endTime:document.getElementById('shift-end').value,notes:document.getElementById('shift-notes').value};
   if(existing){Object.assign(existing,rec);}else{shifts.push(rec);}
-  save();cModal('shift-modal');renderRoster();
+  save();cModal('shift-modal');renderRoster();refreshAllDeptRosterWidgets();
 }
 
 function deleteShift(id){
   if(!confirm('Remove this shift?'))return;
   window.shifts=shifts.filter(s=>s.id!==id);
-  save();renderRoster();
+  save();renderRoster();refreshAllDeptRosterWidgets();
 }
 
 function saveHandover(){
@@ -14887,13 +14887,46 @@ function exportRosterPDF(){window.print();}
 function renderOnDutyWidget(dept, elId){
   const el=document.getElementById(elId);if(!el)return;
   const todayStr=new Date().toLocaleDateString();
-  const todayShifts=(window.shifts||[]).filter(s=>s.date===todayStr&&s.department===dept);
-  if(!todayShifts.length){
-    el.innerHTML=`📅 <b>On Duty Today:</b> <span style="color:var(--mu);">No ${dept.toLowerCase()} shift scheduled for today. </span><a href="#" onclick="showSection('nurse');setTimeout(()=>swNurse('roster',document.querySelector('#sec-nurse .stabs .st:nth-child(6)')),50);return false;" style="color:var(--p);">View full roster →</a>`;
-    return;
-  }
-  const list=todayShifts.map(s=>`<b>${s.staffName}</b> (${s.shiftType})`).join(', ');
-  el.innerHTML=`📅 <b>On Duty Today:</b> ${list} <a href="#" onclick="showSection('nurse');setTimeout(()=>swNurse('roster',document.querySelector('#sec-nurse .stabs .st:nth-child(6)')),50);return false;" style="color:var(--p);margin-left:6px;">View full roster →</a>`;
+  // Build this week's dates (Mon-Sun) containing today
+  const now=new Date();
+  const dow=(now.getDay()+6)%7; // 0=Mon
+  const monday=new Date(now);monday.setDate(now.getDate()-dow);
+  const weekDates=[];for(let i=0;i<7;i++){const d=new Date(monday);d.setDate(monday.getDate()+i);weekDates.push(d);}
+  const dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const deptShifts=(window.shifts||[]).filter(s=>s.department===dept&&weekDates.some(d=>d.toLocaleDateString()===s.date));
+  const todayShifts=deptShifts.filter(s=>s.date===todayStr);
+
+  const todayLine=todayShifts.length
+    ? todayShifts.map(s=>`<b>${s.staffName}</b> <span style="color:var(--mu);">(${s.shiftType})</span>`).join(', ')
+    : `<span style="color:var(--mu);">No ${dept.toLowerCase()} shift scheduled for today.</span>`;
+
+  const weekRows=weekDates.map((d,i)=>{
+    const ds=d.toLocaleDateString();
+    const dayShifts=deptShifts.filter(s=>s.date===ds);
+    const isToday=ds===todayStr;
+    const chips=dayShifts.length
+      ? dayShifts.map(s=>`<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.65);border-radius:5px;padding:2px 6px;margin:1px 3px 1px 0;font-size:11px;">${s.staffName} <i style="font-style:normal;color:var(--mu);">(${s.shiftType.split(' ')[0]})</i> <span onclick="deleteShift('${s.id}')" style="cursor:pointer;color:#dc2626;">✕</span></span>`).join('')
+      : '<span style="color:#94a3b8;font-size:11px;">—</span>';
+    return `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;${isToday?'font-weight:700;':''}">
+      <span style="width:34px;font-size:11px;color:${isToday?'var(--p)':'#64748b'};">${dayNames[i]}</span>${chips}
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+      <div>📅 <b>On Duty Today (${dept}):</b> ${todayLine}</div>
+      <button onclick="oShiftModal(null,'','','${dept}')" class="bsm bp" style="padding:3px 10px;">+ Add Shift</button>
+    </div>
+    <details style="margin-top:2px;">
+      <summary style="cursor:pointer;color:var(--p);font-weight:600;font-size:11px;">View this week's ${dept} roster</summary>
+      <div style="margin-top:6px;">${weekRows}</div>
+    </details>`;
+}
+function refreshAllDeptRosterWidgets(){
+  [['Doctor','doc-onduty-widget'],['Lab','lab-onduty-widget'],['Reception','reception-onduty-widget'],
+   ['Billing','billing-onduty-widget'],['Pharmacy','pharmacy-onduty-widget'],['Radiology','radiology-onduty-widget'],
+   ['ENT','ent-onduty-widget'],['Dental','dental-onduty-widget'],['Physiotherapy','physiotherapy-onduty-widget']
+  ].forEach(([dept,elId])=>renderOnDutyWidget(dept,elId));
 }
 
 // ╔══════════════════════════════════════════════════════════════════╗
