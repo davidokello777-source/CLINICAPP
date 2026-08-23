@@ -582,6 +582,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- RECEPTION -->
     <section id="sec-reception">
+      <div id="reception-onduty-widget" style="background:#fef3c7;border:1.5px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div class="stabs">
         <button class="st active" onclick="swRec('register',this)">📝 Register</button>
         <button class="st" onclick="swRec('appointments',this)">📅 Appointments</button>
@@ -1529,6 +1530,7 @@ document.addEventListener("DOMContentLoaded", function(){
     </section>
 
     <section id="sec-billing">
+      <div id="billing-onduty-widget" style="background:#ede9fe;border:1.5px solid #ddd6fe;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;flex-wrap:wrap;gap:6px;">
         <h3>Billing & Payments</h3>
         <button onclick="exportCSV()" class="bo bsm">⬇ Export CSV</button>
@@ -1616,6 +1618,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- PHARMACY -->
     <section id="sec-pharmacy">
+      <div id="pharmacy-onduty-widget" style="background:#dcfce7;border:1.5px solid #bbf7d0;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div class="stabs">
         <button class="st active" onclick="swPharm('pending',this)">💊 Prescriptions</button>
         <button class="st" onclick="swPharm('walkin',this)">🚶 Walk-ins</button>
@@ -1700,6 +1703,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- RADIOLOGY -->
     <section id="sec-radiology">
+      <div id="radiology-onduty-widget" style="background:#e0e7ff;border:1.5px solid #c7d2fe;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div class="stabs">
         <button class="st active" onclick="swRad('pending',this)">📡 Pending</button>
         <button class="st" onclick="swRad('completed',this)">✅ Completed</button>
@@ -2272,6 +2276,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- ══ ENT SECTION ══ -->
     <section id="sec-ent">
+      <div id="ent-onduty-widget" style="background:#fce7f3;border:1.5px solid #fbcfe8;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
         <h3>👂 ENT Clinic — Ear, Nose &amp; Throat</h3>
         <div style="display:flex;gap:6px;">
@@ -2354,6 +2359,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- ══ DENTAL SECTION ══ -->
     <section id="sec-dental">
+      <div id="dental-onduty-widget" style="background:#cffafe;border:1.5px solid #a5f3fc;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
         <h3>🦷 Dental Clinic</h3>
         <div style="display:flex;gap:6px;">
@@ -2415,6 +2421,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- ══ PHYSIOTHERAPY SECTION ══ -->
     <section id="sec-physiotherapy">
+      <div id="physiotherapy-onduty-widget" style="background:#fed7aa;border:1.5px solid #fdba74;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:7px;">
         <h3>🏃 Physiotherapy</h3>
         <div style="display:flex;gap:6px;">
@@ -3248,13 +3255,13 @@ function showSection(id){
   document.getElementById('btn-'+id)?.classList.add('active');
   safeCall(()=>{({
     director:renderDash,
-    reception:()=>{renderPatients();renderFollowups();},
+    reception:()=>{renderPatients();renderFollowups();renderOnDutyWidget('Reception','reception-onduty-widget');},
 
     nurse:()=>{renderTriage();renderTreatList();renderNurseQueue();},
-    doctor:()=>{renderCons();renderOnDutyWidget('Doctor','doc-onduty-widget');},billing:()=>renderBilling(),
-    lab:()=>{renderLab();renderOnDutyWidget('Lab','lab-onduty-widget');},pharmacy:()=>renderPharm(),
-    radiology:()=>renderRad(),inventory:()=>{renderInventory();checkNearExpiry();},
-    expenses:()=>renderExpenses(),dental:()=>renderDental(),ent:()=>renderENT(),physiotherapy:()=>renderPhysio(),suppliers:()=>renderSuppliers(),insurance:()=>renderInsuranceSection(),admin:()=>{swAdmin('staff',document.querySelector('#sec-admin .stabs .st'));loadFacilitySettingsUI();},feedbacks:renderFeedbacks,chat:renderChat
+    doctor:()=>{renderCons();renderOnDutyWidget('Doctor','doc-onduty-widget');},billing:()=>{renderBilling();renderOnDutyWidget('Billing','billing-onduty-widget');},
+    lab:()=>{renderLab();renderOnDutyWidget('Lab','lab-onduty-widget');},pharmacy:()=>{renderPharm();renderOnDutyWidget('Pharmacy','pharmacy-onduty-widget');},
+    radiology:()=>{renderRad();renderOnDutyWidget('Radiology','radiology-onduty-widget');},inventory:()=>{renderInventory();checkNearExpiry();},
+    expenses:()=>renderExpenses(),dental:()=>{renderDental();renderOnDutyWidget('Dental','dental-onduty-widget');},ent:()=>{renderENT();renderOnDutyWidget('ENT','ent-onduty-widget');},physiotherapy:()=>{renderPhysio();renderOnDutyWidget('Physiotherapy','physiotherapy-onduty-widget');},suppliers:()=>renderSuppliers(),insurance:()=>renderInsuranceSection(),admin:()=>{swAdmin('staff',document.querySelector('#sec-admin .stabs .st'));loadFacilitySettingsUI();},feedbacks:renderFeedbacks,chat:renderChat
   })[id]?.();},'showSection:'+id);
 }
 
