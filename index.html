@@ -1036,6 +1036,20 @@ document.addEventListener("DOMContentLoaded", function(){
           <h3 style="margin:0;color:var(--p);">📅 Duty Roster & Shift Planner</h3>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <input type="week" id="roster-week" onchange="renderRoster()" style="margin:0;font-size:12px;width:auto;">
+            <select id="roster-dept-filter" onchange="renderRoster()" style="margin:0;font-size:12px;width:auto;">
+              <option value="">All Departments</option>
+              <option value="Doctor">👨‍⚕️ Doctor</option>
+              <option value="Lab">🔬 Lab</option>
+              <option value="Nursing">💉 Nursing</option>
+              <option value="Pharmacy">💊 Pharmacy</option>
+              <option value="Radiology">🩻 Radiology</option>
+              <option value="Reception">🏥 Reception</option>
+              <option value="Billing">💳 Billing</option>
+              <option value="Dental">🦷 Dental</option>
+              <option value="ENT">👂 ENT</option>
+              <option value="Physiotherapy">🏃 Physiotherapy</option>
+              <option value="Other">Other</option>
+            </select>
             <button onclick="oShiftModal(null)" class="bp">+ Add Shift</button>
             <button onclick="exportRosterPDF()" class="bo" style="font-size:12px;">🖨 Print Roster</button>
           </div>
@@ -1101,6 +1115,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- DOCTOR -->
     <section id="sec-doctor">
+      <div id="doc-onduty-widget" style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div class="stabs" style="flex-wrap:wrap;">
         <button class="st active" onclick="swDoc('queue',this)">📋 Queue</button>
         <button class="st" onclick="swDoc('appointments',this)">📅 My Schedule</button>
@@ -1545,6 +1560,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- LAB -->
     <section id="sec-lab">
+      <div id="lab-onduty-widget" style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div class="stabs">
         <button class="st active" onclick="swLab('pending',this)">🔬 Pending</button>
         <button class="st" onclick="swLab('completed',this)">✅ Completed</button>
@@ -3235,8 +3251,8 @@ function showSection(id){
     reception:()=>{renderPatients();renderFollowups();},
 
     nurse:()=>{renderTriage();renderTreatList();renderNurseQueue();},
-    doctor:renderCons,billing:()=>renderBilling(),
-    lab:()=>renderLab(),pharmacy:()=>renderPharm(),
+    doctor:()=>{renderCons();renderOnDutyWidget('Doctor','doc-onduty-widget');},billing:()=>renderBilling(),
+    lab:()=>{renderLab();renderOnDutyWidget('Lab','lab-onduty-widget');},pharmacy:()=>renderPharm(),
     radiology:()=>renderRad(),inventory:()=>{renderInventory();checkNearExpiry();},
     expenses:()=>renderExpenses(),dental:()=>renderDental(),ent:()=>renderENT(),physiotherapy:()=>renderPhysio(),suppliers:()=>renderSuppliers(),insurance:()=>renderInsuranceSection(),admin:()=>{swAdmin('staff',document.querySelector('#sec-admin .stabs .st'));loadFacilitySettingsUI();},feedbacks:renderFeedbacks,chat:renderChat
   })[id]?.();},'showSection:'+id);
@@ -14712,6 +14728,7 @@ function renderRoster(){
   const weekEl=document.getElementById('roster-week');
   const weekStr=weekEl?.value;
   const weekDates=weekStr?getWeekDates(weekStr):[];
+  const deptFilter=document.getElementById('roster-dept-filter')?.value||'';
   const dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const shiftTypes=['Morning (07-15)','Afternoon (15-23)','Night (23-07)','On-Call'];
   const shiftColors={'Morning (07-15)':'#eff6ff','Afternoon (15-23)':'#fef9c3','Night (23-07)':'#f3f4f6','On-Call':'#fce7f3'};
@@ -14732,7 +14749,7 @@ function renderRoster(){
       h+=`<tr><td style="padding:7px 8px;background:${shiftColors[st]};border:1px solid #e2e8f0;font-weight:700;color:${shiftTextColors[st]};font-size:11px;white-space:nowrap;">${st}</td>`;
       weekDates.forEach(d=>{
         const dateStr=d.toLocaleDateString();
-        const dayShifts=shifts.filter(s=>s.date===dateStr&&s.shiftType===st);
+        const dayShifts=shifts.filter(s=>s.date===dateStr&&s.shiftType===st&&(!deptFilter||s.department===deptFilter));
         h+=`<td style="padding:5px 6px;border:1px solid #e2e8f0;vertical-align:top;min-width:90px;cursor:pointer;" onclick="oShiftModal(null,'${dateStr}','${st}')">`;
         if(dayShifts.length){h+=dayShifts.map(s=>`<div style="background:${shiftColors[st]};border-left:3px solid ${shiftTextColors[st]};border-radius:4px;padding:2px 5px;margin-bottom:3px;font-size:11px;font-weight:600;">${s.staffName}</div>`).join('');}
         else{h+=`<div style="color:#cbd5e1;font-size:11px;text-align:center;padding:4px;">+</div>`;}
@@ -14746,7 +14763,8 @@ function renderRoster(){
 
   // Table list
   const tbl=document.getElementById('roster-table');if(!tbl)return;
-  const weekShifts=weekDates.length?shifts.filter(s=>weekDates.some(d=>d.toLocaleDateString()===s.date)):shifts.slice(-30);
+  let weekShifts=weekDates.length?shifts.filter(s=>weekDates.some(d=>d.toLocaleDateString()===s.date)):shifts.slice(-30);
+  if(deptFilter)weekShifts=weekShifts.filter(s=>s.department===deptFilter);
   if(!weekShifts.length){tbl.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--mu);padding:16px;">No shifts scheduled. Click + Add Shift or click any cell in the grid above.</td></tr>';return;}
   let h2='<tr><th>Staff</th><th>Role</th><th>Date</th><th>Shift</th><th>Department</th><th>Action</th></tr>';
   weekShifts.forEach(s=>h2+=`<tr>
@@ -14771,7 +14789,14 @@ function oShiftModal(id, prefDate='', prefShift=''){
         <div><label>Staff Member *</label>
           <select id="shift-staff"><option value="">-- Select staff --</option></select>
         </div>
-        <div><label>Department</label><input id="shift-dept" placeholder="e.g. Nursing, Lab, Pharmacy"></div>
+        <div><label>Department</label>
+          <select id="shift-dept">
+            <option value="">-- Select --</option>
+            <option>Doctor</option><option>Lab</option><option>Nursing</option><option>Pharmacy</option>
+            <option>Radiology</option><option>Reception</option><option>Billing</option><option>Dental</option>
+            <option>ENT</option><option>Physiotherapy</option><option>Other</option>
+          </select>
+        </div>
       </div>
       <div class="g2" style="margin-top:6px;">
         <div><label>Date *</label><input type="date" id="shift-date"></div>
@@ -14850,6 +14875,19 @@ function renderHandoverList(){
 }
 
 function exportRosterPDF(){window.print();}
+
+// ── ON-DUTY TODAY WIDGET (Doctor & Lab pages) ───────────────────
+function renderOnDutyWidget(dept, elId){
+  const el=document.getElementById(elId);if(!el)return;
+  const todayStr=new Date().toLocaleDateString();
+  const todayShifts=(window.shifts||[]).filter(s=>s.date===todayStr&&s.department===dept);
+  if(!todayShifts.length){
+    el.innerHTML=`📅 <b>On Duty Today:</b> <span style="color:var(--mu);">No ${dept.toLowerCase()} shift scheduled for today. </span><a href="#" onclick="showSection('nurse');setTimeout(()=>swNurse('roster',document.querySelector('#sec-nurse .stabs .st:nth-child(6)')),50);return false;" style="color:var(--p);">View full roster →</a>`;
+    return;
+  }
+  const list=todayShifts.map(s=>`<b>${s.staffName}</b> (${s.shiftType})`).join(', ');
+  el.innerHTML=`📅 <b>On Duty Today:</b> ${list} <a href="#" onclick="showSection('nurse');setTimeout(()=>swNurse('roster',document.querySelector('#sec-nurse .stabs .st:nth-child(6)')),50);return false;" style="color:var(--p);margin-left:6px;">View full roster →</a>`;
+}
 
 // ╔══════════════════════════════════════════════════════════════════╗
 // ║  MODULE C — CONSENT FORMS                                        ║
