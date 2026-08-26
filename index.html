@@ -4584,7 +4584,7 @@ function renderCons(){
     const rxc=(v.prescriptions||[]).length,rxd=(v.prescriptions||[]).filter(r=>r.dispensed).length;
     const bcls=v.status==='LAB_READY'||v.status==='RAD_READY'?'bgn':v.status==='WAITING_CONSULTATION'?'bbl':'bgr';
     const isEmg=v.consultType==='EMERGENCY';
-    h+=`<tr${isEmg?' class="emg-row"':''}><td><b>${v.name}</b></td><td>${info}</td><td>${ctBadge(v.consultType)}</td><td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td><td><span class="badge ${bcls}" style="font-size:10px;">${v.status.replace(/_/g,' ')}</span></td><td>${payBadge(v)}</td><td style="font-size:12px;">${lc?`${ld}/${lc}`:'—'}</td><td style="font-size:12px;">${rc?`${rd}/${rc}`:'—'}</td><td style="font-size:12px;">${rxc?`${rxd}/${rxc}`:'—'}</td><td><button onclick="openCons('${v.id}')">Open</button></td></tr>`;
+    h+=`<tr${isEmg?' class="emg-row"':''}><td><b>${v.name}</b></td><td>${info}</td><td>${ctBadge(v.consultType)}</td><td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td><td><span class="badge ${bcls}" style="font-size:10px;">${v.status.replace(/_/g,' ')}</span></td><td>${payBadge(v)}</td><td style="font-size:12px;">${lc?`${ld}/${lc}`:'—'}</td><td style="font-size:12px;">${rc?`${rd}/${rc}`:'—'}</td><td style="font-size:12px;">${rxc?`${rxd}/${rxc}`:'—'}</td><td style="display:flex;gap:4px;flex-wrap:wrap;"><button onclick="openCons('${v.id}')">Open</button><button class="bsm bo" title="Ring reception's bell to call this patient in" onclick="callNextPatientBell('${v.id}')" style="border-color:#d97706;color:#d97706;">🔔 Call</button></td></tr>`;
   });
   document.getElementById('table-cons').innerHTML=h;
 }
@@ -13220,6 +13220,31 @@ function _chimeSoft(){
   ], 0.02);
 }
 
+// 9. RECEPTION CALL BELL — bright classic front-desk "ding-ding" service bell
+function _chimeReceptionBell(){
+  try{
+    const ctx=_getAC(); let t=ctx.currentTime;
+    [0, 0.30].forEach(offset=>{
+      const osc=ctx.createOscillator(), g=ctx.createGain();
+      osc.type='triangle'; osc.frequency.value=1568; // G6 — bright bell strike
+      osc.connect(g); g.connect(ctx.destination);
+      const start=t+offset;
+      g.gain.setValueAtTime(0,start);
+      g.gain.linearRampToValueAtTime(0.42, start+0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, start+0.5);
+      osc.start(start); osc.stop(start+0.52);
+      // Overtone for metallic bell timbre
+      const osc2=ctx.createOscillator(), g2=ctx.createGain();
+      osc2.type='sine'; osc2.frequency.value=2349; // D7 overtone
+      osc2.connect(g2); g2.connect(ctx.destination);
+      g2.gain.setValueAtTime(0,start);
+      g2.gain.linearRampToValueAtTime(0.15, start+0.01);
+      g2.gain.exponentialRampToValueAtTime(0.001, start+0.35);
+      osc2.start(start); osc2.stop(start+0.37);
+    });
+  }catch(e){}
+}
+
 // 8. EMERGENCY ALERT  — loud fast ALARM (ISO 60601-1-8 "medium priority" model)
 //    Three rapid pulses of a 520 Hz square wave — universally recognised
 function _alarmEmergency(){
@@ -13316,7 +13341,8 @@ function playDropSound(){ _chimeSoft(); }
 const _origSpeak=window.speak;
 window.speak=function(text){
   const t=(text||'').toLowerCase();
-  if(t.includes('discharg'))          _chimeDischarge();
+  if(t.includes('next patient')||t.includes('please send in')) _chimeReceptionBell();
+  else if(t.includes('discharg'))          _chimeDischarge();
   else if(t.includes('emergency'))    { _alarmEmergency(); }
   else if(t.includes('code blue'))    { _alarmCodeBlue(); }
   else if(t.includes('pharmacy')||t.includes('dispensed'))  _chimePharmacy();
@@ -14929,6 +14955,15 @@ function refreshAllDeptRosterWidgets(){
   ].forEach(([dept,elId])=>renderOnDutyWidget(dept,elId));
 }
 
+// ── DOCTOR → RECEPTION "NEXT PATIENT" BELL ──────────────────────
+function callNextPatientBell(visitId){
+  const v=visits.find(x=>x.id===visitId);
+  const name=v?v.name:'the next patient';
+  speak(`Reception, please send in ${name} — Doctor is ready for the next patient.`);
+  const btn=document.querySelector(`button[onclick="callNextPatientBell('${visitId}')"]`);
+  if(btn){const old=btn.innerHTML;btn.innerHTML='🔔 Rung!';btn.disabled=true;setTimeout(()=>{btn.innerHTML=old;btn.disabled=false;},4000);}
+}
+
 // ╔══════════════════════════════════════════════════════════════════╗
 // ║  MODULE C — CONSENT FORMS                                        ║
 // ╚══════════════════════════════════════════════════════════════════╝
@@ -15246,6 +15281,7 @@ try{
   const lc=localStorage.getItem('tali_consents');if(lc)window.consentForms=JSON.parse(lc);
   const lr=localStorage.getItem('tali_referrals');if(lr)window.referrals=JSON.parse(lr);
 }catch(e){}
+if(!window.shifts)window.shifts=[]; // guarantee shifts exists even on first-ever run before any localStorage data
 
 
 // ╔══════════════════════════════════════════════════════════════════╗
