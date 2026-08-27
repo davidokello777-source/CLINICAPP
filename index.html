@@ -352,6 +352,7 @@ document.addEventListener("DOMContentLoaded", function(){
     <input id="lu" placeholder="Enter username" onkeyup="if(event.key==='Enter')login()" style="width:100%;margin-bottom:10px;">
     <label style="display:block;margin-bottom:3px;font-weight:600;font-size:12px;color:#374151;">Password</label>
     <input type="password" id="lp2" placeholder="Enter password" onkeyup="if(event.key==='Enter')login()" style="width:100%;margin-bottom:12px;">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;text-transform:none;font-size:12px;color:#334155;margin:0 0 10px;"><input type="checkbox" id="rememberDevice" style="width:auto;margin:0;"> Remember me on this device</label>
     <button onclick="login()" class="bp" style="width:100%;padding:9px;font-size:14px;font-weight:700;">🔐 Sign In</button>
     <div id="le" style="color:#dc2626;font-size:12px;margin-top:7px;min-height:16px;text-align:center;"></div>
     <div id="login-quick-info" style="display:none;"></div>
@@ -1042,14 +1043,6 @@ document.addEventListener("DOMContentLoaded", function(){
               <option value="Doctor">👨‍⚕️ Doctor</option>
               <option value="Lab">🔬 Lab</option>
               <option value="Nursing">💉 Nursing</option>
-              <option value="Pharmacy">💊 Pharmacy</option>
-              <option value="Radiology">🩻 Radiology</option>
-              <option value="Reception">🏥 Reception</option>
-              <option value="Billing">💳 Billing</option>
-              <option value="Dental">🦷 Dental</option>
-              <option value="ENT">👂 ENT</option>
-              <option value="Physiotherapy">🏃 Physiotherapy</option>
-              <option value="Other">Other</option>
             </select>
             <button onclick="oShiftModal(null)" class="bp">+ Add Shift</button>
             <button onclick="exportRosterPDF()" class="bo" style="font-size:12px;">🖨 Print Roster</button>
@@ -3111,8 +3104,11 @@ window.addEventListener('DOMContentLoaded',async()=>{
   clearTimeout(safetyTimer);
 
   // ── SESSION RESTORE: if user was logged in, skip login screen ──
+  // Checks the persistent (localStorage, "Remember me on this device") session first,
+  // then falls back to the tab-only (sessionStorage) session.
   try{
-    const sess=JSON.parse(sessionStorage.getItem('tali_session')||'null');
+    const remembered=JSON.parse(localStorage.getItem('tali_session')||'null');
+    const sess=remembered||JSON.parse(sessionStorage.getItem('tali_session')||'null');
     if(sess){
       const s=staffList.find(x=>x.id===sess.id&&x.username===sess.username);
       if(s&&s.accountStatus!=='Suspended'){
@@ -3131,6 +3127,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
         // skip to end — don't show login page
       } else {
         // session stale or account suspended — clear and show login
+        localStorage.removeItem('tali_session');
         sessionStorage.removeItem('tali_session');
         document.getElementById('ls').style.display='none';
         document.getElementById('lp').style.display='flex';
@@ -3215,7 +3212,19 @@ function login(){
   const pol=_getSystemPolicies();
   currentUser=s;
   _recordLogin(s,true);_auditLog('LOGIN','User logged in',s.id);
-  try{sessionStorage.setItem('tali_session',JSON.stringify({id:s.id,username:s.username}));}catch(e){}
+  // Credentials/session stay on this device only if the user ticks "Remember me" —
+  // that approval is what moves the session from tab-only sessionStorage into
+  // persistent localStorage. Either way, doLogout() always clears it.
+  try{
+    const sessionPayload=JSON.stringify({id:s.id,username:s.username});
+    if(document.getElementById('rememberDevice')?.checked){
+      localStorage.setItem('tali_session',sessionPayload);
+      sessionStorage.removeItem('tali_session');
+    }else{
+      sessionStorage.setItem('tali_session',sessionPayload);
+      localStorage.removeItem('tali_session');
+    }
+  }catch(e){}
   document.getElementById('lp').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('du').innerText=s.name;
@@ -3236,7 +3245,7 @@ function login(){
 function doLogout(){
   _auditLog('LOGOUT','User logged out',currentUser?.id||'');
   _recordLogout();
-  try{sessionStorage.removeItem('tali_session');}catch(e){}
+  try{sessionStorage.removeItem('tali_session');localStorage.removeItem('tali_session');}catch(e){}
   location.reload();
 }
 
@@ -13677,8 +13686,12 @@ const MOTIVATIONAL_QUOTES=[
 ];
 function showDailyVerse(){
   const today=new Date();
-  const idx=(today.getDate()-1+today.getMonth()*31)%(DAILY_VERSES.length);
-  const qIdx=(today.getDate()+today.getMonth()*7)%(MOTIVATIONAL_QUOTES.length);
+  // Rotate every 12 hours: one verse/quote for the midnight→midday period (00:00–11:59),
+  // and a different one for the midday→midnight period (12:00–23:59).
+  const halfDayPeriod=today.getHours()<12?0:1; // 0 = midnight→midday, 1 = midday→midnight
+  const dayBlock=(today.getDate()-1+today.getMonth()*31)*2+halfDayPeriod;
+  const idx=dayBlock%(DAILY_VERSES.length);
+  const qIdx=(dayBlock+7)%(MOTIVATIONAL_QUOTES.length);
   const v=DAILY_VERSES[idx];const q=MOTIVATIONAL_QUOTES[qIdx];
   let modal=document.getElementById('daily-verse-modal');
   if(!modal){
@@ -13706,7 +13719,7 @@ function showDailyVerse(){
   document.getElementById('dv-ref').textContent='— '+v.ref;
   document.getElementById('dv-quote').textContent='"'+q.quote+'"';
   document.getElementById('dv-author').textContent='— '+q.author;
-  document.getElementById('dv-date').textContent=today.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('dv-date').textContent=today.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' — '+(halfDayPeriod===0?'Morning':'Afternoon/Evening');
   oModal('daily-verse-modal');
 }
 
@@ -14825,9 +14838,7 @@ function oShiftModal(id, prefDate='', prefShift='', prefDept=''){
         <div><label>Department</label>
           <select id="shift-dept">
             <option value="">-- Select --</option>
-            <option>Doctor</option><option>Lab</option><option>Nursing</option><option>Pharmacy</option>
-            <option>Radiology</option><option>Reception</option><option>Billing</option><option>Dental</option>
-            <option>ENT</option><option>Physiotherapy</option><option>Other</option>
+            <option>Doctor</option><option>Lab</option><option>Nursing</option>
           </select>
         </div>
       </div>
