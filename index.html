@@ -583,7 +583,6 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- RECEPTION -->
     <section id="sec-reception">
-      <div id="reception-onduty-widget" style="background:#fef3c7;border:1.5px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div class="stabs">
         <button class="st active" onclick="swRec('register',this)">📝 Register</button>
         <button class="st" onclick="swRec('appointments',this)">📅 Appointments</button>
@@ -1523,7 +1522,6 @@ document.addEventListener("DOMContentLoaded", function(){
     </section>
 
     <section id="sec-billing">
-      <div id="billing-onduty-widget" style="background:#ede9fe;border:1.5px solid #ddd6fe;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;flex-wrap:wrap;gap:6px;">
         <h3>Billing & Payments</h3>
         <button onclick="exportCSV()" class="bo bsm">⬇ Export CSV</button>
@@ -1611,7 +1609,6 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- PHARMACY -->
     <section id="sec-pharmacy">
-      <div id="pharmacy-onduty-widget" style="background:#dcfce7;border:1.5px solid #bbf7d0;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div class="stabs">
         <button class="st active" onclick="swPharm('pending',this)">💊 Prescriptions</button>
         <button class="st" onclick="swPharm('walkin',this)">🚶 Walk-ins</button>
@@ -1696,7 +1693,6 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <!-- RADIOLOGY -->
     <section id="sec-radiology">
-      <div id="radiology-onduty-widget" style="background:#e0e7ff;border:1.5px solid #c7d2fe;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;"></div>
       <div class="stabs">
         <button class="st active" onclick="swRad('pending',this)">📡 Pending</button>
         <button class="st" onclick="swRad('completed',this)">✅ Completed</button>
@@ -2009,8 +2005,13 @@ document.addEventListener("DOMContentLoaded", function(){
 
       <!-- ══ TAB: SETTINGS ══ -->
       <div id="admin-tab-settings" style="display:none;">
+        <!-- Settings Search Engine -->
+        <div style="margin-bottom:14px;">
+          <input id="settings-search" placeholder="🔍 Search settings (e.g. facility, backup, policies, audit)…" oninput="filterSettingsCards(this.value)" style="width:100%;font-size:13px;padding:9px 12px;">
+          <div id="settings-search-empty" style="display:none;font-size:12px;color:var(--mu);margin-top:6px;">No settings match your search.</div>
+        </div>
         <!-- Facility Settings -->
-        <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-bottom:16px;">
+        <div class="settings-card" data-settings-title="Facility Settings clinic name type phone email address tagline motto QR feedback" style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-bottom:16px;">
           <h4 style="margin:0 0 10px;color:var(--p);">🏥 Facility Settings</h4>
           <div class="g2">
             <div><label>Facility / Clinic Name</label><input id="set-clinic-name" placeholder="e.g. Tali Medicals International"></div>
@@ -2027,7 +2028,7 @@ document.addEventListener("DOMContentLoaded", function(){
           <div class="ab"><button onclick="saveFacilitySettings()" class="ba">💾 Save Facility Settings</button></div>
         </div>
         <!-- System Policies -->
-        <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:14px 18px;margin-bottom:16px;">
+        <div class="settings-card" data-settings-title="System Policies session timeout login lock password location security" style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:14px 18px;margin-bottom:16px;">
           <h4 style="margin:0 0 10px;color:#166534;">🔒 System Policies</h4>
           <div class="g2">
             <div><label>Session Timeout (minutes, 0=never)</label><input type="number" id="set-session-timeout" placeholder="e.g. 30" min="0"></div>
@@ -2040,7 +2041,7 @@ document.addEventListener("DOMContentLoaded", function(){
           <div class="ab"><button onclick="saveSystemPolicies()" class="ba" style="background:#166534;">💾 Save Policies</button></div>
         </div>
         <!-- Data Management -->
-        <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:14px 18px;">
+        <div class="settings-card" data-settings-title="Data Management export import restore JSON" style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:14px 18px;">
           <h4 style="margin:0 0 10px;color:#c2410c;">🗄 Data Management</h4>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button onclick="exportAllData()" class="bo" style="border-color:#c2410c;color:#c2410c;">⬇ Export All Data (JSON)</button>
@@ -2051,7 +2052,7 @@ document.addEventListener("DOMContentLoaded", function(){
         </div>
 
       <!-- ── AUDIT LOG VIEWER ── -->
-      <div class="card" style="margin-top:14px;">
+      <div class="card settings-card" data-settings-title="Audit Log immutable history activity" style="margin-top:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
           <h4 style="margin:0;color:#1e3a8a;">🔍 Immutable Audit Log</h4>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -2065,7 +2066,7 @@ document.addEventListener("DOMContentLoaded", function(){
         </div>
       </div>
 
-      <div class="card" style="margin-top:14px;padding:14px 18px;border:1.5px solid #bfdbfe;">
+      <div class="card settings-card" data-settings-title="Unit Test Suite diagnostics billing stock dispensing" style="margin-top:14px;padding:14px 18px;border:1.5px solid #bfdbfe;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
           <div>
             <h4 style="margin:0;color:#1e3a8a;">🧪 Unit Test Suite</h4>
@@ -2075,7 +2076,7 @@ document.addEventListener("DOMContentLoaded", function(){
         </div>
       </div>
       <!-- ── BACKUP & RESTORE ── -->
-      <div class="card" style="margin-top:14px;padding:16px 18px;">
+      <div class="card settings-card" data-settings-title="Backup Restore export schedule auto-backup" style="margin-top:14px;padding:16px 18px;">
         <h4 style="margin:0 0 12px;color:#1e3a8a;">💾 Backup & Restore</h4>
         <div class="g2">
           <!-- Manual export -->
@@ -3250,9 +3251,9 @@ function doLogout(){
 }
 
 function renderNav(){
-  const secs=currentUser.isAdmin?['director',...ALL_SECS,'admin','feedbacks']:(currentUser.sections||[]);
-  const lbl={director:'Dashboard',...SEC_LABELS,admin:'Admin',feedbacks:'Feedback'};
-  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',expenses:'💰',dental:'🦷',ent:'👂',physiotherapy:'🏃',suppliers:'🏪',insurance:'🛡️',chat:'💬',admin:'⚙️',feedbacks:'⭐'};
+  const secs=currentUser.isAdmin?['director',...ALL_SECS,'admin','settings','feedbacks']:(currentUser.sections||[]);
+  const lbl={director:'Dashboard',...SEC_LABELS,admin:'Admin',settings:'Settings',feedbacks:'Feedback'};
+  const icons={director:'📊',reception:'🏥',nurse:'💉',doctor:'👨‍⚕️',billing:'💳',lab:'🔬',pharmacy:'💊',radiology:'🩻',inventory:'📦',expenses:'💰',dental:'🦷',ent:'👂',physiotherapy:'🏃',suppliers:'🏪',insurance:'🛡️',chat:'💬',admin:'🗂️',settings:'⚙️',feedbacks:'⭐'};
   const hiddenFromNav=['suppliers']; // Suppliers managed via Admin tab only
   document.getElementById('dn').innerHTML=secs.filter(s=>!hiddenFromNav.includes(s)).map(s=>`<button id="btn-${s}" class="nb" onclick="showSection('${s}')">${icons[s]||'•'} ${lbl[s]||s.toUpperCase()}</button>`).join('');
 }
@@ -3260,6 +3261,19 @@ function renderNav(){
 function showSection(id){
   document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  if(id==='settings'){
+    // "Settings" is its own module in the nav; it opens the same admin panel
+    // directly on the Settings tab, with the search engine ready to use.
+    document.getElementById('sec-admin')?.classList.add('active');
+    document.getElementById('btn-settings')?.classList.add('active');
+    safeCall(()=>{
+      swAdmin('settings',document.querySelector('#sec-admin .stabs .st[onclick*="\'settings\'"]'));
+      loadFacilitySettingsUI();loadSystemPoliciesUI();
+      const sb=document.getElementById('settings-search');
+      if(sb){sb.value='';filterSettingsCards('');setTimeout(()=>sb.focus(),50);}
+    },'showSection:settings');
+    return;
+  }
   document.getElementById('sec-'+id)?.classList.add('active');
   document.getElementById('btn-'+id)?.classList.add('active');
   safeCall(()=>{({
@@ -10148,6 +10162,23 @@ function deleteInvItem(id){
   inventory=inventory.filter(x=>x.id!==id);
   save();renderInventory();
   alert('Item deleted.');
+}
+
+// ══════════════════════════════════════════════
+//  SETTINGS SEARCH ENGINE (Settings module)
+// ══════════════════════════════════════════════
+function filterSettingsCards(term){
+  const q=(term||'').trim().toLowerCase();
+  const cards=document.querySelectorAll('#admin-tab-settings .settings-card');
+  let anyVisible=false;
+  cards.forEach(card=>{
+    const haystack=(card.getAttribute('data-settings-title')||'')+' '+card.textContent;
+    const match=!q||haystack.toLowerCase().includes(q);
+    card.style.display=match?'':'none';
+    if(match)anyVisible=true;
+  });
+  const emptyMsg=document.getElementById('settings-search-empty');
+  if(emptyMsg)emptyMsg.style.display=(q&&!anyVisible)?'block':'none';
 }
 
 // ══════════════════════════════════════════════
