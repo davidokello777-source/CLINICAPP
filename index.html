@@ -1034,18 +1034,8 @@ document.addEventListener("DOMContentLoaded", function(){
       <!-- ══ DUTY ROSTER & SHIFT PLANNER ══ -->
       <div id="nurse-roster" style="display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-          <h3 style="margin:0;color:var(--p);">📅 Duty Roster & Shift Planner</h3>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <input type="week" id="roster-week" onchange="renderRoster()" style="margin:0;font-size:12px;width:auto;">
-            <select id="roster-dept-filter" onchange="renderRoster()" style="margin:0;font-size:12px;width:auto;">
-              <option value="">All Departments</option>
-              <option value="Doctor">👨‍⚕️ Doctor</option>
-              <option value="Lab">🔬 Lab</option>
-              <option value="Nursing">💉 Nursing</option>
-            </select>
-            <button onclick="oShiftModal(null)" class="bp">+ Add Shift</button>
-            <button onclick="exportRosterPDF()" class="bo" style="font-size:12px;">🖨 Print Roster</button>
-          </div>
+          <h3 style="margin:0;color:var(--p);">📅 My Duty Roster (View Only)</h3>
+          <div style="font-size:11px;color:var(--mu);background:#f1f5f9;border-radius:6px;padding:4px 10px;">🔒 Scheduling is managed by Admin. Contact Admin to request changes.</div>
         </div>
         <!-- Handover notes -->
         <div class="card" style="margin-bottom:12px;padding:12px 16px;">
@@ -1079,14 +1069,10 @@ document.addEventListener("DOMContentLoaded", function(){
           <textarea id="handover-notes" rows="4" placeholder="e.g. Bed 3 — John Doe awaiting lab results. IV fluids running at 80ml/hr. Bed 7 — post-op, check wound dressing at 22:00. Ward stock: paracetamol infusion running low..."></textarea>
           <div id="handover-list" style="margin-top:8px;"></div>
         </div>
-        <!-- Weekly roster grid -->
-        <div class="card" style="overflow-x:auto;padding:10px;">
-          <div id="roster-grid"></div>
-        </div>
-        <!-- Shift list -->
-        <div class="card" style="margin-top:10px;">
-          <h4 style="margin-bottom:8px;">All Shifts This Week</h4>
-          <table id="roster-table" style="font-size:12px;"></table>
+        <!-- Read-only weekly roster (Nursing shifts only) -->
+        <div class="card" style="padding:12px 16px;">
+          <h4 style="margin:0 0 8px;">This Week's Nursing Roster</h4>
+          <div id="nurse-roster-view"></div>
         </div>
       </div>
 
@@ -1794,6 +1780,7 @@ document.addEventListener("DOMContentLoaded", function(){
         <button class="st" onclick="swAdmin('import',this)">📥 Import</button>
         <button class="st" onclick="swAdmin('services',this)">🔬 Services</button>
         <button class="st" onclick="swAdmin('assets',this)">🏷 Assets</button>
+        <button class="st" onclick="swAdmin('roster',this)">📅 Duty Roster</button>
         <button class="st" onclick="swAdmin('settings',this)">⚙️ Settings</button>
       </div>
 
@@ -2002,6 +1989,35 @@ document.addEventListener("DOMContentLoaded", function(){
       </div>
       <div class="card" style="padding:12px;" id="sop-list"></div>
       </div><!-- /admin-tab-services -->
+
+      <!-- ══ TAB: SETTINGS ══ -->
+      <!-- ══ TAB: DUTY ROSTER (Admin-only scheduling) ══ -->
+      <div id="admin-tab-roster" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <h3 style="margin:0;color:var(--p);">📅 Duty Roster & Shift Planner</h3>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <input type="week" id="roster-week" onchange="renderRoster()" style="margin:0;font-size:12px;width:auto;">
+            <select id="roster-dept-filter" onchange="renderRoster()" style="margin:0;font-size:12px;width:auto;">
+              <option value="">All Departments</option>
+              <option value="Doctor">👨‍⚕️ Doctor</option>
+              <option value="Lab">🔬 Lab</option>
+              <option value="Nursing">💉 Nursing</option>
+            </select>
+            <button onclick="oShiftModal(null)" class="bp">+ Add Shift</button>
+            <button onclick="exportRosterPDF()" class="bo" style="font-size:12px;">🖨 Print Roster</button>
+          </div>
+        </div>
+        <p style="font-size:11px;color:var(--mu);margin:-6px 0 12px;">Only Admin can create, edit, or remove shifts. Doctors, Lab, and Nursing can view their own roster from their department modules.</p>
+        <!-- Weekly roster grid -->
+        <div class="card" style="overflow-x:auto;padding:10px;">
+          <div id="roster-grid"></div>
+        </div>
+        <!-- Shift list -->
+        <div class="card" style="margin-top:10px;">
+          <h4 style="margin-bottom:8px;">All Shifts This Week</h4>
+          <table id="roster-table" style="font-size:12px;"></table>
+        </div>
+      </div>
 
       <!-- ══ TAB: SETTINGS ══ -->
       <div id="admin-tab-settings" style="display:none;">
@@ -3961,11 +3977,7 @@ function swNurse(tab,btn){
   if(tab==='nursequeue')renderNurseQueue();
   if(tab==='nurseguide')renderNurseGuide();
   if(tab==='ward'){renderWardMap();renderWardSummary();}
-  if(tab==='roster'){renderRoster();
-    const rw=document.getElementById('roster-week');
-    if(rw&&!rw.value){const n=new Date();const yr=n.getFullYear();const wk=String(getWeekNumber(n)).padStart(2,'0');rw.value=`${yr}-W${wk}`;}
-    renderRoster();renderHandoverList();
-  }
+  if(tab==='roster'){renderNurseRosterView();renderHandoverList();}
 }
 
 // ══════════════════════════════════════════════
@@ -9430,7 +9442,7 @@ function saveExpense(){
 function swAdmin(tab, btn){
   document.querySelectorAll('#sec-admin .stabs .st').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
-  const tabs=['staff','activity','suppliers','insurance','pricelists','hrguide','patients','import','services','assets','settings'];
+  const tabs=['staff','activity','suppliers','insurance','pricelists','hrguide','patients','import','services','assets','roster','settings'];
   tabs.forEach(t=>{const el=document.getElementById('admin-tab-'+t);if(el)el.style.display=(t===tab)?'block':'none';});
   if(tab==='staff')renderAdmin();
   if(tab==='activity'){renderLoginLog();renderOnlineStaff();renderStaffMonthSummary();}
@@ -9441,6 +9453,11 @@ function swAdmin(tab, btn){
   if(tab==='patients')renderAdminPatients();
   if(tab==='services'){renderLabTestsEditor();renderRadProcsEditor();renderNursingProcsEditor();renderSOPs();}
   if(tab==='assets')renderAssets();
+  if(tab==='roster'){
+    const rw=document.getElementById('roster-week');
+    if(rw&&!rw.value){const n=new Date();const yr=n.getFullYear();const wk=String(getWeekNumber(n)).padStart(2,'0');rw.value=`${yr}-W${wk}`;}
+    renderRoster();
+  }
   if(tab==='settings'){loadFacilitySettingsUI();loadSystemPoliciesUI();}
 }
 
@@ -14855,6 +14872,7 @@ function renderRoster(){
 }
 
 function oShiftModal(id, prefDate='', prefShift='', prefDept=''){
+  if(!currentUser?.isAdmin)return alert('Only Admin can manage the duty roster. Please contact Admin to request a change.');
   let mo=document.getElementById('shift-modal');
   if(!mo){
     mo=document.createElement('div');mo.id='shift-modal';mo.className='mo';
@@ -14906,6 +14924,7 @@ function oShiftModal(id, prefDate='', prefShift='', prefDept=''){
 }
 
 function saveShift(){
+  if(!currentUser?.isAdmin)return alert('Only Admin can manage the duty roster.');
   const staffSel=document.getElementById('shift-staff');
   const staffId=staffSel.value;
   const staffName=staffSel.options[staffSel.selectedIndex]?.dataset.name||staffSel.options[staffSel.selectedIndex]?.text||'';
@@ -14921,6 +14940,7 @@ function saveShift(){
 }
 
 function deleteShift(id){
+  if(!currentUser?.isAdmin)return alert('Only Admin can manage the duty roster.');
   if(!confirm('Remove this shift?'))return;
   window.shifts=shifts.filter(s=>s.id!==id);
   save();renderRoster();refreshAllDeptRosterWidgets();
@@ -14973,7 +14993,7 @@ function renderOnDutyWidget(dept, elId){
     const dayShifts=deptShifts.filter(s=>s.date===ds);
     const isToday=ds===todayStr;
     const chips=dayShifts.length
-      ? dayShifts.map(s=>`<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.65);border-radius:5px;padding:2px 6px;margin:1px 3px 1px 0;font-size:11px;">${s.staffName} <i style="font-style:normal;color:var(--mu);">(${s.shiftType.split(' ')[0]})</i> <span onclick="deleteShift('${s.id}')" style="cursor:pointer;color:#dc2626;">✕</span></span>`).join('')
+      ? dayShifts.map(s=>`<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.65);border-radius:5px;padding:2px 6px;margin:1px 3px 1px 0;font-size:11px;">${s.staffName} <i style="font-style:normal;color:var(--mu);">(${s.shiftType.split(' ')[0]})</i></span>`).join('')
       : '<span style="color:#94a3b8;font-size:11px;">—</span>';
     return `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;${isToday?'font-weight:700;':''}">
       <span style="width:34px;font-size:11px;color:${isToday?'var(--p)':'#64748b'};">${dayNames[i]}</span>${chips}
@@ -14983,7 +15003,7 @@ function renderOnDutyWidget(dept, elId){
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
       <div>📅 <b>On Duty Today (${dept}):</b> ${todayLine}</div>
-      <button onclick="oShiftModal(null,'','','${dept}')" class="bsm bp" style="padding:3px 10px;">+ Add Shift</button>
+      <span style="font-size:10px;color:var(--mu);">🔒 View only — scheduling managed by Admin</span>
     </div>
     <details style="margin-top:2px;">
       <summary style="cursor:pointer;color:var(--p);font-weight:600;font-size:11px;">View this week's ${dept} roster</summary>
@@ -14995,6 +15015,34 @@ function refreshAllDeptRosterWidgets(){
    ['Billing','billing-onduty-widget'],['Pharmacy','pharmacy-onduty-widget'],['Radiology','radiology-onduty-widget'],
    ['ENT','ent-onduty-widget'],['Dental','dental-onduty-widget'],['Physiotherapy','physiotherapy-onduty-widget']
   ].forEach(([dept,elId])=>renderOnDutyWidget(dept,elId));
+  if(document.getElementById('nurse-roster-view'))renderNurseRosterView();
+}
+
+// ── NURSE MODULE: READ-ONLY ROSTER VIEW (Nursing shifts only) ──
+// Scheduling itself (add/edit/delete) is Admin-only — see admin-tab-roster.
+function renderNurseRosterView(){
+  const el=document.getElementById('nurse-roster-view');if(!el)return;
+  const now=new Date();
+  const dow=(now.getDay()+6)%7; // 0=Mon
+  const monday=new Date(now);monday.setDate(now.getDate()-dow);
+  const weekDates=[];for(let i=0;i<7;i++){const d=new Date(monday);d.setDate(monday.getDate()+i);weekDates.push(d);}
+  const dayNames=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const todayStr=now.toLocaleDateString();
+  const nursingShifts=(window.shifts||[]).filter(s=>s.department==='Nursing'&&weekDates.some(d=>d.toLocaleDateString()===s.date));
+  const rows=weekDates.map((d,i)=>{
+    const ds=d.toLocaleDateString();
+    const dayShifts=nursingShifts.filter(s=>s.date===ds).sort((a,b)=>(a.startTime||'').localeCompare(b.startTime||''));
+    const isToday=ds===todayStr;
+    const chips=dayShifts.length
+      ? dayShifts.map(s=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:5px;padding:2px 8px;margin:2px 4px 2px 0;font-size:11px;">
+          <b>${s.staffName}</b> <span style="color:var(--mu);">${s.shiftType}${s.startTime?` · ${s.startTime}-${s.endTime||''}`:''}</span></span>`).join('')
+      : '<span style="color:#94a3b8;font-size:12px;">No nursing shift scheduled.</span>';
+    return `<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9;${isToday?'background:#f0fdfa;':''}">
+      <span style="width:90px;flex-shrink:0;font-size:12px;font-weight:${isToday?'700':'600'};color:${isToday?'var(--p)':'#475569'};">${dayNames[i]}${isToday?' (Today)':''}</span>
+      <div style="flex:1;">${chips}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML=rows||'<div style="font-size:12px;color:var(--mu);">No nursing shifts scheduled this week.</div>';
 }
 
 // ── DOCTOR → RECEPTION "NEXT PATIENT" BELL ──────────────────────
