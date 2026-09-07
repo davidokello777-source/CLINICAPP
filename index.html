@@ -2056,17 +2056,6 @@ document.addEventListener("DOMContentLoaded", function(){
           </div>
           <div class="ab"><button onclick="saveSystemPolicies()" class="ba" style="background:#166534;">💾 Save Policies</button></div>
         </div>
-        <!-- Data Management -->
-        <div class="settings-card" data-settings-title="Data Management export import restore JSON" style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:14px 18px;">
-          <h4 style="margin:0 0 10px;color:#c2410c;">🗄 Data Management</h4>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button onclick="exportAllData()" class="bo" style="border-color:#c2410c;color:#c2410c;">⬇ Export All Data (JSON)</button>
-            <button onclick="triggerImportData()" class="bo">📥 Import / Restore Backup</button>
-            <input type="file" id="restore-file" accept=".json" onchange="restoreData(event)" style="display:none;">
-          </div>
-          <p style="font-size:11px;color:var(--mu);margin-top:8px;">Export saves patients, visits, staff, inventory, suppliers and settings. Store backups securely offline.</p>
-        </div>
-
       <!-- ── AUDIT LOG VIEWER ── -->
       <div class="card settings-card" data-settings-title="Audit Log immutable history activity" style="margin-top:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
@@ -4411,7 +4400,7 @@ function renderNurseGuide(){
         html+=`<div style="border:1.5px solid var(--bd);border-radius:8px;margin-bottom:7px;overflow:hidden;">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 13px;cursor:pointer;background:#fff;" onclick="toggleNgCard('${eid}')">
             <span style="font-weight:700;font-size:14px;color:var(--p);">${g.name}</span>
-            <span id="ng-chevron-${eid}" style="color:var(--mu);font-size:16px;transition:.2s;">▼</span>
+            <span id="ng-chev-${eid}" style="color:var(--mu);font-size:16px;transition:.2s;">▼</span>
           </div>
           <div id="${eid}" style="display:none;padding:13px 15px;border-top:1px solid var(--bd);background:#fafbff;">
             <div style="background:#eff6ff;border-left:3px solid #1e40af;border-radius:5px;padding:7px 11px;margin-bottom:10px;font-size:13px;color:#1e3a8a;">
@@ -9647,71 +9636,12 @@ function renderStaffMonthSummary(){
 // ══════════════════════════════════════════════
 //  DATA BACKUP — EXPORT / IMPORT
 // ══════════════════════════════════════════════
-function exportAllData(){
-  const fac=_getFacilitySettings();
-  const backup={
-    _version:3,
-    _exported:new Date().toISOString(),
-    _facility:fac.name||'TALI MEDICALS INTERNATIONAL',
-    patients,
-    visits,
-    staffList,
-    inventory,
-    suppliers,
-    expenses:window._expenses||JSON.parse(localStorage.getItem('tali_expenses')||'[]'),
-    settings:{
-      facility:fac,
-      policies:_getSystemPolicies(),
-      labTests:window._labTests||null,
-      radProcs:window._radProcs||null,
-      nursingProcs:window._nursingProcs||null,
-    }
-  };
-  const json=JSON.stringify(backup,null,2);
-  const blob=new Blob([json],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  const fname=`tali_backup_${(fac.name||'clinic').replace(/\s+/g,'_')}_${new Date().toISOString().split('T')[0]}.json`;
-  a.href=url;a.download=fname;document.body.appendChild(a);a.click();
-  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
-  alert(`Backup exported: ${fname}\nKeep this file safe — it contains all clinic data.`);
-}
-function triggerImportData(){
-  if(!confirm('Restoring a backup will REPLACE all current data.\nMake sure you have exported the current data first.\n\nContinue?'))return;
-  document.getElementById('restore-file').click();
-}
-function restoreData(event){
-  const file=event.target.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      const backup=JSON.parse(e.target.result);
-      if(!backup._version||!backup.patients)throw new Error('Invalid backup file format.');
-      // Restore all collections
-      if(backup.patients)patients=backup.patients;
-      if(backup.visits)visits=backup.visits;
-      if(backup.staffList)staffList=backup.staffList;
-      if(backup.inventory)inventory=backup.inventory;
-      if(backup.suppliers)suppliers=backup.suppliers;
-      if(backup.expenses&&Array.isArray(backup.expenses))
-        localStorage.setItem('tali_expenses',JSON.stringify(backup.expenses));
-      if(backup.settings){
-        if(backup.settings.facility)localStorage.setItem('tali_facility',JSON.stringify(backup.settings.facility));
-        if(backup.settings.policies)localStorage.setItem('tali_policies',JSON.stringify(backup.settings.policies));
-        if(backup.settings.labTests)localStorage.setItem('tali_lab_tests',JSON.stringify(backup.settings.labTests));
-        if(backup.settings.radProcs)localStorage.setItem('tali_rad_procs',JSON.stringify(backup.settings.radProcs));
-        if(backup.settings.nursingProcs)localStorage.setItem('tali_nursing_procs',JSON.stringify(backup.settings.nursingProcs));
-      }
-      save();
-      alert(`Backup restored successfully!\nFacility: ${backup._facility||'Unknown'}\nExported: ${backup._exported||'Unknown'}\n\nThe page will now reload.`);
-      setTimeout(()=>location.reload(),800);
-    }catch(err){
-      alert('Failed to restore backup: '+err.message+'\n\nMake sure you selected a valid Tali HIMS backup file.');
-    }
-  };
-  reader.readAsText(file);
-  event.target.value='';
-}
+// NOTE: The old exportAllData()/triggerImportData()/restoreData() functions
+// that used to live here were removed — they were an incomplete "backup"
+// (missing appointments, duty roster/shifts, handover notes, wards/beds,
+// consent forms, referrals, insurance claims, price lists, etc.) superseded
+// by exportFullBackup() / handleRestoreFile() / confirmRestore(), which back
+// up and restore every collection. See the "Backup & Restore" card in Settings.
 
 function _getSystemPolicies(){
   try{return JSON.parse(localStorage.getItem('tali_policies')||'{}');}catch(e){return{};}
@@ -11597,7 +11527,7 @@ function printFeedbackQR(){
     const qrSrc = qrCanvas ? qrCanvas.toDataURL() : '';
     document.getElementById('pra-sub').innerText = '';
     document.getElementById('pra-con').innerHTML = `
-      <div id="pra-con" style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:10px;">
+      <div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:10px;">
         <div style="text-align:center;padding:30px 20px;border:3px solid #1e3a8a;border-radius:16px;background:#fff;">
           ${_lg?`<img src="${_lg}" style="height:70px;width:auto;margin-bottom:12px;" alt="Tali Medicals">`:''}
           <h2 style="color:#1e3a8a;margin:0 0 4px;font-size:22px;">TALI MEDICALS INTERNATIONAL</h2>
@@ -12719,7 +12649,7 @@ function swRec(tab,btn){
   if(tab==='appointments'){
     const d=document.getElementById('appt-date-filter');
     if(d&&!d.value)d.value=new Date().toISOString().split('T')[0];
-    renderAppointments();
+    renderCalendar();renderDayList();
   }
   if(tab==='sms'){loadSmsSettings();renderSmsLog();populateSmsPatientList();}
 }
@@ -12734,152 +12664,15 @@ function _loadAppointments(){
 function _saveAppointments(){
   localStorage.setItem('tali_appointments',JSON.stringify(appointments));
 }
-function oApptModal(id){
-  _loadAppointments();
-  const a=id?appointments.find(x=>x.id===id):null;
-  // Populate patient dropdown
-  const sel=document.getElementById('apptPatient');
-  sel.innerHTML='<option value="">— Select patient —</option>'+
-    patients.slice().sort((a,b)=>a.name.localeCompare(b.name))
-    .map(p=>`<option value="${p.id}" ${a&&a.patId===p.id?'selected':''}>${p.name}</option>`).join('');
-  // Populate doctor dropdown
-  const dsel=document.getElementById('apptDoctor');
-  const docs=staffList.filter(s=>s.sections&&s.sections.includes('doctor'));
-  dsel.innerHTML='<option value="">— Any available —</option>'+
-    docs.map(d=>`<option value="${d.id}" ${a&&a.doctorId===d.id?'selected':''}>${d.name}</option>`).join('');
-  document.getElementById('apptEditId').value=a?a.id:'';
-  document.getElementById('apptDate').value=a?a.date:new Date().toISOString().split('T')[0];
-  document.getElementById('apptTime').value=a?a.time:'08:00';
-  document.getElementById('apptType').value=a?a.type:'General';
-  document.getElementById('apptDuration').value=a?a.duration:30;
-  document.getElementById('apptPriority').value=a?a.priority:'Normal';
-  document.getElementById('apptNotes').value=a?a.notes:'';
-  document.getElementById('apptPatientName').value=a?a.patientName:'';
-  document.getElementById('apptSendSms').checked=false;
-  document.getElementById('appt-modal-title').textContent=a?'Edit Appointment':'📅 Book Appointment';
-  oModal('appt-modal');
-}
-function saveAppointment(){
-  _loadAppointments();
-  const eid=document.getElementById('apptEditId').value;
-  const patId=document.getElementById('apptPatient').value;
-  const patientName=patId?(patients.find(p=>p.id===patId)||{}).name||'':
-    document.getElementById('apptPatientName').value.trim();
-  if(!patientName)return alert('Please select a patient or enter a name.');
-  const date=document.getElementById('apptDate').value;
-  const time=document.getElementById('apptTime').value;
-  if(!date||!time)return alert('Date and time are required.');
-  const doctorId=document.getElementById('apptDoctor').value;
-  const doctorName=doctorId?(staffList.find(s=>s.id===doctorId)||{}).name||'Any':'Any';
-  const appt={
-    id:eid||'APT-'+Date.now().toString().slice(-7),
-    patId,patientName,date,time,
-    type:document.getElementById('apptType').value,
-    duration:parseInt(document.getElementById('apptDuration').value)||30,
-    priority:document.getElementById('apptPriority').value,
-    notes:document.getElementById('apptNotes').value.trim(),
-    doctorId,doctorName,
-    status:'Scheduled',
-    createdBy:currentUser?.name||'Staff',
-    createdAt:new Date().toISOString()
-  };
-  if(eid){const idx=appointments.findIndex(a=>a.id===eid);if(idx>-1)appointments[idx]=appt;}
-  else appointments.push(appt);
-  _saveAppointments();
-  cModal('appt-modal');
-  // Send SMS confirmation if checked
-  if(document.getElementById('apptSendSms').checked){
-    const p=patients.find(x=>x.id===patId);
-    if(p&&p.phone){
-      const tpl=_getSmsTemplate('appt');
-      const msg=_fillSmsTemplate(tpl,{name:patientName,date,time,phone:_getSmsSettings().sender||''});
-      _logSms(patientName,p.phone,'Appointment Confirmation',msg,'Auto');
-    }
-  }
-  renderAppointments();
-  alert(`Appointment saved for ${patientName} on ${date} at ${time}.`);
-}
-function renderAppointments(){
-  _loadAppointments();
-  const dateFilter=document.getElementById('appt-date-filter')?.value||'';
-  let appts=appointments.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
-  if(dateFilter)appts=appts.filter(a=>a.date===dateFilter);
-  const today=new Date().toISOString().split('T')[0];
-  const todayCount=appointments.filter(a=>a.date===today).length;
-  const pendingCount=appointments.filter(a=>a.status==='Scheduled'&&a.date>=today).length;
-  const s1=document.getElementById('appt-stat-today');const s2=document.getElementById('appt-stat-pending');
-  if(s1)s1.textContent=todayCount;if(s2)s2.textContent=pendingCount;
-  const priorityStyle={Urgent:'#dc2626',Normal:'#16a34a','Follow-up':'#0891b2','First Visit':'#7c3aed'};
-  const statusStyle={Scheduled:'#0891b2',Arrived:'#16a34a',Completed:'#6b7280',Cancelled:'#dc2626','No Show':'#d97706'};
-  let h=`<tr><th>Patient</th><th>Date</th><th>Time</th><th>Clinic</th><th>Doctor</th><th>Priority</th><th>Status</th><th>Actions</th></tr>`;
-  if(!appts.length)h+=`<tr><td colspan="8" class="emp">No appointments found. <button onclick="oApptModal()" class="bsm ba" style="margin-left:8px;">+ Book Now</button></td></tr>`;
-  appts.forEach(a=>{
-    const isToday=a.date===today;
-    const pc=priorityStyle[a.priority]||'#6b7280';
-    const sc=statusStyle[a.status]||'#6b7280';
-    h+=`<tr style="${isToday?'background:#fffbeb;':''}">
-      <td><b>${a.patientName}</b>${isToday?'<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:0 5px;border-radius:5px;margin-left:4px;">Today</span>':''}</td>
-      <td style="font-size:12px;">${a.date}</td>
-      <td style="font-weight:700;color:var(--p);">${a.time}</td>
-      <td style="font-size:12px;">${a.type}</td>
-      <td style="font-size:12px;color:var(--mu);">${a.doctorName||'Any'}</td>
-      <td><span style="background:${pc}22;color:${pc};padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;">${a.priority}</span></td>
-      <td><span style="background:${sc}22;color:${sc};padding:1px 7px;border-radius:8px;font-size:11px;font-weight:700;">${a.status}</span></td>
-      <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
-        <button class="bsm bo" onclick="oApptModal('${a.id}')">Edit</button>
-        <button class="bsm" style="background:#16a34a22;color:#16a34a;" onclick="updateApptStatus('${a.id}','Arrived')">✓ Arrived</button>
-        <button class="bsm" style="background:#6b728022;color:#6b7280;" onclick="updateApptStatus('${a.id}','Cancelled')">✕ Cancel</button>
-        <button class="bsm" style="background:#0891b222;color:#0891b2;" onclick="sendApptReminder('${a.id}')">📱 SMS</button>
-      </div></td>
-    </tr>`;
-  });
-  const el=document.getElementById('table-appointments');
-  if(el)el.innerHTML=h;
-}
-function updateApptStatus(id,status){
-  _loadAppointments();
-  const a=appointments.find(x=>x.id===id);
-  if(!a)return;
-  if(!confirm(`Mark appointment for ${a.patientName} as "${status}"?`))return;
-  a.status=status;
-  _saveAppointments();
-  renderAppointments();
-}
-function renderDocAppointments(){
-  _loadAppointments();
-  const dateVal=document.getElementById('doc-appt-date')?.value||new Date().toISOString().split('T')[0];
-  const doc=currentUser;
-  let appts=appointments.filter(a=>a.date===dateVal);
-  if(doc&&!doc.isAdmin)appts=appts.filter(a=>!a.doctorId||a.doctorId===doc.id);
-  appts.sort((a,b)=>a.time.localeCompare(b.time));
-  const statusStyle={Scheduled:'#0891b2',Arrived:'#16a34a',Completed:'#6b7280',Cancelled:'#dc2626','No Show':'#d97706'};
-  let h=`<tr><th>Time</th><th>Patient</th><th>Clinic</th><th>Duration</th><th>Notes</th><th>Status</th><th>Action</th></tr>`;
-  if(!appts.length)h+=`<tr><td colspan="7" class="emp">No appointments for this date.</td></tr>`;
-  appts.forEach(a=>{
-    const sc=statusStyle[a.status]||'#6b7280';
-    h+=`<tr>
-      <td style="font-weight:800;color:var(--p);font-size:15px;">${a.time}</td>
-      <td><b>${a.patientName}</b></td>
-      <td style="font-size:12px;">${a.type}</td>
-      <td style="font-size:12px;color:var(--mu);">${a.duration} min</td>
-      <td style="font-size:12px;color:var(--mu);">${a.notes||'—'}</td>
-      <td><span style="background:${sc}22;color:${sc};padding:1px 8px;border-radius:8px;font-size:11px;font-weight:700;">${a.status}</span></td>
-      <td><button class="bsm ba" onclick="updateApptStatus('${a.id}','Completed')">✓ Done</button></td>
-    </tr>`;
-  });
-  const el=document.getElementById('table-doc-appointments');
-  if(el)el.innerHTML=h;
-}
-function sendApptReminder(id){
-  _loadAppointments();
-  const a=appointments.find(x=>x.id===id);if(!a)return;
-  const p=patients.find(x=>x.id===a.patId);
-  const phone=p?.phone||'';
-  if(!phone){alert(`No phone number on record for ${a.patientName}. Cannot send SMS.`);return;}
-  const tpl=_getSmsTemplate('appt');
-  const msg=_fillSmsTemplate(tpl,{name:a.patientName,date:a.date,time:a.time,phone:_getSmsSettings().sender||''});
-  _sendSms(phone,msg,a.patientName,'Appointment Reminder');
-}
+// NOTE: The legacy appointment modal/table functions that used to live here
+// (oApptModal, saveAppointment, renderAppointments, updateApptStatus,
+// renderDocAppointments, sendApptReminder) have been removed. They duplicated
+// function names defined later in this file (which always won, since later
+// declarations overwrite earlier ones), used a different/incompatible data
+// shape, and their matching static HTML modal caused the live "Book
+// Appointment" button to crash. The active, correct implementations are
+// further down: oApptModal(), saveAppt(), renderCalendar(), renderDayList(),
+// deleteAppt(), and renderDocAppointments() (near "Patch renderAppointments").
 
 // ══════════════════════════════════════════════
 //  SMS / WHATSAPP NOTIFICATION SYSTEM
@@ -16762,75 +16555,6 @@ window.saveClinical = function(){
   </div>
 </div>
 
-
-<!-- PRINT AREA: must be direct child of body for print CSS to work -->
-<!-- ══ APPOINTMENT MODAL ══ -->
-<div id="appt-modal" class="mo">
-  <div class="mb" style="max-width:520px;">
-    <button class="mc" onclick="cModal('appt-modal')">✕</button>
-    <h3 id="appt-modal-title" style="color:var(--p);margin-bottom:12px;">📅 Book Appointment</h3>
-    <input type="hidden" id="apptEditId">
-    <div class="g2">
-      <div><label>Patient *</label>
-        <select id="apptPatient" style="margin:0;font-size:13px;">
-          <option value="">— Select patient —</option>
-        </select>
-      </div>
-      <div><label>Or: Patient Name (new/walk-in)</label><input id="apptPatientName" placeholder="Name if not registered yet"></div>
-    </div>
-    <div class="g2">
-      <div><label>Date *</label><input type="date" id="apptDate"></div>
-      <div><label>Time *</label><input type="time" id="apptTime"></div>
-    </div>
-    <div class="g2">
-      <div><label>Clinic / Type *</label>
-        <select id="apptType" style="margin:0;font-size:13px;">
-          <option value="General">General Consultation</option>
-          <option value="Dental">Dental</option>
-          <option value="ENT">ENT</option>
-          <option value="ANC">Antenatal Care (ANC)</option>
-          <option value="Family Planning">Family Planning</option>
-          <option value="Lab">Laboratory</option>
-          <option value="Radiology">Radiology</option>
-          <option value="Review">Review / Follow-up</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-      <div><label>Doctor / Clinician</label>
-        <select id="apptDoctor" style="margin:0;font-size:13px;">
-          <option value="">— Any available —</option>
-        </select>
-      </div>
-    </div>
-    <div class="g2">
-      <div><label>Duration (minutes)</label>
-        <select id="apptDuration" style="margin:0;font-size:13px;">
-          <option value="15">15 min</option>
-          <option value="20">20 min</option>
-          <option value="30" selected>30 min</option>
-          <option value="45">45 min</option>
-          <option value="60">1 hour</option>
-        </select>
-      </div>
-      <div><label>Priority</label>
-        <select id="apptPriority" style="margin:0;font-size:13px;">
-          <option value="Normal">Normal</option>
-          <option value="Urgent">Urgent</option>
-          <option value="Follow-up">Follow-up</option>
-          <option value="First Visit">First Visit</option>
-        </select>
-      </div>
-    </div>
-    <label>Notes / Reason</label><input id="apptNotes" placeholder="Brief reason for appointment">
-    <label style="display:inline-flex;align-items:center;gap:6px;text-transform:none;font-size:13px;cursor:pointer;margin-top:6px;">
-      <input type="checkbox" id="apptSendSms" style="width:auto;margin:0;"> Send SMS confirmation to patient
-    </label>
-    <div class="ab">
-      <button onclick="saveAppointment()" class="ba">💾 Save Appointment</button>
-      <button onclick="cModal('appt-modal')" style="background:#e2e8f0;color:#475569;">Cancel</button>
-    </div>
-  </div>
-</div>
 
 <!-- ══ INSURANCE MODAL ══ -->
 <div id="insurance-modal" class="mo">
