@@ -2909,8 +2909,17 @@ async function loadData(){
     const tout=setTimeout(()=>ctrl.abort(),8000);
     let r;try{r=await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK},signal:ctrl.signal});}finally{clearTimeout(tout);}
     const j=await r.json();const d=j.record||{};
-    if((d.patients||[]).length>patients.length||(d.suppliers||[]).length>suppliers.length||(d.staffList||[]).length>staffList.length){
+    const grew=(d.patients||[]).length>patients.length||(d.suppliers||[]).length>suppliers.length||(d.staffList||[]).length>staffList.length;
+    // Chat messages are sent independently of patients/suppliers/staff (see sendChat()),
+    // so their freshness must be checked on its own — otherwise a normal-looking sync
+    // with no new patients would silently discard chat history that only exists in the cloud.
+    const cloudChatNewer=(d.chatMessages||[]).length>chatMessages.length;
+    if(grew){
       applyData(d);
+    }else if(cloudChatNewer){
+      chatMessages=d.chatMessages;
+    }
+    if(grew||cloudChatNewer){
       // Re-save merged to localStorage
       try{localStorage.setItem('tali_data',JSON.stringify({patients,visits,inventory,staffList,expenses,feedbacks:window.feedbacks,labTests:window._labTests,radProcs:window._radProcs,nursingProcs:window._nursingProcs,suppliers,chatMessages}));}catch(e){}
       console.log('Synced from JSONBin');
@@ -11842,6 +11851,12 @@ function renderChat(){
       if(j.record?.chatMessages){
         chatMessages = j.record.chatMessages;
         _renderChatMessages();
+        try{
+          const raw=localStorage.getItem('tali_data');
+          const ld=raw?JSON.parse(raw):{};
+          ld.chatMessages=chatMessages;
+          localStorage.setItem('tali_data',JSON.stringify(ld));
+        }catch(e){}
       }
     }catch(e){}
   }, 8000);
@@ -11910,6 +11925,15 @@ async function sendChat(){
   if(chatMessages.length > 200) chatMessages = chatMessages.slice(-200);
   input.value = '';
   _renderChatMessages();
+  // Persist locally right away — don't rely solely on the cloud round-trip below,
+  // which can be slow or fail on a flaky connection and would otherwise lose the
+  // message on the next reload/login (this was the cause of chats "not staying").
+  try{
+    const raw=localStorage.getItem('tali_data');
+    const ld=raw?JSON.parse(raw):{};
+    ld.chatMessages=chatMessages;
+    localStorage.setItem('tali_data',JSON.stringify(ld));
+  }catch(e){}
   // Save async - don't wait
   try{
     const r = await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
@@ -15309,12 +15333,12 @@ function _collectAllData(){
     handovers:window.handovers||[],
     consentForms:window.consentForms||[],
     referrals:window.referrals||[],
-    appointments:window.appointments||[],
+    appointments:appointments||[],
     insurances:window.insurances||[],
     labTests:window._labTests||[],
     radProcs:window._radProcs||[],
     nursingProcs:window._nursingProcs||[],
-    chatMessages:window.chatMessages||[],
+    chatMessages:chatMessages||[],
     auditLog:_getAuditLog().slice(-1000),// include last 1000 audit entries
   };
 }
@@ -15390,13 +15414,17 @@ function confirmRestore(){
   if(!_restoreData)return;
   if(!confirm('⚠️ FINAL WARNING: This will overwrite ALL current clinic data with the backup. Are you absolutely sure?'))return;
   try{
-    // Apply data
-    if(_restoreData.patients)window.patients=_restoreData.patients;
-    if(_restoreData.visits)window.visits=_restoreData.visits;
-    if(_restoreData.inventory)window.inventory=_restoreData.inventory;
-    if(_restoreData.staffList)window.staffList=_restoreData.staffList;
-    if(_restoreData.expenses)window.expenses=_restoreData.expenses;
-    if(_restoreData.suppliers)window.suppliers=_restoreData.suppliers;
+    // Apply data. NOTE: patients/visits/staffList/expenses/suppliers/chatMessages
+    // are plain top-level `let` variables (not window.*), so they must be assigned
+    // directly — writing to window.patients etc. here was a no-op that silently
+    // failed to restore this data (and chat history wasn't restored at all).
+    if(_restoreData.patients)patients=_restoreData.patients;
+    if(_restoreData.visits)visits=_restoreData.visits;
+    if(_restoreData.inventory)inventory=_restoreData.inventory;
+    if(_restoreData.staffList)staffList=_restoreData.staffList;
+    if(_restoreData.expenses)expenses=_restoreData.expenses;
+    if(_restoreData.suppliers)suppliers=_restoreData.suppliers;
+    if(_restoreData.chatMessages)chatMessages=_restoreData.chatMessages;
     if(_restoreData.assets)window.assets=_restoreData.assets;
     if(_restoreData.beds)window.beds=_restoreData.beds;
     if(_restoreData.wards)window.wards=_restoreData.wards;
@@ -15404,7 +15432,7 @@ function confirmRestore(){
     if(_restoreData.handovers)window.handovers=_restoreData.handovers;
     if(_restoreData.consentForms)window.consentForms=_restoreData.consentForms;
     if(_restoreData.referrals)window.referrals=_restoreData.referrals;
-    if(_restoreData.appointments)window.appointments=_restoreData.appointments;
+    if(_restoreData.appointments)appointments=_restoreData.appointments;
     if(_restoreData.insurances)window.insurances=_restoreData.insurances;
     if(_restoreData._facility)localStorage.setItem('tali_facility',JSON.stringify(_restoreData._facility));
     _auditLog('RESTORE','Data restored from backup file — '+(_restoreData._exportedAt||'unknown date'));
@@ -16263,12 +16291,16 @@ function exportExpiryCSV(){
 }
 
 // ── Persist appointments & patch save ────────────────────────
+// NOTE: `appointments` (used by saveAppt/renderCalendar/renderDayList/etc.)
+// is a plain top-level `let`, not window.appointments — they are different
+// bindings. Reading/writing window.appointments here was a no-op that meant
+// booked appointments were never actually saved to localStorage.
 const _origSave3=window.save;
 window.save=function(){
   if(_origSave3)_origSave3();
-  try{localStorage.setItem('tali_appointments',JSON.stringify(window.appointments||[]));}catch(e){}
+  try{localStorage.setItem('tali_appointments',JSON.stringify(appointments||[]));}catch(e){}
 };
-try{const la=localStorage.getItem('tali_appointments');if(la)window.appointments=JSON.parse(la);}catch(e){}
+try{const la=localStorage.getItem('tali_appointments');if(la)appointments=JSON.parse(la);}catch(e){}
 
 // Init calendar on load
 setTimeout(()=>{
