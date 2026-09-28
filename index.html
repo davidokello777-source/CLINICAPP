@@ -2637,11 +2637,31 @@ document.addEventListener("DOMContentLoaded", function(){
 
 <script>
 // ══════════════════════════════════════════════
-//  JSONBIN CONFIG
+//  CLOUD SYNC CONFIG
+//  The JSONBin master key must never live in this client-side file — anyone
+//  who can view page source (everyone) could read/overwrite all clinic data.
+//  Instead, requests go through a small proxy you deploy yourself (see
+//  cloud-proxy-worker.js), which holds the real key server-side.
+//  Paste your deployed proxy's URL below to enable cross-device cloud sync.
+//  Leave it blank to run in local-only mode — the app works fully offline via
+//  localStorage; only automatic multi-device syncing is disabled until set.
 // ══════════════════════════════════════════════
-const BIN='699dc1d7d0ea881f40d54dda';
-const MK='$2a$10$/RkDKKb/8kctJ9XHGk2vOu2a2V8gyhnUKqscxPOQjPj.Y5CL2Etqa';
-const API=`https://api.jsonbin.io/v3/b/${BIN}`;
+const CLOUD_PROXY_URL=''; // e.g. 'https://tali-proxy.yoursubdomain.workers.dev'
+async function cloudGetLatest(timeoutMs=8000){
+  if(!CLOUD_PROXY_URL)return null;
+  const ctrl=new AbortController();
+  const tout=setTimeout(()=>ctrl.abort(),timeoutMs);
+  try{
+    const r=await fetch(`${CLOUD_PROXY_URL}/latest`,{signal:ctrl.signal});
+    if(!r.ok)throw new Error('Cloud fetch failed: '+r.status);
+    return await r.json(); // shape: {record:{...}}
+  }finally{clearTimeout(tout);}
+}
+async function cloudPut(body){
+  if(!CLOUD_PROXY_URL)return;
+  const r=await fetch(CLOUD_PROXY_URL,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok)throw new Error('Cloud save failed: '+r.status);
+}
 
 // ══════════════════════════════════════════════
 //  WHO ESSENTIAL MEDICINES + FORMULATIONS
@@ -2905,10 +2925,8 @@ async function loadData(){
   if(!window._nursingProcs)window._nursingProcs=[...NURSING_PROCEDURES];
   // Step 2: Try JSONBin sync in background
   try{
-    const ctrl=new AbortController();
-    const tout=setTimeout(()=>ctrl.abort(),8000);
-    let r;try{r=await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK},signal:ctrl.signal});}finally{clearTimeout(tout);}
-    const j=await r.json();const d=j.record||{};
+    const j=await cloudGetLatest(8000);
+    const d=j?.record||{};
     const grew=(d.patients||[]).length>patients.length||(d.suppliers||[]).length>suppliers.length||(d.staffList||[]).length>staffList.length;
     // Chat messages are sent independently of patients/suppliers/staff (see sendChat()),
     // so their freshness must be checked on its own — otherwise a normal-looking sync
@@ -2997,9 +3015,40 @@ function initInv(){
 
 function initStaff(){
   return[
-    {id:'S01',name:'Medical Director',username:'director',password:'TaliDir#2025',role:'Director',sections:[...ALL_SECS],isAdmin:true},
-    {id:'S02',name:'Admin Manager',   username:'admin',   password:'TaliAdm#2025',role:'Admin',   sections:[...ALL_SECS],isAdmin:true},
+    {id:'S01',name:'Medical Director',username:'director',salt:'47924b6fc8b61fa6773616ec83ecf1ac',passwordHash:'6859e537147f292023096b0ca94dd6bc10058c42a4ee8e937674b35815f3dda4',role:'Director',sections:[...ALL_SECS],isAdmin:true,forcePasswordChange:true},
+    {id:'S02',name:'Admin Manager',   username:'admin',   salt:'9418bba767939527d7ff3ad449e5d50a',passwordHash:'50ae49f2892cff6eab5db34dae533b42d4e5c228e5cf043b5bd87a71380ab0f8',role:'Admin',   sections:[...ALL_SECS],isAdmin:true,forcePasswordChange:true},
   ];
+}
+// ══════════════════════════════════════════════
+//  PASSWORD HASHING (Web Crypto — SHA-256 + per-account random salt)
+//  Passwords are never stored or transmitted in plaintext. Each account gets
+//  its own random salt; only the salt + resulting hash are saved.
+// ══════════════════════════════════════════════
+function _genSalt(){
+  const arr=new Uint8Array(16);crypto.getRandomValues(arr);
+  return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function _hashPassword(password,salt){
+  const enc=new TextEncoder().encode(salt+':'+password);
+  const buf=await crypto.subtle.digest('SHA-256',enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function _setPassword(staffObj,plainPassword){
+  staffObj.salt=_genSalt();
+  staffObj.passwordHash=await _hashPassword(plainPassword,staffObj.salt);
+  delete staffObj.password; // never keep a plaintext copy around
+}
+async function _verifyPassword(staffObj,plainPassword){
+  if(staffObj.passwordHash&&staffObj.salt){
+    return (await _hashPassword(plainPassword,staffObj.salt))===staffObj.passwordHash;
+  }
+  // Legacy plaintext account from before hashing was added — verify once against
+  // the old field, then silently upgrade it to a hash so it's never in plaintext again.
+  if(staffObj.password!==undefined){
+    if(staffObj.password===plainPassword){await _setPassword(staffObj,plainPassword);save();return true;}
+    return false;
+  }
+  return false;
 }
 
 function save(){
@@ -3021,7 +3070,7 @@ function save(){
   if(saveTimer)clearTimeout(saveTimer);
   saveTimer=setTimeout(async()=>{
     try{
-      await fetch(API,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},body:JSON.stringify({...payload,...(window._pendingAlertOut?{pendingAlert:window._pendingAlertOut}:{})})});
+      await cloudPut({...payload,...(window._pendingAlertOut?{pendingAlert:window._pendingAlertOut}:{})});
       window._pendingAlertOut=null;
     }catch(e){/* Cloud sync failed — localStorage is the real store */}
   },2000);
@@ -3170,8 +3219,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
       || document.getElementById('new-claim-modal')?.classList.contains('open');
     if(insModalOpen) return;
     try{
-      const r=await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
-      const j=await r.json();const d=j.record||{};
+      const j=await cloudGetLatest();const d=j?.record||{};
       if(d.patients) patients = d.patients;
       if(d.visits)   visits   = d.visits;
       if(d.expenses) expenses = d.expenses;
@@ -3207,12 +3255,12 @@ window.addEventListener('DOMContentLoaded',async()=>{
 // ══════════════════════════════════════════════
 //  AUTH
 // ══════════════════════════════════════════════
-function login(){
+async function login(){
   const u=document.getElementById('lu').value.trim();
   const p=document.getElementById('lp2').value;
   const s=staffList.find(x=>x.username===u);
   // Failed login
-  if(!s||s.password!==p){
+  if(!s||!(await _verifyPassword(s,p))){
     document.getElementById('le').innerText='Invalid credentials.';
     _recordLogin({username:u,name:'Unknown',role:''},'',s?'Wrong password':'Unknown user');
     return;
@@ -10036,7 +10084,8 @@ function oStaffModal(id){
   document.getElementById('staffEid').value=id||'';
   document.getElementById('staffName').value=s?s.name:'';
   document.getElementById('staffUser').value=s?s.username:'';
-  document.getElementById('staffPass').value=s?s.password:'';
+  document.getElementById('staffPass').value='';
+  document.getElementById('staffPass').placeholder=s?'Leave blank to keep current password':'Set a password';
   document.getElementById('staffAdmin').checked=s?!!s.isAdmin:false;
   document.getElementById('staffRole').value=s?s.role||'':'';
   document.getElementById('staffEmpId').value=s?s.empId||'':'';
@@ -10061,14 +10110,14 @@ function oStaffModal(id){
   if(rd&&presetMatch)rd.textContent=STAFF_ROLES[presetMatch]?.desc||'';
   oModal('staff-modal');
 }
-function saveStaff(){
+async function saveStaff(){
   const name=document.getElementById('staffName').value.trim();
   const username=document.getElementById('staffUser').value.trim();
-  const password=document.getElementById('staffPass').value;
+  const password=document.getElementById('staffPass').value; // may be blank when editing = keep current
   const isAdmin=document.getElementById('staffAdmin').checked;
-  if(!name||!username||!password)return alert('Name, Username and Password are required.');
-  const staffRoleKey=document.getElementById('staffRolePreset')?.value||'';
   const eid=document.getElementById('staffEid').value;
+  if(!name||!username||(!eid&&!password))return alert('Name, Username and Password are required.');
+  const staffRoleKey=document.getElementById('staffRolePreset')?.value||'';
   if(!staffRoleKey&&!eid)return alert('Please select a Staff Role from the dropdown.');
   const rolePerms=STAFF_ROLES[staffRoleKey]||{};
   const sections=ALL_SECS.filter(sec=>document.querySelector(`input[name="sc_${sec}"]`)?.checked);
@@ -10095,11 +10144,14 @@ function saveStaff(){
   if(eid){
     const s=staffList.find(x=>x.id===eid);
     if(!s)return alert('Staff record not found.');
-    s.name=name;s.username=username;s.password=password;s.isAdmin=isAdmin;s.sections=sections;
+    s.name=name;s.username=username;s.isAdmin=isAdmin;s.sections=sections;
+    if(password)await _setPassword(s,password); // only change password if a new one was typed
     Object.assign(s,demo);
   } else {
     if(staffList.some(s=>s.username===username))return alert('Username already taken. Choose another.');
-    staffList.push({id:'S-'+Date.now().toString().slice(-6),name,username,password,isAdmin,sections,...demo});
+    const ns={id:'S-'+Date.now().toString().slice(-6),name,username,isAdmin,sections,...demo};
+    await _setPassword(ns,password);
+    staffList.push(ns);
   }
   save();cModal('staff-modal');renderAdmin();
   alert(`Staff member "${name}" saved successfully.`);
@@ -10353,8 +10405,7 @@ function _startAlertPolling(){
   _alertPollInterval = setInterval(async()=>{
     if(!currentUser || !voiceEnabled) return;
     try{
-      const r = await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
-      const j = await r.json();
+      const j = await cloudGetLatest();if(!j)return;
       const al = j.record?.pendingAlert;
       if(al && al.id && al.id !== _lastHeardAlertId){
         const age = Date.now() - new Date(al.ts).getTime();
@@ -10414,16 +10465,15 @@ function submitFeedback(){
 
 async function saveFeedback(fb){
   try{
-    const r = await fetch(API, {headers:{'X-Master-Key':MK}});
-    const j = await r.json(); const d = j.record || {};
+    const j = await cloudGetLatest(); const d = j?.record || {};
     d.feedbacks = [...(d.feedbacks||[]), fb];
-    await fetch(API,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},body:JSON.stringify(d)});
+    await cloudPut(d);
   }catch(e){ console.warn('Feedback save failed',e); }
 }
 
 function renderFeedbacks(){
-  fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}}).then(r=>r.json()).then(j=>{
-    const fbs = (j.record||{}).feedbacks || [];
+  cloudGetLatest().then(j=>{
+    const fbs = (j?.record||{}).feedbacks || [];
     const avg = fbs.length ? (fbs.reduce((s,f)=>s+f.rating,0)/fbs.length).toFixed(1) : 'N/A';
     const el = document.getElementById('fb-stats-row');
     if(el) el.innerHTML = `<b>${fbs.length}</b> responses &nbsp;|&nbsp; Avg rating: <b style="color:var(--w);">${avg} ★</b>`;
@@ -11503,14 +11553,9 @@ async function submitPublicFeedback(){
     source: 'QR'
   };
   try{
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN}/latest`,{headers:{'X-Master-Key':MK}});
-    const j = await r.json(); const d = j.record || {};
+    const j = await cloudGetLatest(); const d = j?.record || {};
     d.feedbacks = [...(d.feedbacks||[]), fb];
-    await fetch(`https://api.jsonbin.io/v3/b/${BIN}`,{
-      method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},
-      body:JSON.stringify(d)
-    });
+    await cloudPut(d);
     document.getElementById('fb-public-form').style.display='none';
     document.getElementById('fb-public-thanks').style.display='block';
   }catch(e){
@@ -11846,8 +11891,7 @@ function renderChat(){
     const active = document.querySelector('section.active');
     if(!active || active.id !== 'sec-chat'){ clearInterval(_chatRefreshTimer); _chatRefreshTimer=null; return; }
     try{
-      const r = await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
-      const j = await r.json();
+      const j = await cloudGetLatest();if(!j)return;
       if(j.record?.chatMessages){
         chatMessages = j.record.chatMessages;
         _renderChatMessages();
@@ -11936,12 +11980,9 @@ async function sendChat(){
   }catch(e){}
   // Save async - don't wait
   try{
-    const r = await fetch(`${API}/latest`,{headers:{'X-Master-Key':MK}});
-    const j = await r.json(); const d = j.record||{};
+    const j = await cloudGetLatest(); const d = j?.record||{};
     d.chatMessages = chatMessages;
-    await fetch(API,{method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':MK,'X-Bin-Versioning':'false'},
-      body:JSON.stringify(d)});
+    await cloudPut(d);
   }catch(e){ console.warn('Chat save failed',e); }
 }
 
@@ -16875,7 +16916,7 @@ window.saveClinical = function(){
 
     <p style="font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;margin-bottom:7px;">Basic Info</p>
     <div class="g2"><div><label>Full Name *</label><input id="staffName" placeholder="e.g. Dr. John Smith"></div><div><label>Username *</label><input id="staffUser" placeholder="login username"></div></div>
-    <label>Password *</label><input type="password" id="staffPass">
+    <label>Password <span style="font-size:11px;font-weight:400;color:var(--mu);">(required for new staff; leave blank when editing to keep the current password)</span></label><input type="password" id="staffPass">
     <div class="g2"><div><label>Role / Position (display)</label><input id="staffRole" placeholder="e.g. Senior Nurse, Pharmacist"></div><div><label>Employee / Staff ID</label><input id="staffEmpId" placeholder="e.g. EMP-001"></div></div>
     <div class="g2"><div><label>Gender</label><select id="staffGender"><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select></div><div><label>Date of Birth</label><input type="date" id="staffDOB"></div></div>
     <div class="g2"><div><label>Phone</label><input id="staffPhone" placeholder="e.g. +256 700 000000"></div><div><label>Email</label><input type="email" id="staffEmail" placeholder="staff@email.com"></div></div>
