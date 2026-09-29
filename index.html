@@ -4806,12 +4806,14 @@ function closeVisitRecord(){
   document.getElementById('doc-allpats').style.display='block';
 }
 
-// Print report for any visit by ID (works for discharged too)
+// Print report for any visit by ID (works for discharged too, and for any
+// visit clicked from a patient's history list — prints straight from that
+// visit's own saved clinical data, regardless of what's currently on screen)
 function printVisitReport(vid){
-  const prevActive=activeVid;
-  activeVid=vid;
-  printPatientReport();
-  activeVid=prevActive;
+  const v=visits.find(x=>x.id===vid);if(!v)return;
+  document.getElementById('pra-sub').innerText='';
+  document.getElementById('pra-con').innerHTML=_buildVisitReportHTML(v);
+  doPrint();
 }
 
 function openCons(id){
@@ -5287,14 +5289,13 @@ function confAdmit(){
 }
 function tClin(h){h.classList.toggle('open');h.nextElementSibling.classList.toggle('open');}
 
-// Print patient report PDF
-function printPatientReport(){
-  const v=visits.find(x=>x.id===activeVid);if(!v)return;
+// Builds the printable HTML for a visit purely from its saved clinical data
+// (never touches on-screen form fields) — safe to call for any visit,
+// whether or not it's the one currently open in the consultation form.
+function _buildVisitReportHTML(v){
   const p=patients.find(x=>x.id===v.patId);
   const cl=v.clinical||{};
-  saveClinical();
-  document.getElementById('pra-sub').innerText='';
-  document.getElementById('pra-con').innerHTML=printHeader('PATIENT CLINICAL REPORT')+`
+  return printHeader('PATIENT CLINICAL REPORT')+`
     <div style="margin-bottom:12px;background:#f8fafc;border-radius:5px;padding:10px;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;">
         <div><b>Patient:</b> ${v.name}</div><div><b>Date:</b> ${v.date}</div>
@@ -5348,6 +5349,12 @@ function printPatientReport(){
     </div>`:''}
     ${(v.treatmentChart||[]).length?`<div style="margin-bottom:8px;"><b>TREATMENT CHART:</b><table class="pit"><tr><th>Drug</th><th>Dose</th><th>Route</th><th>Time</th><th>Nurse</th><th>Notes</th></tr>${v.treatmentChart.map(e=>`<tr><td>${e.drug}</td><td>${e.dose}</td><td>${e.route}</td><td>${e.time}</td><td>${e.by}</td><td>${e.notes||'—'}</td></tr>`).join('')}</table></div>`:''}
     `+printFooter();
+}
+function printPatientReport(){
+  const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  saveClinical(); // this IS the visit currently open for editing — flush the on-screen form into it first
+  document.getElementById('pra-sub').innerText='';
+  document.getElementById('pra-con').innerHTML=_buildVisitReportHTML(v);
   doPrint();
 }
 
