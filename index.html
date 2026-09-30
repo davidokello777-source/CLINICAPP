@@ -2885,6 +2885,45 @@ let saveTimer=null,charts={};
 let selectedLabTests=new Set();
 let allLabTests=[...LAB_TESTS];
 
+// ── Resilience: Chart.js comes from a CDN. If the network is down or blocked it never
+//    loads, and every `new Chart(...)` (17 places) would throw and break the screen
+//    (doctor "view record", vitals trend, dashboards). This no-op stand-in keeps the
+//    rest of each screen working; charts simply stay blank until the library loads.
+if(typeof Chart==='undefined'){
+  window.Chart=function(){this.destroy=function(){};this.update=function(){};this.resize=function(){};};
+  window.Chart.register=function(){};window.Chart.defaults={font:{},plugins:{legend:{labels:{}}}};window._chartUnavailable=true;
+  console.warn('Chart.js not loaded — charts disabled until connection is restored.');
+}
+
+// ── Data normalizer: older saves, cloud-sync records and backups can be missing fields the
+//    screens assume exist (ageUnit, cleared, labs, clinical ...). Instead of crashing with
+//    "Cannot read properties of undefined", fill safe defaults whenever data is loaded.
+function _normalizeData(){
+  try{
+    if(!Array.isArray(patients))patients=[];
+    if(!Array.isArray(visits))visits=[];
+    patients=patients.filter(p=>p&&typeof p==='object');
+    visits=visits.filter(v=>v&&typeof v==='object');
+    patients.forEach(p=>{
+      if(typeof p.name!=='string')p.name=p.name==null?'':String(p.name);
+      if(typeof p.ageUnit!=='string'||!p.ageUnit)p.ageUnit='Years';
+      if(p.ageVal==null||p.ageVal===''||(typeof p.ageVal==='number'&&isNaN(p.ageVal)))p.ageVal='';
+      if(typeof p.gender!=='string')p.gender='';
+    });
+    visits.forEach(v=>{
+      ['labs','radiology','prescriptions','treatmentChart','timeline','payments','cleared'].forEach(k=>{
+        if(!Array.isArray(v[k]))v[k]=[]; else v[k]=v[k].filter(x=>x!=null);
+      });
+      ['clinical','statusLog'].forEach(k=>{if(!v[k]||typeof v[k]!=='object'||Array.isArray(v[k]))v[k]={};});
+      if(typeof v.name!=='string')v.name=v.name==null?'':String(v.name);
+      if(typeof v.status!=='string'||!v.status)v.status='WAITING_TRIAGE';
+      if(typeof v.consultType!=='string'||!v.consultType)v.consultType='GENERAL';
+      if(v.date==null)v.date='';
+      ['consultFee','discount','totalPaid'].forEach(k=>{const n=Number(v[k]);v[k]=isFinite(n)?n:0;});
+    });
+  }catch(e){console.warn('_normalizeData failed',e);}
+}
+
 // ══════════════════════════════════════════════
 //  JSONBIN
 // ══════════════════════════════════════════════
@@ -2893,6 +2932,7 @@ async function loadData(){
   function applyData(d){
     patients  = d.patients   ||patients;
     visits    = d.visits     ||visits;
+    _normalizeData();
     inventory = (d.inventory&&d.inventory.length)?d.inventory:inventory;
     expenses  = d.expenses   ||expenses;
     suppliers = d.suppliers  ||suppliers;
@@ -3222,6 +3262,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
       const j=await cloudGetLatest();const d=j?.record||{};
       if(d.patients) patients = d.patients;
       if(d.visits)   visits   = d.visits;
+      _normalizeData();
       if(d.expenses) expenses = d.expenses;
       if(d.labTests&&d.labTests.length) window._labTests=d.labTests;
       if(d.radProcs&&d.radProcs.length) window._radProcs=d.radProcs;
@@ -3945,7 +3986,7 @@ function startVisit(patId,eName){
   const consultType=map[ct]||'GENERAL';
   const vId='V-'+Date.now().toString().slice(-7);
   const v=newVisit(vId,patId,name,consultType);
-  lg(v,'New visit');visits.push(v);_auditLog('PATIENT_REGISTERED','New patient registered',pId);_auditLog('VISIT_CREATED','Visit created',vId);save();renderPatients();alert('Queued.');
+  lg(v,'New visit');visits.push(v);_auditLog('VISIT_CREATED','Visit created for existing patient',vId);save();renderPatients();alert('Queued.');
 }
 
 function editPat(pId){
@@ -4659,7 +4700,7 @@ function renderCons(){
   if(!q.length)h+=`<tr><td colspan="10" class="emp"><div>No active patients in queue</div><button onclick="renderCons()" style="margin-top:6px;background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;">🔄 Refresh Queue</button></td></tr>`;
   q.forEach(v=>{
     const p=patients.find(x=>x.id===v.patId);
-    const info=p?`${p.ageVal}${p.ageUnit[0]}/${p.gender}`:'—';
+    const info=p?`${p.ageVal}${(p.ageUnit||'Y')[0]}/${p.gender||'—'}`:'—';
     const lc=(v.labs||[]).length,ld=(v.labs||[]).filter(l=>l.done).length;
     const rc=(v.radiology||[]).length,rd=(v.radiology||[]).filter(r=>r.done).length;
     const rxc=(v.prescriptions||[]).length,rxd=(v.prescriptions||[]).filter(r=>r.dispensed).length;
@@ -5204,7 +5245,7 @@ function saveClinical(){
   v.clinical.peAbdomen=document.getElementById('hPEAbdomen').value;v.clinical.peCNS=document.getElementById('hPECNS').value;
   v.clinical.peExtremities=document.getElementById('hPEExtremities').value;v.clinical.peSkin=document.getElementById('hPESkin').value;
   v.clinical.peOther=document.getElementById('hPEOther').value;
-  if(!v.cleared.includes('Doctor'))v.cleared.push('Doctor');
+  v.cleared=v.cleared||[];if(!v.cleared.includes('Doctor'))v.cleared.push('Doctor');
   lg(v,'Clinical notes saved');save();
 }
 
@@ -5417,6 +5458,7 @@ function updPayBal(){
 }
 function recPayment(){
   const v=visits.find(x=>x.id===activePayVid);
+  if(!v)return alert('No bill selected — reopen the payment window.');
   const disc=parseFloat(document.getElementById('discAmt').value)||0;
   const discR=document.getElementById('discReason').value;
   const amount=parseFloat(document.getElementById('payAmt').value)||0;
@@ -7669,6 +7711,7 @@ function openLab(id){
 }
 function updateLab(){
   const v=visits.find(x=>x.id===activeVid);
+  if(!v)return alert('No active visit selected.');
   const pending=(v.labs||[]).filter(l=>l.name&&!l.done);
   let count=0;
   pending.forEach((l,i)=>{const res=document.getElementById(`lab-result-${i}`)?.value.trim();if(res){l.result=res;l.done=true;l.resultTime=new Date().toLocaleTimeString();l.resultBy=currentUser.name;count++;}});
@@ -8875,7 +8918,7 @@ function renderNursingGuide(){
 }
 function toggleNgCard(eid){
   const el=document.getElementById(eid);
-  const ch=document.getElementById('ng-chev-'+eid);
+  const ch=document.getElementById('ng-chev-'+eid)||document.getElementById('ng-chevron-'+eid);
   if(!el)return;
   const isOpen=el.style.display!=='none';
   el.style.display=isOpen?'none':'block';
@@ -9081,6 +9124,7 @@ function applyRadTemplate(i){
 }
 function updateRad(){
   const v=visits.find(x=>x.id===activeVid);
+  if(!v)return alert('No active visit selected.');
   const pending=(v.radiology||[]).filter(r=>r.name&&!r.done);
   let count=0;
   pending.forEach((r,i)=>{const res=document.getElementById(`rad-result-${i}`)?.value.trim();if(res){r.result=res;r.done=true;r.resultTime=new Date().toLocaleTimeString();r.resultBy=currentUser.name;count++;}});
@@ -10520,6 +10564,7 @@ function getQRUrl(){
 //  UTILITIES
 // ══════════════════════════════════════════════
 function totalBillGross(v){
+  if(!v)return 0;
   let t=v.consultFee||0;
   t+=(v.labs||[]).filter(l=>l.name).reduce((s,l)=>s+l.price,0);
   t+=(v.radiology||[]).filter(r=>r.name).reduce((s,r)=>s+r.price,0);
@@ -13986,8 +14031,9 @@ function toggleHrCard(eid){
 // Show daily verse after login
 const _origLogin=login;
 login=function(){
-  _origLogin();
+  const r=_origLogin();
   setTimeout(()=>{if(currentUser)showDailyVerse();},700);
+  return r;
 };
 
 // ══════════════════════════════════════════════
@@ -15489,6 +15535,7 @@ function confirmRestore(){
     // failed to restore this data (and chat history wasn't restored at all).
     if(_restoreData.patients)patients=_restoreData.patients;
     if(_restoreData.visits)visits=_restoreData.visits;
+    _normalizeData();
     if(_restoreData.inventory)inventory=_restoreData.inventory;
     if(_restoreData.staffList)staffList=_restoreData.staffList;
     if(_restoreData.expenses)expenses=_restoreData.expenses;
