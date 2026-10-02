@@ -2914,6 +2914,15 @@ function _normalizeData(){
       ['labs','radiology','prescriptions','treatmentChart','timeline','payments','cleared'].forEach(k=>{
         if(!Array.isArray(v[k]))v[k]=[]; else v[k]=v[k].filter(x=>x!=null);
       });
+      // nested items: numeric fields the bill/summary screens call .toFixed() on
+      ['labs','radiology','prescriptions'].forEach(k=>{
+        v[k]=v[k].filter(x=>typeof x==='object');
+        v[k].forEach(it=>{const n=Number(it.price);it.price=isFinite(n)?n:0;
+          if(k==='prescriptions'){const q=Number(it.qty);it.qty=isFinite(q)&&q>0?q:1;}});
+      });
+      v.payments=v.payments.filter(x=>typeof x==='object');
+      v.payments.forEach(pm=>{const n=Number(pm.amount);pm.amount=isFinite(n)?n:0;});
+      v.timeline=v.timeline.filter(x=>typeof x==='object');
       ['clinical','statusLog'].forEach(k=>{if(!v[k]||typeof v[k]!=='object'||Array.isArray(v[k]))v[k]={};});
       if(typeof v.name!=='string')v.name=v.name==null?'':String(v.name);
       if(typeof v.status!=='string'||!v.status)v.status='WAITING_TRIAGE';
