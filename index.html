@@ -2898,6 +2898,113 @@ if(typeof Chart==='undefined'){
 // ── Data normalizer: older saves, cloud-sync records and backups can be missing fields the
 //    screens assume exist (ageUnit, cleared, labs, clinical ...). Instead of crashing with
 //    "Cannot read properties of undefined", fill safe defaults whenever data is loaded.
+// ══ Record-level cloud merge ══════════════════════════════════════════════
+//  The cloud holds ONE copy of all data. Before this, every save uploaded the whole
+//  database and every poll replaced local data with the cloud copy, so the last person
+//  to save silently wiped everyone else's recent work. Now each patient / visit /
+//  consent / referral carries a `_ts` ("last changed") stamp. Saving first pulls the
+//  cloud copy and keeps the NEWER version of every record, and deletions are remembered
+//  as tombstones so deleted records are not resurrected by a stale device.
+const _sync={ready:false,sig:{},dead:{patients:{},visits:{},consentForms:{},referrals:{}},deadLoaded:false};
+const _SYNC_SETS=['patients','visits','consentForms','referrals'];
+function _syncArr(k){return k==='patients'?patients:k==='visits'?visits:(window[k]||[]);}
+function _syncSetArr(k,a){if(k==='patients')patients=a;else if(k==='visits')visits=a;else window[k]=a;}
+function _rsig(r){const c=Object.assign({},r);delete c._ts;return JSON.stringify(c);}
+function _syncMergeDead(dd){
+  if(!dd||typeof dd!=='object')return;
+  _SYNC_SETS.forEach(k=>{const o=dd[k];if(o&&typeof o==='object')Object.keys(o).forEach(id=>{
+    if(!((_sync.dead[k][id]||0)>=o[id]))_sync.dead[k][id]=o[id];});});
+}
+function _syncBaseline(){
+  if(!_sync.deadLoaded){_sync.deadLoaded=true;
+    try{_syncMergeDead(JSON.parse(localStorage.getItem('tali_dead')||'{}'));}catch(e){}}
+  _SYNC_SETS.forEach(k=>{const m={};_syncArr(k).forEach(r=>{if(r&&r.id!=null)m[String(r.id)]=_rsig(r);});_sync.sig[k]=m;});
+  _sync.ready=true;
+}
+// Called at the start of every save(): stamp records changed locally, remember deletions.
+function _syncStamp(){
+  if(!_sync.ready)return;
+  const now=Date.now(),cut=now-30*86400000;
+  _SYNC_SETS.forEach(k=>{
+    const sig=_sync.sig[k]||(_sync.sig[k]={}),cur={};
+    _syncArr(k).forEach(r=>{
+      if(!r||r.id==null)return;
+      const id=String(r.id),s=_rsig(r);cur[id]=1;
+      if(sig[id]!==s){r._ts=now;sig[id]=s;}
+    });
+    Object.keys(sig).forEach(id=>{if(!cur[id]){_sync.dead[k][id]=now;delete sig[id];}});
+    Object.keys(_sync.dead[k]).forEach(id=>{if(_sync.dead[k][id]<cut)delete _sync.dead[k][id];});
+  });
+  try{localStorage.setItem('tali_dead',JSON.stringify(_sync.dead));}catch(e){}
+}
+// Merge the cloud copy into local memory. Returns true if anything local changed.
+function _applyMerged(remote){
+  if(!remote||typeof remote!=='object')return false;
+  if(!_sync.ready)_syncBaseline();
+  _syncStamp();                       // make sure pending local edits are stamped first
+  _syncMergeDead(remote._dead);
+  let changed=false;
+  _SYNC_SETS.forEach(k=>{
+    const loc=_syncArr(k),rem=Array.isArray(remote[k])?remote[k]:[],dead=_sync.dead[k],sig=_sync.sig[k]||(_sync.sig[k]={});
+    const L=new Map(),R=new Map();
+    loc.forEach(r=>{if(r&&r.id!=null)L.set(String(r.id),r);});
+    rem.forEach(r=>{if(r&&typeof r==='object'&&r.id!=null)R.set(String(r.id),r);});
+    const out=[];
+    new Set([...L.keys(),...R.keys()]).forEach(id=>{
+      const l=L.get(id),r=R.get(id);
+      let pick=l&&r?((r._ts||0)>(l._ts||0)?r:l):(l||r);
+      if((dead[id]||0)>=(pick._ts||0)&&dead[id]){                // deleted after its last edit
+        if(l){changed=true;delete sig[id];}
+        return;
+      }
+      if(pick===r&&r!==l){changed=true;sig[id]=_rsig(r);}
+      out.push(pick);
+    });
+    _syncSetArr(k,out);
+  });
+  _normalizeData();
+  try{localStorage.setItem('tali_dead',JSON.stringify(_sync.dead));}catch(e){}
+  return changed;
+}
+function _refreshActiveSection(){
+  try{
+    if(document.getElementById('cons-form')?.style.display==='block')return;     // never disturb an open consultation
+    if(document.getElementById('lab-entry')?.style.display==='block')return;
+    if(document.querySelector('.mo.open'))return;                               // or an open pop-up form
+    const a=document.querySelector('section.active');if(!a)return;
+    const s=a.id.replace('sec-','');
+    if(s==='doctor')renderCons();
+    else if(s==='nurse'){renderTriage();renderTreatList();}
+    else if(s==='lab')renderLab();
+    else if(s==='pharmacy')renderPharm();
+    else if(s==='radiology')renderRad();
+    else if(s==='billing')renderBilling();
+    else if(s==='reception')renderPatients();
+  }catch(e){}
+}
+async function _pushToCloud(attempt){
+  attempt=attempt||0;
+  try{
+    const j=await cloudGetLatest(8000);                        // pull first, so we merge instead of overwrite
+    if(j&&j.record&&_applyMerged(j.record)){
+      try{localStorage.setItem('tali_data',JSON.stringify(_buildPayload()));}catch(e){}
+      _refreshActiveSection();
+    }
+    await cloudPut({..._buildPayload(),...(window._pendingAlertOut?{pendingAlert:window._pendingAlertOut}:{})});
+    window._pendingAlertOut=null;
+  }catch(e){
+    // Could not reach the cloud: data is safe in localStorage. Retry a few times, then wait for the next save.
+    if(attempt<3)saveTimer=setTimeout(()=>_pushToCloud(attempt+1),15000*(attempt+1));
+  }
+}
+
+// Doctor/ward data kept outside the main arrays — now carried in the cloud payload too.
+function _applyExtraSets(d,wardOnly){
+  if(!d)return;
+  (wardOnly?['beds','wards','shifts','handovers']:['consentForms','referrals','beds','wards','shifts','handovers']).forEach(k=>{
+    if(Array.isArray(d[k]))window[k]=d[k];
+  });
+}
 function _normalizeData(){
   try{
     if(!Array.isArray(patients))patients=[];
@@ -2938,10 +3045,14 @@ function _normalizeData(){
 // ══════════════════════════════════════════════
 async function loadData(){
   // Step 1: Load localStorage immediately (always works offline)
-  function applyData(d){
-    patients  = d.patients   ||patients;
-    visits    = d.visits     ||visits;
-    _normalizeData();
+  function applyData(d,recordsHandled){
+    if(!recordsHandled){
+      patients  = d.patients   ||patients;
+      visits    = d.visits     ||visits;
+      _normalizeData();
+      _applyExtraSets(d);
+    }else{ _applyExtraSets(d,true); }
+    _syncMergeDead(d._dead);
     inventory = (d.inventory&&d.inventory.length)?d.inventory:inventory;
     expenses  = d.expenses   ||expenses;
     suppliers = d.suppliers  ||suppliers;
@@ -2972,6 +3083,7 @@ async function loadData(){
   if(!window._labTests)window._labTests=[...LAB_TESTS];
   if(!window._radProcs)window._radProcs=[...RADIOLOGY_PROCS];
   if(!window._nursingProcs)window._nursingProcs=[...NURSING_PROCEDURES];
+  _syncBaseline();   // start tracking changes from what we just loaded
   // Step 2: Try JSONBin sync in background
   try{
     const j=await cloudGetLatest(8000);
@@ -2981,12 +3093,13 @@ async function loadData(){
     // so their freshness must be checked on its own — otherwise a normal-looking sync
     // with no new patients would silently discard chat history that only exists in the cloud.
     const cloudChatNewer=(d.chatMessages||[]).length>chatMessages.length;
+    const mergedChanged=_applyMerged(d);   // record-level merge of patients/visits/consents/referrals
     if(grew){
-      applyData(d);
+      applyData(d,true);
     }else if(cloudChatNewer){
       chatMessages=d.chatMessages;
     }
-    if(grew||cloudChatNewer){
+    if(grew||cloudChatNewer||mergedChanged){
       // Re-save merged to localStorage
       try{localStorage.setItem('tali_data',JSON.stringify({patients,visits,inventory,staffList,expenses,feedbacks:window.feedbacks,labTests:window._labTests,radProcs:window._radProcs,nursingProcs:window._nursingProcs,suppliers,chatMessages}));}catch(e){}
       console.log('Synced from JSONBin');
@@ -3100,9 +3213,7 @@ async function _verifyPassword(staffObj,plainPassword){
   return false;
 }
 
-function save(){
-  // Always save to localStorage immediately (fast, reliable, offline)
-  const payload={patients,visits,inventory,staffList,expenses,
+function _buildPayload(){ return {patients,visits,inventory,staffList,expenses,
     feedbacks:window.feedbacks||[],
     physioSessions:window.physioSessions||[],
     labTests:window._labTests||LAB_TESTS,
@@ -3112,17 +3223,17 @@ function save(){
     preAuths:window.preAuths||[],
     priceLists:window.priceLists||[],
     insurances:window.insurances||[],
-    suppliers,chatMessages};
+    suppliers,chatMessages,
+    consentForms:window.consentForms||[],referrals:window.referrals||[],
+    beds:window.beds||[],wards:window.wards||[],shifts:window.shifts||[],handovers:window.handovers||[],_dead:_sync.dead}; }
+function save(){
+  _syncStamp();
+  const payload=_buildPayload();
   try{localStorage.setItem('tali_data',JSON.stringify(payload));}catch(e){console.warn('localStorage full',e);}
   si('Saved ✓',true);
   // Then sync to cloud in background
   if(saveTimer)clearTimeout(saveTimer);
-  saveTimer=setTimeout(async()=>{
-    try{
-      await cloudPut({...payload,...(window._pendingAlertOut?{pendingAlert:window._pendingAlertOut}:{})});
-      window._pendingAlertOut=null;
-    }catch(e){/* Cloud sync failed — localStorage is the real store */}
-  },2000);
+  saveTimer=setTimeout(()=>_pushToCloud(0),2000);
 }
 function si(t,ok){const el=document.getElementById('si3');if(el){el.innerText=t;el.style.opacity=ok?.6:1;}}
 function lg(v,act,val=''){
@@ -3255,7 +3366,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
   }
   // Auto-refresh data every 30s when logged in (keeps doctor queue live)
   setInterval(async()=>{
-    if(!currentUser) return;
+    if(!currentUser||document.hidden) return;   // idle background tabs don't need to poll
     // Do NOT refresh if a doctor has a patient open - avoids disrupting active consultation
     const consFormOpen = document.getElementById('cons-form')?.style.display === 'block';
     if(consFormOpen) return;
@@ -3269,9 +3380,8 @@ window.addEventListener('DOMContentLoaded',async()=>{
     if(insModalOpen) return;
     try{
       const j=await cloudGetLatest();const d=j?.record||{};
-      if(d.patients) patients = d.patients;
-      if(d.visits)   visits   = d.visits;
-      _normalizeData();
+      _applyMerged(d);                 // merge by record instead of replacing everything
+      _applyExtraSets(d,true);
       if(d.expenses) expenses = d.expenses;
       if(d.labTests&&d.labTests.length) window._labTests=d.labTests;
       if(d.radProcs&&d.radProcs.length) window._radProcs=d.radProcs;
@@ -3299,7 +3409,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
         }
       }
     }catch(e){/* silent fail */}
-  }, 30000);
+  }, 60000);
 });
 
 // ══════════════════════════════════════════════
@@ -4947,8 +5057,8 @@ function renderLabCheckList(filter){
   const list=document.getElementById('lab-check-list');
   const src=window._labTests||LAB_TESTS; const filtered=src.filter(t=>t.name.toLowerCase().includes(filter.toLowerCase()));
   list.innerHTML=filtered.map(t=>`
-    <div class="lab-check-item" onclick="toggleLabTest('${t.name}',${t.price})">
-      <input type="checkbox" class="invt it" ${selectedLabTests.has(t.name)?'checked':''} id="lt-${t.name.replace(/\s/g,'_')}" onclick="event.stopPropagation();toggleLabTest('${t.name}',${t.price})">
+    <div class="lab-check-item" onclick="toggleLabTest('${String(t.name).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;')}',${t.price})">
+      <input type="checkbox" class="invt it" ${selectedLabTests.has(t.name)?'checked':''} id="lt-${t.name.replace(/\s/g,'_')}" onclick="event.stopPropagation();toggleLabTest('${String(t.name).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;')}',${t.price})">
       <span>${t.name}</span><span style="margin-left:auto;color:var(--mu);font-size:12px;">$${t.price.toFixed(2)}</span>
     </div>`).join('');
 }
@@ -5159,8 +5269,12 @@ function updateOrderSummary(v){
 // ══════════════════════════════════════════════
 let _pcItems = []; // [{complaint, val, unit}] for current consultation
 
+const _PC_DEFAULTS=['Fever','Headache','Cough','Abdominal pain','Diarrhoea','Vomiting','Nausea','Chest pain','Shortness of breath','Body weakness','Joint pain','Back pain','Sore throat','Dizziness','Skin rash','Itching','Painful urination','Frequent urination','Vaginal discharge','Loss of appetite','Weight loss','Swelling of legs','Eye pain','Ear pain','Blurred vision','Palpitations','Constipation','Bleeding','Convulsions','Difficulty swallowing','Body pains','Chills and rigors','Night sweats','Wound / injury','Burns'];
 function _getPCLibrary(){
-  try{ return JSON.parse(localStorage.getItem('tali_pc_library')||'[]'); }catch(e){ return []; }
+  let saved=[];
+  try{ saved=JSON.parse(localStorage.getItem('tali_pc_library')||'[]'); if(!Array.isArray(saved))saved=[]; }catch(e){ saved=[]; }
+  const seen=new Set(saved.map(x=>String(x).toLowerCase()));
+  return saved.concat(_PC_DEFAULTS.filter(x=>!seen.has(x.toLowerCase())));
 }
 function _savePCLibrary(lib){
   try{ localStorage.setItem('tali_pc_library', JSON.stringify(lib)); }catch(e){}
@@ -10463,13 +10577,13 @@ function _startAlertPolling(){
   }catch(e){}
   // Poll JSONBin every 8s for cross-device alerts
   _alertPollInterval = setInterval(async()=>{
-    if(!currentUser || !voiceEnabled) return;
+    if(!currentUser || !voiceEnabled || document.hidden) return;
     try{
       const j = await cloudGetLatest();if(!j)return;
       const al = j.record?.pendingAlert;
       if(al && al.id && al.id !== _lastHeardAlertId){
         const age = Date.now() - new Date(al.ts).getTime();
-        if(age < 12000){
+        if(age < 30000){
           _lastHeardAlertId = al.id;
           _speakLocal(al.text);
         } else {
@@ -10477,7 +10591,7 @@ function _startAlertPolling(){
         }
       }
     }catch(e){}
-  }, 8000);
+  }, 15000);
 }
 function _stopAlertPolling(){
   if(_alertPollInterval){ clearInterval(_alertPollInterval); _alertPollInterval=null; }
@@ -10622,7 +10736,7 @@ function oModal(id){
   }
 }
 function cModal(id){document.getElementById(id)?.classList.remove('open');}
-function enc(s){return encodeURIComponent(s);}
+function enc(s){return encodeURIComponent(s).replace(/'/g,'%27');} // encodeURIComponent leaves ' alone, which broke onclick="fn('Ringer's...')"
 function dec(s){return decodeURIComponent(s);}
 document.addEventListener('click',e=>{if(e.target.classList.contains('mo'))e.target.classList.remove('open');});
 
@@ -14629,7 +14743,7 @@ function renderWardMap(){
           <span style="font-size:11px;color:var(--mu);">${wBeds.filter(b=>b.patientId).length}/${wBeds.length} occupied</span>
         </div>
         <div style="display:flex;gap:5px;">
-          <button onclick="oBedModal(null,'${wName}')" class="bsm ba" style="font-size:11px;">+ Bed</button>
+          <button onclick="oBedModal(null,'${String(wName).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;')}')" class="bsm ba" style="font-size:11px;">+ Bed</button>
         </div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;">
