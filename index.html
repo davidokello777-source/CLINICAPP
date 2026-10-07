@@ -4649,14 +4649,7 @@ function renderNurseGuide(){
   if(el)el.innerHTML=html;
 }
 
-function toggleNgCard(eid){
-  const el=document.getElementById(eid);
-  const ch=document.getElementById('ng-chevron-'+eid);
-  if(!el)return;
-  const isOpen=el.style.display!=='none';
-  el.style.display=isOpen?'none':'block';
-  if(ch)ch.style.transform=isOpen?'':'rotate(180deg)';
-}
+/* (duplicate toggleNgCard removed — the definition further below handles both chevron ids) */
 
 // ── Visit-type badge helper ──────────────────
 const CT_LABEL={
