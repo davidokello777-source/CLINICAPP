@@ -356,7 +356,7 @@ document.addEventListener("DOMContentLoaded", function(){
     <button onclick="login()" class="bp" style="width:100%;padding:9px;font-size:14px;font-weight:700;">🔐 Sign In</button>
     <div id="le" style="color:#dc2626;font-size:12px;margin-top:7px;min-height:16px;text-align:center;"></div>
     <div id="login-quick-info" style="display:none;"></div>
-    <div style="margin-top:8px;font-size:10px;color:#94a3b8;text-align:center;">TALI HIMS v3.3 · Secure Health Information System</div>
+    <div style="margin-top:8px;font-size:10px;color:#94a3b8;text-align:center;">TALI HIMS v3.4 · Secure Health Information System</div>
   </div>
 </div>
 
@@ -2080,7 +2080,30 @@ document.addEventListener("DOMContentLoaded", function(){
           <button onclick="runUnitTests()" class="bp">▶ Run All Tests</button>
         </div>
       </div>
-      <!-- ── BACKUP & RESTORE ── -->
+      <!-- ── SYSTEM CHECK & CLOUDFLARE BACKUP (v16) ── -->
+      <div class="card settings-card" data-settings-title="System check diagnostics errors blank empty cloud backup cloudflare r2" style="margin-top:14px;padding:16px 18px;">
+        <h4 style="margin:0 0 12px;color:#1e3a8a;">🩺 System Check &amp; ☁ Cloudflare Backup</h4>
+        <div class="g2">
+          <div style="background:#fefce8;border:1.5px solid #fde68a;border-radius:8px;padding:14px;">
+            <div style="font-weight:700;color:#854d0e;margin-bottom:6px;">🩺 System Check</div>
+            <p style="font-size:12px;color:#374151;margin-bottom:10px;">Opens every module and tab and reports anything that fails to load. If a screen looks blank, run this and use <b>Copy full report</b> to send the result to your developer.</p>
+            <button type="button" onclick="runSystemCheck()" class="bp" style="width:100%;">▶ Run System Check</button>
+            <div id="syscheck-out" style="font-size:12px;color:#374151;"></div>
+          </div>
+          <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;padding:14px;">
+            <div style="font-weight:700;color:#075985;margin-bottom:6px;">☁ Cloudflare R2 Backup</div>
+            <p style="font-size:12px;color:#374151;margin-bottom:10px;">Saves a full copy of all clinic data in your Cloudflare storage. The worker also keeps automatic hourly and daily snapshots. Needs the backup password set in the worker.</p>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button type="button" onclick="r2BackupNow()" class="bp" style="flex:1;min-width:150px;">☁ Back up to Cloudflare now</button>
+              <button type="button" onclick="r2ListBackups()" class="bs" style="flex:1;min-width:130px;">📂 Show cloud backups</button>
+            </div>
+            <div id="r2-status" style="font-size:12px;margin-top:8px;color:#475569;"></div>
+            <div id="r2-list"></div>
+          </div>
+        </div>
+      </div>
+      
+<!-- ── BACKUP & RESTORE ── -->
       <div class="card settings-card" data-settings-title="Backup Restore export schedule auto-backup" style="margin-top:14px;padding:16px 18px;">
         <h4 style="margin:0 0 12px;color:#1e3a8a;">💾 Backup & Restore</h4>
         <div class="g2">
@@ -2647,20 +2670,116 @@ document.addEventListener("DOMContentLoaded", function(){
 //  localStorage; only automatic multi-device syncing is disabled until set.
 // ══════════════════════════════════════════════
 const CLOUD_PROXY_URL='https://tali-proxy.davidokello777.workers.dev'; // e.g. 'https://tali-proxy.yoursubdomain.workers.dev'
+// ── Cloud status: every request records WHY it failed, so the sidebar pill and the
+//    diagnostics dialog can tell the user exactly what is wrong instead of failing silently.
+const _cloud={state:CLOUD_PROXY_URL?'idle':'local',lastOk:null,lastErr:'',lastErrAt:null,hint:'',cloudCounts:null};
+function _cloudHint(status,msg){
+  msg=String(msg||'');
+  if(status===500&&/not configured/i.test(msg))return 'The worker is missing its secrets. In Cloudflare: Worker → Settings → Variables and Secrets → add JSONBIN_KEY and JSONBIN_BIN.';
+  if(status===401||status===403)return 'JSONBin rejected the key. If you rotated it, update JSONBIN_KEY in the worker. (A 403 can also mean the bin ID does not belong to this key.)';
+  if(status===404)return 'JSONBin could not find the bin. Check JSONBIN_BIN (the bin ID) in the worker.';
+  if(status===429)return 'JSONBin request limit reached (free plans allow very few requests). Wait, upgrade the plan, or move storage to Cloudflare.';
+  if(status===0)return 'The browser could not reach the proxy: wrong CLOUD_PROXY_URL, no internet, or blocked by CORS. In the worker set ALLOWED_ORIGIN to exactly: '+location.origin+' (no trailing slash) — or remove it while testing.';
+  return '';
+}
+function _cloudMark(ok,status,msg){
+  if(ok){_cloud.state='ok';_cloud.lastOk=new Date();_cloud.lastErr='';_cloud.hint='';}
+  else{_cloud.state='error';_cloud.lastErr=msg||('HTTP '+status);_cloud.lastErrAt=new Date();_cloud.hint=_cloudHint(status,msg);}
+  _cloudRender();
+}
+function _cloudRender(){
+  const el=document.getElementById('si3');if(!el||window._cloudKeepPill===false)return;
+  const t=d=>d?d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+  const m={local:['💾 Local only','rgba(255,255,255,.12)'],idle:['☁ Connecting…','rgba(255,255,255,.12)'],
+           ok:['☁ Synced '+t(_cloud.lastOk),'rgba(16,185,129,.55)'],error:['⚠ Cloud error','rgba(239,68,68,.75)']}[_cloud.state];
+  el.textContent=m[0];el.style.background=m[1];el.style.cursor='pointer';el.style.opacity=1;
+  el.title='Click for cloud sync details';el.onclick=_cloudDiag;
+}
 async function cloudGetLatest(timeoutMs=8000){
   if(!CLOUD_PROXY_URL)return null;
   const ctrl=new AbortController();
   const tout=setTimeout(()=>ctrl.abort(),timeoutMs);
   try{
-    const r=await fetch(`${CLOUD_PROXY_URL}/latest`,{signal:ctrl.signal});
-    if(!r.ok)throw new Error('Cloud fetch failed: '+r.status);
-    return await r.json(); // shape: {record:{...}}
+    let r;
+    try{r=await fetch(`${CLOUD_PROXY_URL}/latest`,{signal:ctrl.signal});}
+    catch(e){const m=e&&e.name==='AbortError'?'Timed out waiting for the proxy':'Network/CORS error: '+(e&&e.message||e);_cloudMark(false,0,m);throw e;}
+    if(!r.ok){
+      let msg='';try{const j=await r.json();msg=j.error||j.message||JSON.stringify(j).slice(0,160);}catch(_){}
+      _cloudMark(false,r.status,'HTTP '+r.status+(msg?': '+msg:''));
+      throw new Error('Cloud fetch failed: '+r.status+(msg?' — '+msg:''));
+    }
+    const j=await r.json();
+    _cloud.cloudCounts={patients:((j.record||{}).patients||[]).length,visits:((j.record||{}).visits||[]).length};
+    _cloudMark(true);
+    return j; // shape: {record:{...}}
   }finally{clearTimeout(tout);}
 }
 async function cloudPut(body){
   if(!CLOUD_PROXY_URL)return;
-  const r=await fetch(CLOUD_PROXY_URL,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok)throw new Error('Cloud save failed: '+r.status);
+  let r;
+  try{r=await fetch(CLOUD_PROXY_URL,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
+  catch(e){_cloudMark(false,0,'Network/CORS error: '+(e&&e.message||e));throw e;}
+  if(!r.ok){
+    let msg='';try{const j=await r.json();msg=j.error||j.message||'';}catch(_){}
+    _cloudMark(false,r.status,'HTTP '+r.status+(msg?': '+msg:''));
+    throw new Error('Cloud save failed: '+r.status+(msg?' — '+msg:''));
+  }
+  _cloudMark(true);
+}
+// Diagnostics dialog (click the cloud pill in the sidebar)
+function _cloudDiag(){
+  let box=document.getElementById('cloud-diag');if(box)box.remove();
+  box=document.createElement('div');box.id='cloud-diag';
+  box.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const L=`${patients.length} patients, ${visits.length} visits`;
+  const C=_cloud.cloudCounts?`${_cloud.cloudCounts.patients} patients, ${_cloud.cloudCounts.visits} visits`:'not read yet';
+  const stTxt={local:'Not configured — running on this browser only',idle:'Connecting…',ok:'Connected',error:'Not working'}[_cloud.state];
+  const stCol={local:'#64748b',idle:'#64748b',ok:'#059669',error:'#dc2626'}[_cloud.state];
+  box.innerHTML=`<div style="background:var(--card,#fff);color:var(--tx,#0f172a);border-radius:14px;max-width:560px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.35);max-height:90vh;overflow:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3 style="margin:0;">☁ Cloud sync</h3>
+      <button onclick="document.getElementById('cloud-diag').remove()" style="background:none;border:0;font-size:20px;cursor:pointer;color:inherit;">✕</button></div>
+    <div style="font-size:13px;line-height:1.55;">
+    <div><b>Status:</b> <span style="color:${stCol};font-weight:700;">${stTxt}</span></div>
+    <div><b>Proxy URL:</b> <code style="word-break:break-all;">${esc(CLOUD_PROXY_URL||'(empty — set CLOUD_PROXY_URL in the HTML)')}</code></div>
+    <div><b>This page's origin:</b> <code>${esc(location.origin)}</code> <span style="opacity:.7;">(the worker's ALLOWED_ORIGIN must match this)</span></div>
+    <div><b>Last successful sync:</b> ${_cloud.lastOk?_cloud.lastOk.toLocaleString():'never'}</div>
+    <div><b>Data on this device:</b> ${L}</div>
+    <div><b>Data in the cloud:</b> <span id="cd-cloud">${C}</span></div>
+    ${_cloud.lastErr?`<div style="margin-top:8px;padding:9px 11px;border-radius:8px;background:#fef2f2;color:#991b1b;"><b>Last error:</b> ${esc(_cloud.lastErr)}${_cloud.hint?`<div style="margin-top:5px;color:#7f1d1d;"><b>What to do:</b> ${esc(_cloud.hint)}</div>`:''}</div>`:''}
+    <div id="cd-result" style="margin-top:8px;font-weight:600;"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+      <button class="bp" onclick="_cloudTest()">🔌 Test connection</button>
+      <button class="bs" onclick="_cloudPullNow()">⬇ Pull cloud data now</button>
+      <button class="bs" onclick="_pushToCloud(0).then(()=>_cloudTest())">⬆ Push this device's data</button>
+    </div></div>`;
+  box.addEventListener('click',e=>{if(e.target===box)box.remove();});
+  document.body.appendChild(box);
+}
+async function _cloudTest(){
+  const out=document.getElementById('cd-result');if(out)out.textContent='Testing…';
+  try{
+    const j=await cloudGetLatest(10000);
+    const rec=(j&&j.record)||{};const n=`${(rec.patients||[]).length} patients, ${(rec.visits||[]).length} visits`;
+    if(out){out.style.color='#059669';out.textContent='✓ Connected. Cloud currently holds '+n+'.';}
+    const c=document.getElementById('cd-cloud');if(c)c.textContent=n;
+  }catch(e){if(out){out.style.color='#dc2626';out.textContent='✗ '+_cloud.lastErr;}_cloudDiagRefreshHint();}
+}
+function _cloudDiagRefreshHint(){const b=document.getElementById('cloud-diag');if(b&&_cloud.hint){const r=document.getElementById('cd-result');if(r)r.innerHTML+='<div style="font-weight:400;margin-top:4px;">'+String(_cloud.hint).replace(/[<>&]/g,'')+'</div>';}}
+async function _cloudPullNow(){
+  const out=document.getElementById('cd-result');if(out)out.textContent='Pulling…';
+  try{
+    const j=await cloudGetLatest(10000);const rec=(j&&j.record)||{};
+    const changed=_applyMerged(rec);
+    ['inventory','expenses','suppliers','chatMessages','feedbacks'].forEach(k=>{});
+    if(Array.isArray(rec.inventory)&&rec.inventory.length&&!inventory.length)inventory=rec.inventory;
+    if(Array.isArray(rec.staffList)&&rec.staffList.length){const have=new Set(staffList.map(s=>s.username));rec.staffList.forEach(s=>{if(!have.has(s.username))staffList.push(s);});}
+    _applyExtraSets(rec,true);
+    try{localStorage.setItem('tali_data',JSON.stringify(_buildPayload()));}catch(e){}
+    _refreshActiveSection();
+    if(out){out.style.color='#059669';out.textContent='✓ Pulled. This device now has '+patients.length+' patients and '+visits.length+' visits.'+(changed?'':' (nothing new)');}
+  }catch(e){if(out){out.style.color='#dc2626';out.textContent='✗ '+(_cloud.lastErr||e.message);}_cloudDiagRefreshHint();}
 }
 
 // ══════════════════════════════════════════════
@@ -3104,7 +3223,7 @@ async function loadData(){
       try{localStorage.setItem('tali_data',JSON.stringify({patients,visits,inventory,staffList,expenses,feedbacks:window.feedbacks,labTests:window._labTests,radProcs:window._radProcs,nursingProcs:window._nursingProcs,suppliers,chatMessages}));}catch(e){}
       console.log('Synced from JSONBin');
     }
-  }catch(e){console.warn('JSONBin sync failed — using localStorage data');}
+  }catch(e){console.warn('JSONBin sync failed — using localStorage data',e&&e.message);}
 }
 
 
@@ -3235,7 +3354,7 @@ function save(){
   if(saveTimer)clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>_pushToCloud(0),2000);
 }
-function si(t,ok){const el=document.getElementById('si3');if(el){el.innerText=t;el.style.opacity=ok?.6:1;}}
+function si(t,ok){const el=document.getElementById('si3');if(el){el.innerText=t;el.style.opacity=ok?.6:1;clearTimeout(window._siT);window._siT=setTimeout(()=>{try{_cloudRender();}catch(e){}},1800);}}
 function lg(v,act,val=''){
   if(!v.timeline)v.timeline=[];
   v.timeline.push({act,val,time:new Date().toLocaleTimeString(),by:currentUser?.name||'System'});
@@ -4812,7 +4931,7 @@ function renderCons(){
   if(!q.length)h+=`<tr><td colspan="10" class="emp"><div>No active patients in queue</div><button onclick="renderCons()" style="margin-top:6px;background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;">🔄 Refresh Queue</button></td></tr>`;
   q.forEach(v=>{
     const p=patients.find(x=>x.id===v.patId);
-    const info=p?`${p.ageVal}${(p.ageUnit||'Y')[0]}/${p.gender||'—'}`:'—';
+    const info=p?`${(p.ageVal===''||p.ageVal==null)?'—':p.ageVal+(p.ageUnit||'Y')[0]}/${p.gender||'—'}`:'—';
     const lc=(v.labs||[]).length,ld=(v.labs||[]).filter(l=>l.done).length;
     const rc=(v.radiology||[]).length,rd=(v.radiology||[]).filter(r=>r.done).length;
     const rxc=(v.prescriptions||[]).length,rxd=(v.prescriptions||[]).filter(r=>r.dispensed).length;
@@ -4891,7 +5010,7 @@ function viewVisitRecord(vid){
   if(v.vitals){
     const vt=v.vitals;
     document.getElementById('c-vitals').style.display='block';
-    document.getElementById('c-vitals').innerHTML=`<b>Vitals (${vt.time}):</b> ${[vt.bp?'BP:'+vt.bp:'',vt.temp?'T:'+vt.temp+'°C':'',vt.weight?'Wt:'+vt.weight+'kg':'',vt.height?'Ht:'+vt.height+'cm':'',vt.pulse?'PR:'+vt.pulse:'',vt.spo2?'SpO2:'+vt.spo2+'%':'',vt.rr?'RR:'+vt.rr:''].filter(Boolean).join(' | ')}${vt.weight&&vt.height?' | BMI:'+(vt.weight/((vt.height/100)*(vt.height/100))).toFixed(1):''}`;
+    document.getElementById('c-vitals').innerHTML=`<b>Vitals (${vt.time||vt.ts&&new Date(vt.ts).toLocaleString()||'latest'}):</b> ${[vt.bp?'BP:'+vt.bp:'',vt.temp?'T:'+vt.temp+'°C':'',vt.weight?'Wt:'+vt.weight+'kg':'',vt.height?'Ht:'+vt.height+'cm':'',vt.pulse?'PR:'+vt.pulse:'',vt.spo2?'SpO2:'+vt.spo2+'%':'',vt.rr?'RR:'+vt.rr:''].filter(Boolean).join(' | ')}${vt.weight&&vt.height?' | BMI:'+(vt.weight/((vt.height/100)*(vt.height/100))).toFixed(1):''}`;
   }else{document.getElementById('c-vitals').style.display='none';}
   // Vitals trend chart — default to BP metric, reset button highlights
   _activeVitalMetric='bp';
@@ -4993,7 +5112,7 @@ function openCons(id){
   if(v.vitals){
     const vt=v.vitals;
     document.getElementById('c-vitals').style.display='block';
-    document.getElementById('c-vitals').innerHTML=`<b>Vitals (${vt.time}):</b> ${[vt.bp?'BP:'+vt.bp:'',vt.temp?'T:'+vt.temp+'°C':'',vt.weight?'Wt:'+vt.weight+'kg':'',vt.height?'Ht:'+vt.height+'cm':'',vt.pulse?'PR:'+vt.pulse:'',vt.spo2?'SpO2:'+vt.spo2+'%':'',vt.rr?'RR:'+vt.rr:''].filter(Boolean).join(' | ')} ${vt.weight&&vt.height?'| BMI:'+(vt.weight/((vt.height/100)*(vt.height/100))).toFixed(1):''}`;
+    document.getElementById('c-vitals').innerHTML=`<b>Vitals (${vt.time||vt.ts&&new Date(vt.ts).toLocaleString()||'latest'}):</b> ${[vt.bp?'BP:'+vt.bp:'',vt.temp?'T:'+vt.temp+'°C':'',vt.weight?'Wt:'+vt.weight+'kg':'',vt.height?'Ht:'+vt.height+'cm':'',vt.pulse?'PR:'+vt.pulse:'',vt.spo2?'SpO2:'+vt.spo2+'%':'',vt.rr?'RR:'+vt.rr:''].filter(Boolean).join(' | ')} ${vt.weight&&vt.height?'| BMI:'+(vt.weight/((vt.height/100)*(vt.height/100))).toFixed(1):''}`;
   }else{document.getElementById('c-vitals').style.display='none';}
   // Obs/Gyn
   document.getElementById('ogBlock').style.display=(p&&p.gender==='Female')?'block':'none';
@@ -14149,6 +14268,12 @@ const _origLogin=login;
 login=function(){
   const r=_origLogin();
   setTimeout(()=>{if(currentUser)showDailyVerse();},700);
+  setTimeout(()=>{try{_cloudRender();}catch(e){}},300);
+  setTimeout(()=>{
+    try{
+      if(currentUser&&_cloud.state==='error')_showToast('⚠ Cloud sync is not working — you only see data stored in this browser. Click the red "Cloud error" pill (bottom-left menu) for the reason.','#b91c1c');
+    }catch(e){}
+  },3500);
   return r;
 };
 
@@ -17121,5 +17246,325 @@ window.saveClinical = function(){
   </div>
 </div>
 
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TALI HIMS v16 — HARDENING LAYER
+   1. Visible error reporting  (no more silent blank screens)
+   2. Data sanitizer on every load / merge / restore path
+   3. Empty-state messages for blank tables
+   4. "No data + cloud failing" banner
+   5. System Check tool (Settings)
+   6. Cloudflare R2 backup client (Settings → Backup)
+   ══════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+const APP_VER='v16 (hardened)';
+const isObj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ───────── 1. ERROR REPORTING ───────── */
+const errEvents=window._errEvents=[];
+let barDismissedKey='';
+function modError(label,e){
+  const msg=(e&&e.message)||String(e);
+  const stack=((e&&e.stack)||'').split('\n').slice(0,4).join(' | ');
+  errEvents.push({label,msg,stack,at:new Date().toISOString()});
+  if(errEvents.length>300)errEvents.shift();
+  showBar();
+}
+function showBar(){
+  const last=errEvents[errEvents.length-1]; if(!last)return;
+  const key=last.label+'|'+last.msg; if(key===barDismissedKey)return;
+  let bar=document.getElementById('tali-err-bar');
+  if(!bar){
+    bar=document.createElement('div');bar.id='tali-err-bar';
+    bar.innerHTML='<div class="eb-txt"></div><div class="eb-btns"><button type="button" data-a="copy">Copy details</button><button type="button" data-a="check">System Check</button><button type="button" data-a="hide">Hide</button></div>';
+    bar.addEventListener('click',ev=>{
+      const a=ev.target&&ev.target.getAttribute&&ev.target.getAttribute('data-a');
+      if(a==='hide'){barDismissedKey=(errEvents[errEvents.length-1]||{}).label+'|'+(errEvents[errEvents.length-1]||{}).msg;bar.style.display='none';}
+      if(a==='copy')copyText(buildReport());
+      if(a==='check'){try{showSection('settings');}catch(_){} setTimeout(()=>{const b=document.getElementById('syscheck-out');if(b)b.scrollIntoView({behavior:'smooth',block:'center'});},400);}
+    });
+    document.body.appendChild(bar);
+  }
+  const n=new Set(errEvents.map(x=>x.label+'|'+x.msg)).size;
+  bar.querySelector('.eb-txt').textContent='⚠ Part of "'+last.label+'" could not load ('+last.msg+')'+(n>1?'  —  '+n+' problems logged':'')+'. The rest of the app still works.';
+  bar.style.display='flex';
+}
+function copyText(t){
+  const done=()=>{try{_showToast('📋 Copied — paste it to your developer','#065f46');}catch(_){alert('Copied');}};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,()=>fallback());}else fallback();
+  function fallback(){const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done();}catch(_){prompt('Copy this:',t);}ta.remove();}
+}
+window.safeCall=function(fn,label){try{fn();}catch(e){console.error('safeCall['+label+']:',e);modError(label,e);}};
+window.addEventListener('error',ev=>{ if(ev&&ev.message&&!/ResizeObserver/.test(ev.message))modError('page',{message:ev.message+(ev.lineno?' (line '+ev.lineno+')':''),stack:''}); });
+window.addEventListener('unhandledrejection',ev=>{ const r=ev&&ev.reason; const m=(r&&r.message)||String(r); if(/Cloud|Network|Failed to fetch|abort/i.test(m))return; modError('background task',r||{message:m}); });
+
+function wrap(name){
+  const fn=window[name]; if(typeof fn!=='function'||fn.__tali)return;
+  const w=function(){
+    try{
+      const r=fn.apply(this,arguments);
+      if(r&&typeof r.then==='function')return r.catch(e=>{modError(name,e);throw e;});
+      return r;
+    }catch(e){console.error('['+name+']',e);modError(name,e);}
+  };
+  w.__tali=true; try{Object.defineProperty(w,'name',{value:name});}catch(_){}
+  try{window[name]=w;}catch(_){}
+}
+Object.getOwnPropertyNames(window)
+  .filter(n=>/^(render[A-Z0-9_]|sw[A-Z]|openCons|openConsStep|inject[A-Z]|populate[A-Z])/.test(n))
+  .forEach(wrap);
+
+/* ───────── 2. DATA SANITIZER ───────── */
+function numOf(v){
+  if(typeof v==='number')return isFinite(v)?v:0;
+  if(v==null||v==='')return 0;
+  const n=parseFloat(String(v).replace(/[^0-9eE.+-]/g,''));
+  return isFinite(n)?n:0;
+}
+function fixNums(o,keys,required){
+  if(!isObj(o))return;
+  keys.forEach(k=>{
+    if(k in o){const v=o[k]; if(typeof v==='number'){if(!isFinite(v))o[k]=0;}else if(typeof v==='string'||v===null)o[k]=numOf(v);}
+  });
+  (required||[]).forEach(k=>{if(!(k in o)||o[k]===undefined)o[k]=0;});
+}
+function fixStrs(o,keys){
+  if(!isObj(o))return;
+  keys.forEach(k=>{if(k in o&&typeof o[k]!=='string')o[k]=o[k]==null?'':(typeof o[k]==='number'?String(o[k]):o[k]);});
+}
+function nullToEmpty(o,keys){ if(!isObj(o))return; keys.forEach(k=>{if(k in o&&o[k]==null)o[k]='';}); }
+const cleanArr=a=>Array.isArray(a)?a.filter(isObj):[];
+
+function sanitizeAll(){
+  try{
+    if(!Array.isArray(patients))patients=[];
+    if(!Array.isArray(visits))visits=[];
+    patients=patients.filter(isObj); visits=visits.filter(isObj);
+    patients.forEach(p=>{ fixStrs(p,['name','gender','phone','address','kinName','kinPhone']); });
+    visits.forEach(v=>{
+      fixNums(v,['consultFee','discount','totalPaid']);
+      fixStrs(v,['name']);
+      ['labs','prescriptions','radiology','procedures','payments'].forEach(k=>{
+        v[k]=cleanArr(v[k]);
+        v[k].forEach(it=>{ fixNums(it,['price','qty','quantity','amount','cost','days'],k==='payments'?['amount']:['price']); nullToEmpty(it,['name','drug','result']); });
+      });
+      ['timeline','log','statusLog','treatmentChart'].forEach(k=>{ if(k in v)v[k]=cleanArr(v[k]); });
+      if(typeof v.vitals==='string'||typeof v.vitals==='number')v.vitals=null;
+      if(v.clinical!=null&&!isObj(v.clinical))v.clinical={};
+    });
+    if(!Array.isArray(inventory))inventory=[];
+    inventory=inventory.filter(isObj);
+    inventory.forEach(it=>{
+      fixNums(it,['price','cost','stock','qty','quantity','reorder','reorderLevel','minStock','minLevel','buyPrice','sellPrice','unitPrice','sellingPrice','costPrice','packSize'],['price','stock']);
+      fixStrs(it,['name','category','unit','supplier']);
+      if(it.name==null)it.name='';
+      if('batches' in it){it.batches=cleanArr(it.batches);it.batches.forEach(b=>fixNums(b,['qty','stock','cost','price']));}
+    });
+    if(!Array.isArray(expenses))expenses=[];
+    expenses=expenses.filter(isObj);
+    expenses.forEach(x=>{ fixNums(x,['amount','cost','total'],['amount']); fixStrs(x,['category','description','name','paidTo']); nullToEmpty(x,['date','category']); });
+    if(!Array.isArray(suppliers))suppliers=[];
+    suppliers=suppliers.filter(isObj); suppliers.forEach(s=>{fixStrs(s,['name','phone','email','address']);});
+    if(!Array.isArray(chatMessages))chatMessages=[];
+    chatMessages=chatMessages.filter(isObj);
+    if(!Array.isArray(staffList))staffList=[];
+    staffList=staffList.filter(isObj); staffList.forEach(s=>{ if(!Array.isArray(s.sections))s.sections=[]; });
+    if(typeof appointments!=='undefined'&&Array.isArray(appointments))appointments=appointments.filter(isObj);
+    ['feedbacks','physioSessions','claims','preAuths','priceLists','insurances','consentForms','referrals','beds','wards','shifts','handovers','assets'].forEach(k=>{
+      if(Array.isArray(window[k]))window[k]=window[k].filter(isObj);
+    });
+    (window.feedbacks||[]).forEach(f=>fixNums(f,['rating']));
+    (window.physioSessions||[]).forEach(s=>fixNums(s,['fee','price','amount','sessions']));
+    (window.claims||[]).forEach(c=>fixNums(c,['amount','approved','claimed','total']));
+    ['_labTests','_radProcs','_nursingProcs'].forEach(k=>{
+      if(Array.isArray(window[k])){window[k]=window[k].filter(isObj);window[k].forEach(t=>{fixNums(t,['price'],['price']);nullToEmpty(t,['name']);});}
+    });
+  }catch(e){console.error('sanitizeAll',e);modError('data clean-up',e);}
+}
+window._sanitizeAll=sanitizeAll;
+['_normalizeData','_applyMerged','_applyExtraSets'].forEach(n=>{
+  const f=window[n]; if(typeof f!=='function')return;
+  window[n]=function(){ const r=f.apply(this,arguments); sanitizeAll(); return r; };
+});
+const _ss=window.showSection;
+window.showSection=function(id){ sanitizeAll(); const r=_ss.apply(this,arguments); setTimeout(()=>{dataWarn();fillEmpty();},60); return r; };
+
+/* ───────── 3. EMPTY-STATE ROWS ───────── */
+let fillBusy=false,fillTimer=null,obs=null;
+function fillEmpty(){
+  if(fillBusy)return; fillBusy=true; if(obs)obs.disconnect();
+  try{
+    document.querySelectorAll('section.active table').forEach(table=>{
+      if(table.closest('.mo,.cons-step-panel,.no-empty'))return;
+      if(table.getClientRects().length===0)return;
+      const trs=[...table.querySelectorAll('tr')].filter(r=>r.closest('table')===table);
+      const er=trs.find(r=>r.classList.contains('empty-row'));
+      const dataRows=trs.filter(r=>!r.classList.contains('empty-row')&&r.querySelector('td'));
+      if(dataRows.length){ if(er)er.remove(); return; }
+      if(er)return;
+      const head=trs.find(r=>r.querySelector('th')); if(!head)return;
+      const cols=head.children.length||1;
+      let tb=table.tBodies[0]; if(!tb){tb=document.createElement('tbody');table.appendChild(tb);}
+      const tr=document.createElement('tr');tr.className='empty-row';
+      tr.innerHTML='<td colspan="'+cols+'">Nothing to show here yet.</td>';
+      tb.appendChild(tr);
+    });
+  }catch(e){console.error('fillEmpty',e);}
+  fillBusy=false; startObs();
+}
+function startObs(){
+  const root=document.getElementById('main-wrap'); if(!root)return;
+  if(!obs)obs=new MutationObserver(()=>{clearTimeout(fillTimer);fillTimer=setTimeout(fillEmpty,200);});
+  obs.observe(root,{childList:true,subtree:true});
+}
+document.addEventListener('DOMContentLoaded',startObs); if(document.readyState!=='loading')startObs();
+
+/* ───────── 4. DATA / CLOUD WARNING BANNER ───────── */
+function dataWarn(){
+  try{
+    const con=document.querySelector('#main-wrap .con'); if(!con)return;
+    let b=document.getElementById('tali-data-warn');
+    const bad=typeof _cloud!=='undefined'&&_cloud.state==='error'&&patients.length===0&&visits.length===0&&typeof currentUser!=='undefined'&&currentUser;
+    if(!bad){if(b)b.remove();return;}
+    if(!b){
+      b=document.createElement('div');b.id='tali-data-warn';
+      b.innerHTML='<b>⚠ This device has no patient data and cloud sync is failing.</b> Screens will look empty, and records entered on other devices will not appear, until the connection is fixed. <button type="button" onclick="_cloudDiag()">See why</button>';
+    }
+    if(b.parentElement!==con)con.prepend(b);
+  }catch(e){}
+}
+const _cr=window._cloudRender;
+if(typeof _cr==='function')window._cloudRender=function(){const r=_cr.apply(this,arguments);dataWarn();return r;};
+
+/* ───────── 5. SYSTEM CHECK ───────── */
+function buildReport(extra){
+  const L=[];
+  L.push('TALI HIMS '+APP_VER+' — diagnostics '+new Date().toISOString());
+  L.push('Browser: '+navigator.userAgent);
+  L.push('Screen: '+innerWidth+'x'+innerHeight+'  Page: '+location.origin+location.pathname);
+  try{L.push('Data on device: '+patients.length+' patients, '+visits.length+' visits, '+inventory.length+' inventory, '+expenses.length+' expenses, '+staffList.length+' staff');}catch(_){}
+  try{L.push('Cloud: '+_cloud.state+(_cloud.lastErr?' — '+_cloud.lastErr:'')+(_cloud.hint?' | '+_cloud.hint:'')+' | last ok: '+(_cloud.lastOk||'never'));}catch(_){}
+  try{L.push('User: '+currentUser.username+' ('+currentUser.role+')  Night mode: '+document.body.classList.contains('dark-mode'));}catch(_){}
+  L.push('');
+  if(extra)L.push(extra,'');
+  const seen={};
+  errEvents.forEach(e=>{const k=e.label+'|'+e.msg;(seen[k]=seen[k]||{e,n:0}).n++;});
+  const vals=Object.values(seen);
+  L.push(vals.length?('ERRORS ('+vals.length+' distinct):'):'No errors logged.');
+  vals.forEach(({e,n})=>L.push(' • ['+e.label+'] '+e.msg+(n>1?'  ×'+n:'')+(e.stack?'\n     '+e.stack:'')));
+  return L.join('\n');
+}
+window.runSystemCheck=async function(){
+  const out=document.getElementById('syscheck-out'); if(!out)return;
+  out.innerHTML='<div style="padding:6px 0;">Running… please wait (about 20 seconds). Do not click anything.</div>';
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const fromSettings=!!(document.getElementById('btn-settings')&&document.getElementById('btn-settings').classList.contains('active'));
+  const startSec=fromSettings?'settings':((document.querySelector('section.active')||{}).id||'sec-director').replace('sec-','');
+  const secs=[...document.querySelectorAll('#dn .nb')].map(b=>b.id.replace('btn-','')).filter(s=>s!=='settings');
+  const rows=[]; let bad=0;
+  for(const id of secs){
+    const before=errEvents.length;
+    try{showSection(id);}catch(e){modError('showSection:'+id,e);}
+    await sleep(120);
+    let r={sec:id,tab:'(main)',errs:errEvents.slice(before)}; rows.push(r);
+    const tabs=[...document.querySelectorAll('#sec-'+id+' .stabs .st')];
+    for(const t of tabs){
+      const b2=errEvents.length;
+      try{t.click();}catch(e){modError(id+':'+t.textContent.trim(),e);}
+      await sleep(90);
+      rows.push({sec:id,tab:t.textContent.trim().replace(/\s+/g,' ').slice(0,28),errs:errEvents.slice(b2)});
+    }
+  }
+  // consultation steps for the first visit, if any
+  if(visits.length&&typeof openCons==='function'){
+    const vid=(visits.find(v=>/DOCTOR|CONS/i.test(String(v.status)))||visits[0]).id;
+    try{
+      showSection('doctor');await sleep(80);
+      for(let n=0;n<=6;n++){
+        const b3=errEvents.length;
+        try{ if(n===0)openCons(vid); else openConsStep(n);}catch(e){modError('consultation step '+n,e);}
+        await sleep(110);
+        rows.push({sec:'doctor',tab:n===0?'Open consultation':'Consult step '+n,errs:errEvents.slice(b3)});
+      }
+      try{ if(typeof closeCons==='function')closeCons(); }catch(_){}
+    }catch(e){modError('consultation check',e);}
+  }
+  try{showSection(startSec);}catch(_){}
+  rows.forEach(r=>{if(r.errs.length)bad++;});
+  const body=rows.map(r=>'<tr><td>'+esc(r.sec)+'</td><td>'+esc(r.tab)+'</td><td style="color:'+(r.errs.length?'#b91c1c':'#047857')+';font-weight:600;">'+(r.errs.length?'✗ '+esc(r.errs.map(e=>e.msg).filter((v,i,a)=>a.indexOf(v)===i).join('; ').slice(0,200)):'✓ OK')+'</td></tr>').join('');
+  out.innerHTML='<div style="font-weight:700;margin:8px 0;color:'+(bad?'#b91c1c':'#047857')+';">'+(bad?('✗ '+bad+' of '+rows.length+' checks failed'):('✓ All '+rows.length+' checks passed'))+'</div>'
+    +'<div style="max-height:260px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;background:#fff;"><table style="width:100%;font-size:11px;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:4px 6px;">Module</th><th style="text-align:left;padding:4px 6px;">Tab</th><th style="text-align:left;padding:4px 6px;">Result</th></tr></thead><tbody class="no-empty">'+body+'</tbody></table></div>'
+    +'<button type="button" class="bp" style="margin-top:8px;width:100%;" onclick="copySystemReport()">📋 Copy full report</button>';
+  window._lastSysSummary=rows.filter(r=>r.errs.length).map(r=>r.sec+' / '+r.tab+': '+r.errs.map(e=>e.msg).join('; ')).join('\n')||'All checks passed.';
+};
+window.copySystemReport=function(){copyText(buildReport('SYSTEM CHECK RESULT:\n'+(window._lastSysSummary||'(not run)')));};
+
+/* ───────── 6. CLOUDFLARE R2 BACKUP CLIENT ───────── */
+const TOK='tali_r2_admin_token';
+function r2Token(force){
+  let t=sessionStorage.getItem(TOK);
+  if(!t||force){t=prompt('Enter the Cloudflare backup password (the ADMIN_TOKEN you set in the worker):');if(t){t=t.trim();sessionStorage.setItem(TOK,t);}}
+  return t;
+}
+async function r2Fetch(path,opts){
+  if(typeof CLOUD_PROXY_URL==='undefined'||!CLOUD_PROXY_URL)throw new Error('CLOUD_PROXY_URL is empty — set it to your Cloudflare worker URL.');
+  const t=r2Token(); if(!t)throw new Error('Backup password required.');
+  let r;
+  try{r=await fetch(CLOUD_PROXY_URL+path,Object.assign({},opts,{headers:Object.assign({'X-Admin-Token':t,'Content-Type':'application/json'},(opts||{}).headers||{})}));}
+  catch(e){throw new Error('Could not reach the worker (network/CORS). Check ALLOWED_ORIGIN = '+location.origin);}
+  if(r.status===401){sessionStorage.removeItem(TOK);throw new Error('Wrong backup password (or ADMIN_TOKEN not set in the worker).');}
+  if(!r.ok){let m='';try{m=(await r.json()).error||'';}catch(_){}throw new Error('HTTP '+r.status+(m?': '+m:''));}
+  return r;
+}
+function r2Say(msg,ok){const el=document.getElementById('r2-status');if(el){el.style.color=ok===false?'#b91c1c':ok?'#047857':'#475569';el.textContent=msg;}}
+window.r2BackupNow=async function(){
+  r2Say('Backing up to Cloudflare…');
+  try{
+    const data=_collectAllData();
+    const r=await r2Fetch('/backup',{method:'POST',body:JSON.stringify(data)});
+    const j=await r.json();
+    localStorage.setItem('tali_last_r2_backup',new Date().toISOString());
+    r2Say('✓ Backed up to Cloudflare ('+Math.round(JSON.stringify(data).length/1024)+' KB) — '+j.key,true);
+    try{_auditLog('EXPORT','Backup saved to Cloudflare R2: '+j.key);}catch(_){}
+    window.r2ListBackups();
+  }catch(e){r2Say('✗ '+e.message,false);}
+};
+window.r2ListBackups=async function(){
+  r2Say('Loading backups…');
+  try{
+    const r=await r2Fetch('/backups'); const j=await r.json(); const list=j.backups||[];
+    const el=document.getElementById('r2-list'); if(!el)return;
+    const kind=k=>k.startsWith('manual/')?'Manual':k.startsWith('daily/')?'Daily':k.includes('pre-shrink')?'Before big change':'Hourly';
+    el.innerHTML=list.length?('<div style="max-height:220px;overflow:auto;margin-top:8px;border:1px solid #bae6fd;border-radius:6px;background:#fff;"><table style="width:100%;font-size:11px;border-collapse:collapse;"><tbody class="no-empty">'
+      +list.slice(0,60).map(b=>'<tr style="border-bottom:1px solid #e0f2fe;"><td style="padding:4px 6px;">'+esc(kind(b.key))+'</td><td style="padding:4px 6px;">'+esc(new Date(b.uploaded).toLocaleString())+'</td><td style="padding:4px 6px;">'+Math.round(b.size/1024)+' KB</td><td style="padding:4px 6px;text-align:right;"><button type="button" class="bs" style="padding:2px 8px;font-size:11px;" data-key="'+esc(b.key)+'" onclick="r2Preview(this.getAttribute(\'data-key\'))">Preview / Restore</button></td></tr>').join('')
+      +'</tbody></table></div>'):'<div style="font-size:12px;margin-top:6px;">No backups stored yet.</div>';
+    r2Say('✓ '+list.length+' backup(s) in Cloudflare.',true);
+  }catch(e){r2Say('✗ '+e.message,false);}
+};
+window.r2Preview=async function(key){
+  r2Say('Downloading backup…');
+  try{
+    const r=await r2Fetch('/backup?key='+encodeURIComponent(key)); const d=await r.json();
+    _showRestorePreview(d);
+    r2Say('✓ Backup loaded — review the preview below and confirm to restore.',true);
+    const p=document.getElementById('restore-preview'); if(p)p.scrollIntoView({behavior:'smooth',block:'center'});
+  }catch(e){r2Say('✗ '+e.message,false);}
+};
+
+/* ───────── styles ───────── */
+const st=document.createElement('style');
+st.textContent=
+ '#toast-wrap,#toast-wrap *{pointer-events:none!important;}'
++'#tali-err-bar{position:fixed;left:12px;right:12px;bottom:12px;z-index:100000;background:#7f1d1d;color:#fff;border-radius:10px;padding:10px 14px;font:13px/1.4 system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35);display:none;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;}'
++'#tali-err-bar button{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;margin-left:6px;}'
++'#tali-data-warn{background:#fef3c7;color:#78350f;border:1.5px solid #f59e0b;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;line-height:1.5;}'
++'#tali-data-warn button{margin-left:8px;background:#b45309;color:#fff;border:0;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px;}'
++'tr.empty-row td{text-align:center;padding:18px 10px;color:#94a3b8;font-style:italic;font-size:12.5px;background:transparent!important;}';
+document.head.appendChild(st);
+})();
+
+</script>
 </body>
 </html>
