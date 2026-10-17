@@ -2101,6 +2101,16 @@ document.addEventListener("DOMContentLoaded", function(){
             <div id="r2-list"></div>
           </div>
         </div>
+        <div style="margin-top:12px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:14px;">
+          <div style="font-weight:700;color:#166534;margin-bottom:6px;">🚀 Go-Live (start with real data)</div>
+          <p style="font-size:12px;color:#374151;margin-bottom:10px;">1) Run the checklist. 2) When everything is ready, use <b>Go-Live Reset</b> once to clear all test patients and records on <b>every</b> device. Staff accounts, prices, test/procedure lists, inventory and settings are kept.</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button type="button" onclick="runGoLiveCheck()" class="bp" style="flex:1;min-width:170px;">✅ Run Go-Live Checklist</button>
+            <button type="button" onclick="goLiveReset()" style="flex:1;min-width:170px;background:#b91c1c;color:#fff;border:0;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:700;">🧹 Go-Live Reset (clear test data)</button>
+          </div>
+          <div id="golive-status" style="font-size:12px;margin-top:8px;"></div>
+          <div id="golive-out"></div>
+        </div>
       </div>
       
 <!-- ── BACKUP & RESTORE ── -->
@@ -17552,6 +17562,120 @@ window.r2Preview=async function(key){
     const p=document.getElementById('restore-preview'); if(p)p.scrollIntoView({behavior:'smooth',block:'center'});
   }catch(e){r2Say('✗ '+e.message,false);}
 };
+
+
+/* ───────── 7. GO-LIVE: DATA EPOCH, RESET, READINESS CHECK ───────── */
+const EPOCH_KEY='tali_epoch';
+const getEpoch=()=>Number(localStorage.getItem(EPOCH_KEY))||0;
+const setEpoch=n=>{try{localStorage.setItem(EPOCH_KEY,String(n));}catch(_){}};
+const CLINICAL_SETS=['patients','visits','expenses','chatMessages','feedbacks','claims','preAuths','physioSessions','consentForms','referrals','appointments','handovers','_dead'];
+function wipeClinicalData(){
+  patients=[];visits=[];expenses=[];chatMessages=[];
+  ['feedbacks','claims','preAuths','physioSessions','consentForms','referrals','handovers'].forEach(k=>{window[k]=[];});
+  if(typeof appointments!=='undefined')appointments=[];
+  (window.beds||[]).forEach(b=>{ if(!isObj(b))return; b.patientId='';b.patientName='';b.admitDate='';b.dischargeDate=''; if(/occup/i.test(String(b.status||'')))b.status='Available'; });
+  Object.keys(_sync.dead).forEach(k=>{_sync.dead[k]={};});
+  try{localStorage.removeItem('tali_dead');}catch(_){}
+  _sync.ready=false; _syncBaseline();
+}
+// Every device that sees a NEWER epoch in the cloud wipes its own old data; a device that sees an OLDER
+// epoch in the cloud ignores the cloud's old clinical data (so test records can never come back).
+const _cgl=window.cloudGetLatest;
+if(typeof _cgl==='function')window.cloudGetLatest=async function(){
+  const j=await _cgl.apply(this,arguments);
+  try{
+    if(j&&isObj(j.record)){
+      const re=Number(j.record._epoch)||0, le=getEpoch();
+      if(re>le){
+        wipeClinicalData(); setEpoch(re);
+        try{localStorage.setItem('tali_data',JSON.stringify(_buildPayload()));}catch(_){}
+        try{_showToast('🔄 Clinic data was reset by the administrator — this device is now in sync','#065f46');}catch(_){}
+      }else if(re<le){
+        CLINICAL_SETS.forEach(k=>{ if(k==='_dead')delete j.record[k]; else if(k in j.record)j.record[k]=[]; });
+      }
+    }
+  }catch(e){modError('go-live sync',e);}
+  return j;
+};
+const _bp=window._buildPayload;
+if(typeof _bp==='function')window._buildPayload=function(){const o=_bp.apply(this,arguments);o._epoch=getEpoch();return o;};
+
+window.goLiveReset=async function(){
+  if(!(typeof currentUser!=='undefined'&&currentUser&&currentUser.isAdmin))return alert('Only an Admin or the Director can do this.');
+  const n=patients.length,m=visits.length;
+  const real=(n+m)>50;
+  const phrase=real?'ERASE REAL DATA':'GO LIVE';
+  const msg='GO-LIVE RESET\n\nThis permanently clears ALL test data on EVERY device:\n • patients ('+n+') and visits ('+m+')\n • bills, lab/radiology/pharmacy orders, consultations\n • expenses, chat, feedback, claims, referrals, consent forms, appointments\n • bed occupancy\n\nKept: staff accounts, prices, lab/radiology/procedure lists, insurance providers, inventory, suppliers and all settings.\n'
+    +(real?'\n⚠ This looks like REAL data (more than 50 records). The cloud keeps a safety copy for 30 days, but treat this as irreversible.\n':'')
+    +'\nType  '+phrase+'  to confirm:';
+  const typed=prompt(msg);
+  if(typed==null)return;
+  if(typed.trim()!==phrase)return alert('Not confirmed — nothing was changed.');
+  const st=document.getElementById('golive-status');
+  const say=(t,c)=>{if(st){st.style.color=c||'#475569';st.textContent=t;}};
+  say('Resetting…');
+  try{
+    setEpoch(Date.now());
+    wipeClinicalData();
+    try{_auditLog('RESET','Go-live reset: test data cleared on all devices (epoch '+getEpoch()+')');}catch(_){}
+    save();
+    await _pushToCloud(0);
+    try{showSection('settings');}catch(_){}
+    if(typeof _cloud!=='undefined'&&_cloud.state==='ok'){
+      say('✓ Done. The clinic is clean and the cloud has been reset. Other devices clear themselves the next time they sign in or sync.','#047857');
+      try{_showToast('✅ Go-live reset complete — ready for real data','#065f46');}catch(_){}
+    }else{
+      say('✓ This device is clean, but the cloud could not be reached — other devices will reset once the cloud connection works (the reset is remembered and will be sent automatically).','#b45309');
+    }
+  }catch(e){say('✗ '+e.message,'#b91c1c');modError('go-live reset',e);}
+};
+
+window.runGoLiveCheck=async function(){
+  const out=document.getElementById('golive-out'); if(!out)return;
+  out.innerHTML='<div style="padding:6px 0;">Checking…</div>';
+  const rows=[]; const add=(ok,title,detail)=>rows.push({ok,title,detail});
+  // 1 cloud worker
+  let health=null;
+  try{
+    if(!CLOUD_PROXY_URL)throw new Error('CLOUD_PROXY_URL is empty');
+    const r=await fetch(CLOUD_PROXY_URL+'/health',{cache:'no-store'});
+    health=await r.json().catch(()=>null);
+    if(r.ok&&health&&health.ok&&health.service==='tali-r2')add(true,'Cloudflare R2 storage is connected','Worker answered at '+CLOUD_PROXY_URL);
+    else if(r.ok)add(false,'Worker is reachable but is NOT the new R2 version','Deploy worker.js from the cloudflare folder (it still looks like the old JSONBin proxy).');
+    else add(false,'Worker returned an error','HTTP '+r.status);
+  }catch(e){add(false,'Cannot reach the Cloudflare worker','Check CLOUD_PROXY_URL and ALLOWED_ORIGIN = '+location.origin+'  ('+e.message+')');}
+  // 2 sync both ways
+  try{
+    const j=await cloudGetLatest(8000);
+    add(true,'Sync works (read)','Cloud currently holds '+(((j&&j.record&&j.record.patients)||[]).length)+' patients');
+  }catch(e){add(false,'Cloud read failed',e.message);}
+  // 3 backup password + backups
+  let list=null;
+  try{
+    const r=await r2Fetch('/backups'); list=(await r.json()).backups||[];
+    add(true,'Backup password accepted','Backup endpoints are protected and working');
+  }catch(e){add(false,'Backup password / endpoint not working',e.message);}
+  if(list){
+    const manual=list.filter(b=>b.key.startsWith('manual/')).length, auto=list.filter(b=>/^(daily|snapshots\/hourly)\//.test(b.key)).length;
+    add(manual>0,'At least one manual backup exists',manual?manual+' manual backup(s) stored':'None yet — click "Back up to Cloudflare now" after the first real day of data');
+    add(auto>0,'Automatic snapshots are being created',auto?auto+' automatic snapshot(s) stored':'None yet — they appear after the first save; the daily one needs the cron trigger (0 21 * * *)');
+  }
+  // 4 passwords
+  const weak=(staffList||[]).filter(s=>s&&s.forcePasswordChange);
+  add(weak.length===0,'Everyone has set their own password',weak.length?weak.length+' account(s) still on the first-login password: '+weak.map(s=>s.username).slice(0,6).join(', '):'All accounts changed');
+  // 5 leftover test data
+  const looksTest=patients.filter(p=>/test|demo|sample|dummy/i.test(String(p.name||''))).length;
+  add((patients.length+visits.length)===0,'No test data on this device',(patients.length+visits.length)?patients.length+' patients / '+visits.length+' visits here'+(looksTest?' ('+looksTest+' look like test names)':'')+' — use Go-Live Reset below if these are test records':'Clean');
+  // 6 storage persistence
+  try{
+    if(navigator.storage&&navigator.storage.persisted){const p=await navigator.storage.persisted();add(p,'Browser will not auto-delete local data',p?'Persistent storage granted':'Not guaranteed on this browser — keep cloud sync healthy and install the app to the home screen');}
+  }catch(_){}
+  const bad=rows.filter(r=>!r.ok).length;
+  out.innerHTML='<div style="font-weight:700;margin:8px 0;color:'+(bad?'#b45309':'#047857')+';">'+(bad?('⚠ '+bad+' item(s) need attention'):'✓ Ready for real data')+'</div>'
+    +rows.map(r=>'<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid #e2e8f0;"><div style="font-size:15px;line-height:1.2;">'+(r.ok?'✅':'⚠️')+'</div><div><div style="font-weight:600;font-size:12.5px;">'+esc(r.title)+'</div><div style="font-size:11.5px;color:#64748b;">'+esc(r.detail)+'</div></div></div>').join('');
+};
+// ask the browser to keep our local copy of the data safe from automatic clean-up
+try{ if(navigator.storage&&navigator.storage.persist)navigator.storage.persist(); }catch(_){}
 
 /* ───────── styles ───────── */
 const st=document.createElement('style');
