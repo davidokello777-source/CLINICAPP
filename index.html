@@ -2081,7 +2081,7 @@ document.addEventListener("DOMContentLoaded", function(){
         </div>
       </div>
       <!-- ── SYSTEM CHECK & CLOUDFLARE BACKUP (v16) ── -->
-      <div class="card settings-card" data-settings-title="System check diagnostics errors blank empty cloud backup cloudflare r2" style="margin-top:14px;padding:16px 18px;">
+      <div class="card settings-card" data-settings-title="System check diagnostics errors blank empty cloud backup cloudflare" style="margin-top:14px;padding:16px 18px;">
         <h4 style="margin:0 0 12px;color:#1e3a8a;">🩺 System Check &amp; ☁ Cloudflare Backup</h4>
         <div class="g2">
           <div style="background:#fefce8;border:1.5px solid #fde68a;border-radius:8px;padding:14px;">
@@ -2091,7 +2091,7 @@ document.addEventListener("DOMContentLoaded", function(){
             <div id="syscheck-out" style="font-size:12px;color:#374151;"></div>
           </div>
           <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;padding:14px;">
-            <div style="font-weight:700;color:#075985;margin-bottom:6px;">☁ Cloudflare R2 Backup</div>
+            <div style="font-weight:700;color:#075985;margin-bottom:6px;">☁ Cloudflare Backup</div>
             <p style="font-size:12px;color:#374151;margin-bottom:10px;">Saves a full copy of all clinic data in your Cloudflare storage. The worker also keeps automatic hourly and daily snapshots. Needs the backup password set in the worker.</p>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button type="button" onclick="r2BackupNow()" class="bp" style="flex:1;min-width:150px;">☁ Back up to Cloudflare now</button>
@@ -17511,7 +17511,7 @@ window.runSystemCheck=async function(){
 };
 window.copySystemReport=function(){copyText(buildReport('SYSTEM CHECK RESULT:\n'+(window._lastSysSummary||'(not run)')));};
 
-/* ───────── 6. CLOUDFLARE R2 BACKUP CLIENT ───────── */
+/* ───────── 6. CLOUDFLARE BACKUP CLIENT ───────── */
 const TOK='tali_r2_admin_token';
 function r2Token(force){
   let t=sessionStorage.getItem(TOK);
@@ -17537,7 +17537,7 @@ window.r2BackupNow=async function(){
     const j=await r.json();
     localStorage.setItem('tali_last_r2_backup',new Date().toISOString());
     r2Say('✓ Backed up to Cloudflare ('+Math.round(JSON.stringify(data).length/1024)+' KB) — '+j.key,true);
-    try{_auditLog('EXPORT','Backup saved to Cloudflare R2: '+j.key);}catch(_){}
+    try{_auditLog('EXPORT','Backup saved to Cloudflare: '+j.key);}catch(_){}
     window.r2ListBackups();
   }catch(e){r2Say('✗ '+e.message,false);}
 };
@@ -17640,8 +17640,8 @@ window.runGoLiveCheck=async function(){
     if(!CLOUD_PROXY_URL)throw new Error('CLOUD_PROXY_URL is empty');
     const r=await fetch(CLOUD_PROXY_URL+'/health',{cache:'no-store'});
     health=await r.json().catch(()=>null);
-    if(r.ok&&health&&health.ok&&health.service==='tali-r2')add(true,'Cloudflare R2 storage is connected','Worker answered at '+CLOUD_PROXY_URL);
-    else if(r.ok)add(false,'Worker is reachable but is NOT the new R2 version','Deploy worker.js from the cloudflare folder (it still looks like the old JSONBin proxy).');
+    if(r.ok&&health&&health.ok&&/^tali-(d1|r2)$/.test(health.service||''))add(true,'Cloudflare storage is connected','Worker answered at '+CLOUD_PROXY_URL);
+    else if(r.ok)add(false,'Worker is reachable but is NOT the new Cloudflare version','Deploy worker.js from the cloudflare folder (it still looks like the old JSONBin proxy).');
     else add(false,'Worker returned an error','HTTP '+r.status);
   }catch(e){add(false,'Cannot reach the Cloudflare worker','Check CLOUD_PROXY_URL and ALLOWED_ORIGIN = '+location.origin+'  ('+e.message+')');}
   // 2 sync both ways
