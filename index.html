@@ -18,35 +18,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{--p:#1e3a8a;--s:#3b82f6;--a:#10b981;--d:#ef4444;--w:#f59e0b;--pu:#7c3aed;--bg:#f1f5f9;--tx:#0f172a;--bd:#e2e8f0;--mu:#64748b;--lt:#f8fafc;--card:#fff;--inp:#fff;--inp-bdr:#d1d5db;--color-border-tertiary:#e2e8f0;}
-/* ── DARK MODE ────────────────────────────────────────── */
-body.dark-mode{
-  --p:#60a5fa;--s:#38bdf8;--a:#34d399;--d:#f87171;--w:#fbbf24;--pu:#a78bfa;
-  --bg:#0f172a;--tx:#e2e8f0;--bd:#334155;--mu:#94a3b8;--lt:#1e293b;
-  --card:#1e293b;--inp:#273449;--inp-bdr:#475569;--color-border-tertiary:#334155;
-  background:#0f172a!important;color:#e2e8f0!important;
-}
-body.dark-mode input,body.dark-mode textarea,body.dark-mode select{
-  background:var(--inp)!important;color:var(--tx)!important;border-color:var(--inp-bdr)!important;
-}
-body.dark-mode .card{background:var(--card)!important;color:var(--tx)!important;border-color:var(--bd)!important;}
-body.dark-mode aside#sidebar{background:linear-gradient(180deg,#1a2e5a 0%,#0c1628 100%)!important;}
-body.dark-mode .nb{color:#cbd5e1!important;}
-body.dark-mode .nb.active,body.dark-mode .nb:hover{background:rgba(96,165,250,.18)!important;color:#93c5fd!important;}
-body.dark-mode main#content{background:#0f172a!important;}
-body.dark-mode .mo .mb{background:#1e293b!important;border:1px solid #334155!important;}
-body.dark-mode .stabs{background:#1e293b!important;border-color:#334155!important;}
-body.dark-mode .st{background:#0f172a!important;color:#94a3b8!important;border-color:#334155!important;}
-body.dark-mode .st.active{background:#1e3a8a!important;color:#fff!important;}
-body.dark-mode table{background:transparent!important;}
-body.dark-mode tr:nth-child(even){background:rgba(255,255,255,.03)!important;}
-body.dark-mode .pit th{background:#1d3461!important;}
-body.dark-mode .pit td{border-color:#334155!important;color:var(--tx)!important;}
-body.dark-mode .cb .ch{background:#1e293b!important;border-color:#334155!important;color:var(--tx)!important;}
-body.dark-mode .cbody{background:#0f172a!important;border-color:#334155!important;}
-body.dark-mode h1,body.dark-mode h2,body.dark-mode h3,body.dark-mode h4,body.dark-mode h5,body.dark-mode label,body.dark-mode p,body.dark-mode span:not(.badge):not(.dc):not(.sc *){color:var(--tx);}
-body.dark-mode .sc{filter:brightness(.92);}
-body.dark-mode .rx-card{background:#1e3a8a22!important;border-color:#334155!important;}
-body.dark-mode details summary{color:var(--tx)!important;}
 /* smooth transition */
 body,body *{transition:background-color .22s ease,border-color .22s ease,color .12s ease;}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -419,7 +390,6 @@ document.addEventListener("DOMContentLoaded", function(){
         <span id="si3" class="si2"></span>
         <span id="device-badge" style="font-size:10px;background:rgba(255,255,255,.12);padding:2px 7px;border-radius:8px;display:none;">📱 Multi-Device</span>
         <span class="voice-badge" onclick="toggleVoice()" id="voice-badge" title="Toggle voice alerts">🔊</span>
-        <span id="dark-toggle-btn" onclick="toggleDarkMode()" title="Toggle dark mode for night shifts" style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.12);padding:3px 9px;border-radius:10px;font-size:11px;cursor:pointer;color:#fff;">🌙 Night</span>
         <span onclick="openCurrencyConverter()" title="Currency converter" style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.12);padding:3px 9px;border-radius:10px;font-size:11px;cursor:pointer;color:#fff;">💱 FX</span>
       </div>
       <button id="pwa-install-btn" onclick="installPWA()" style="display:none;background:#0ea5e9;color:#fff;border:none;font-size:11px;padding:5px 8px;border-radius:5px;cursor:pointer;width:100%;margin-bottom:5px;" title="Install app">📲 Install App</button>
@@ -15562,21 +15532,11 @@ if(!window.shifts)window.shifts=[]; // guarantee shifts exists even on first-eve
 // ║  Dark Mode · Backup/Restore · Audit Log · Unit Tests            ║
 // ╚══════════════════════════════════════════════════════════════════╝
 
-// ── DARK MODE ─────────────────────────────────────────────────
-function toggleDarkMode(){
-  const isDark=document.body.classList.toggle('dark-mode');
-  localStorage.setItem('tali_dark_mode', isDark?'1':'0');
-  const btn=document.getElementById('dark-toggle-btn');
-  if(btn)btn.textContent=isDark?'☀️ Day':'🌙 Night';
-  _auditLog('DARK_MODE_TOGGLE', isDark?'Enabled':'Disabled');
-}
-// Apply saved dark mode on boot
+// ── NIGHT MODE REMOVED (v16): the app is always in normal day mode ─────────────
+function toggleDarkMode(){}
 (function(){
-  if(localStorage.getItem('tali_dark_mode')==='1'){
-    document.body.classList.add('dark-mode');
-    const btn=document.getElementById('dark-toggle-btn');
-    if(btn)btn.textContent='☀️ Day';
-  }
+  try{localStorage.removeItem('tali_dark_mode');}catch(_){}
+  document.body.classList.remove('dark-mode');
 })();
 
 // ── CURRENCY CONVERTER ────────────────────────────────────────
@@ -15869,7 +15829,7 @@ function runUnitTests(){
   assert('billStatus — PAID when totalPaid>=totalBill','PAID',billStatus(vPaid));
   assert('billStatus — PARTIAL when some paid','PARTIAL',billStatus(vPartial));
   assert('billStatus — PENDING when nothing paid','PENDING',billStatus(vPending));
-  assert('billStatus — PENDING on zero-bill visit','PENDING',billStatus({consultFee:0,labs:[],prescriptions:[],radiology:[],procedures:[],discount:0,totalPaid:0}));
+  assert('billStatus — PAID (nothing owed) on zero-bill visit','PAID',billStatus({consultFee:0,labs:[],prescriptions:[],radiology:[],procedures:[],discount:0,totalPaid:0}));
 
   // ── Stock deduction tests ─────────────────────────────────────
   const fakeInventory=[{id:'TEST-1',name:'TestDrug',stock:10,reorderLevel:2,price:5}];
@@ -17456,7 +17416,7 @@ function buildReport(extra){
   L.push('Screen: '+innerWidth+'x'+innerHeight+'  Page: '+location.origin+location.pathname);
   try{L.push('Data on device: '+patients.length+' patients, '+visits.length+' visits, '+inventory.length+' inventory, '+expenses.length+' expenses, '+staffList.length+' staff');}catch(_){}
   try{L.push('Cloud: '+_cloud.state+(_cloud.lastErr?' — '+_cloud.lastErr:'')+(_cloud.hint?' | '+_cloud.hint:'')+' | last ok: '+(_cloud.lastOk||'never'));}catch(_){}
-  try{L.push('User: '+currentUser.username+' ('+currentUser.role+')  Night mode: '+document.body.classList.contains('dark-mode'));}catch(_){}
+  try{L.push('User: '+currentUser.username+' ('+currentUser.role+')');}catch(_){}
   L.push('');
   if(extra)L.push(extra,'');
   const seen={};
@@ -17666,6 +17626,11 @@ window.runGoLiveCheck=async function(){
   // 5 leftover test data
   const looksTest=patients.filter(p=>/test|demo|sample|dummy/i.test(String(p.name||''))).length;
   add((patients.length+visits.length)===0,'No test data on this device',(patients.length+visits.length)?patients.length+' patients / '+visits.length+' visits here'+(looksTest?' ('+looksTest+' look like test names)':'')+' — use Go-Live Reset below if these are test records':'Clean');
+  // data size vs the free-plan save limit (12 MB)
+  try{
+    const mb=JSON.stringify(_buildPayload()).length/1048576;
+    add(mb<8,'Data size is comfortably under the free-plan limit',mb.toFixed(1)+' MB of 12 MB'+(mb>=8?' — getting close. Tell your developer now: old visits should be archived before saves start failing with "Payload too large".':''));
+  }catch(_){}
   // 6 storage persistence
   try{
     if(navigator.storage&&navigator.storage.persisted){const p=await navigator.storage.persisted();add(p,'Browser will not auto-delete local data',p?'Persistent storage granted':'Not guaranteed on this browser — keep cloud sync healthy and install the app to the home screen');}
