@@ -1196,7 +1196,7 @@ document.addEventListener("DOMContentLoaded", function(){
               <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">
                 <input id="pc-complaint-input" list="pc-datalist" placeholder="Symptom (e.g. Headache)" style="flex:2;min-width:140px;margin:0;font-size:13px;">
                 <datalist id="pc-datalist"></datalist>
-                <input type="number" id="pc-duration-val" placeholder="Duration" min="1" style="width:75px;margin:0;font-size:13px;">
+                <input type="text" inputmode="decimal" autocomplete="off" id="pc-duration-val" placeholder="e.g. 3" title="Number (3, 2.5), range (2-3) or with unit (1 week)" onkeydown="if(event.key==='Enter'){event.preventDefault();addPCItem();}" style="width:90px;margin:0;font-size:13px;">
                 <select id="pc-duration-unit" style="width:90px;margin:0;font-size:13px;">
                   <option>Hours</option><option>Days</option><option selected>Days</option><option>Weeks</option><option>Months</option><option>Years</option>
                 </select>
@@ -5045,6 +5045,11 @@ function viewVisitRecord(vid){
   document.getElementById('cons-form').scrollIntoView({behavior:'smooth'});
 }
 
+function _enableConsFields(){
+  ['hPC','hHPC','hPMH','hOG','hFSH','hDrug','cDiffDx','cFinalDx','cNotes','hLMP','hGP','hAllergy',
+   'hPEGeneral','hPEHead','hPEChest','hPECVS','hPEAbdomen','hPECNS','hPEExtremities','hPESkin','hPEOther','cRecommendations']
+  .forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=false;});
+}
 function closeVisitRecord(){
   ['hPC','hHPC','hPMH','hOG','hFSH','hDrug','cDiffDx','cFinalDx','cNotes','hLMP','hGP','hAllergy',
    'hPEGeneral','hPEHead','hPEChest','hPECVS','hPEAbdomen','hPECNS','hPEExtremities','hPESkin','hPEOther','cRecommendations']
@@ -5077,6 +5082,7 @@ function openCons(id){
     viewVisitRecord(id);
     return;
   }
+  _enableConsFields(); // viewVisitRecord() disables these; they must be re-enabled for an editable visit
   // Ensure the Queue tab is active so cons-form is reachable
   const queueTab=document.querySelector('#sec-doctor .st');
   if(queueTab){document.querySelectorAll('#sec-doctor .st').forEach(b=>b.classList.remove('active'));queueTab.classList.add('active');}
@@ -5386,9 +5392,31 @@ function _loadPCDatalist(){
   dl.innerHTML=lib.map(c=>`<option value="${c}">`).join('');
 }
 function _durationToHours(val, unit){
-  const v=parseFloat(val)||0;
+  const nums=(String(val).match(/\d+(?:\.\d+)?/g)||[]).map(parseFloat);
+  const v=nums.length?Math.max(...nums):0;
   const map={Hours:1, Days:24, Weeks:168, Months:720, Years:8760};
   return v*(map[unit]||24);
+}
+// Parse free-typed durations: "3", "2.5", "2-3", "1 week", "2wks", "3 d".
+// Returns {val, unit|null} or null when it cannot be understood.
+function _parseDuration(raw){
+  const t=String(raw==null?'':raw).trim().replace(/,/g,'.').replace(/[–—]/g,'-');
+  if(!t)return null;
+  const m=t.match(/^(\d+(?:\.\d+)?)(?:\s*(?:-|to)\s*(\d+(?:\.\d+)?))?\s*([a-z]*)$/i);
+  if(!m)return null;
+  const a=parseFloat(m[1]), b=m[2]!==undefined?parseFloat(m[2]):null;
+  if(!(a>0)||(b!==null&&!(b>0)))return null;
+  let unit=null;
+  if(m[3]){
+    const u=m[3].toLowerCase();
+    if(/^(h|hr|hrs|hour|hours)$/.test(u))unit='Hours';
+    else if(/^(d|day|days)$/.test(u))unit='Days';
+    else if(/^(w|wk|wks|week|weeks)$/.test(u))unit='Weeks';
+    else if(/^(m|mo|mos|month|months)$/.test(u))unit='Months';
+    else if(/^(y|yr|yrs|year|years)$/.test(u))unit='Years';
+    else return null;
+  }
+  return {val:(b!==null?m[1]+'-'+m[2]:m[1]), unit};
 }
 function renderPCList(){
   // Sort by duration descending (longest onset first = oldest symptom)
@@ -5406,17 +5434,26 @@ function renderPCList(){
   // Sync hidden input with formatted text for saveClinical()
   document.getElementById('hPC').value=sorted.map((item,i)=>`${i+1}. ${item.complaint} — ${item.val} ${item.unit}`).join('\n');
 }
-function addPCItem(){
+function addPCItem(silent){
   const complaint=(document.getElementById('pc-complaint-input')?.value||'').trim();
-  const val=document.getElementById('pc-duration-val')?.value;
-  const unit=document.getElementById('pc-duration-unit')?.value||'Days';
-  if(!complaint)return alert('Enter a symptom/complaint.');
-  if(!val||parseFloat(val)<=0)return alert('Enter a valid duration.');
-  _pcItems.push({complaint, val, unit});
+  const rawVal=document.getElementById('pc-duration-val')?.value;
+  const unitEl=document.getElementById('pc-duration-unit');
+  if(!complaint){ if(silent!==true)alert('Enter a symptom/complaint.'); return false; }
+  const d=_parseDuration(rawVal);
+  if(!d){
+    if(silent!==true){
+      alert('Enter a valid duration, e.g. 3, 2.5, 2-3 or "1 week"'+(String(rawVal||'').trim()?' (could not read "'+String(rawVal).trim()+'").':'.'));
+      document.getElementById('pc-duration-val')?.focus();
+    }
+    return false;
+  }
+  const unit=d.unit||unitEl?.value||'Days';
+  _pcItems.push({complaint, val:d.val, unit});
   _addToPCLibrary(complaint);
   document.getElementById('pc-complaint-input').value='';
   document.getElementById('pc-duration-val').value='';
   renderPCList();
+  return true;
 }
 function removePCItem(idx){
   _pcItems.splice(idx,1);
@@ -5429,9 +5466,9 @@ function _loadPCIntoUI(pcText){
   const lines=pcText.split('\n').filter(l=>l.trim());
   lines.forEach(line=>{
     // Format: "1. Headache — 3 Days" or legacy plain text
-    const m=line.match(/^\d+\.\s*(.+?)\s*[—–-]+\s*(\d+\.?\d*)\s*(Hours?|Days?|Weeks?|Months?|Years?)/i);
+    const m=line.match(/^\d+\.\s*(.+?)\s*[—–]+\s*(\d+\.?\d*(?:\s*-\s*\d+\.?\d*)?)\s*(Hours?|Days?|Weeks?|Months?|Years?)/i);
     if(m){
-      _pcItems.push({complaint:m[1].trim(), val:m[2], unit:m[3].replace(/s$/i,'')+'s'});
+      {const u=m[3].replace(/s$/i,'');_pcItems.push({complaint:m[1].trim(), val:m[2].replace(/\s+/g,''), unit:u.charAt(0).toUpperCase()+u.slice(1).toLowerCase()+'s'});}
     } else if(line.replace(/^\d+\.\s*/,'').trim()){
       // Legacy: plain text complaint, no duration
       _pcItems.push({complaint:line.replace(/^\d+\.\s*/,'').trim(), val:'1', unit:'Days'});
@@ -5442,6 +5479,8 @@ function _loadPCIntoUI(pcText){
 
 function saveClinical(){
   const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  // Auto-add a complaint that was typed (with a valid duration) but never added with "+ Add"
+  if((document.getElementById('pc-complaint-input')?.value||'').trim()&&document.getElementById('pc-duration-val')?.value)addPCItem(true);
   // Sync PC hidden input before saving
   const sorted=[..._pcItems].sort((a,b)=>_durationToHours(b.val,b.unit)-_durationToHours(a.val,a.unit));
   document.getElementById('hPC').value=sorted.map((item,i)=>`${i+1}. ${item.complaint} — ${item.val} ${item.unit}`).join('\n');
