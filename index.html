@@ -70,6 +70,14 @@ tr:hover td{background:#fafbff;}
 .mo.open{display:flex;}.mb{background:#fff;border-radius:10px;width:100%;max-width:840px;padding:20px;position:relative;margin:auto;}
 .mc{position:absolute;top:11px;right:11px;background:none;border:none;font-size:19px;cursor:pointer;color:var(--mu);}
 .ab{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px;padding-top:11px;border-top:1px solid var(--bd);}
+.pm-wrap{position:relative;display:inline-block;}
+.pm-menu{display:none;position:absolute;left:0;bottom:calc(100% + 6px);min-width:260px;max-width:92vw;background:#fff;border:1px solid var(--bd);border-radius:9px;box-shadow:0 10px 28px rgba(15,23,42,.22);z-index:70;padding:4px;}
+.pm-menu.open{display:block;}
+.pm-menu button{display:flex;width:100%;justify-content:space-between;align-items:center;gap:12px;text-align:left;background:none;border:0;padding:9px 10px;font-size:13px;border-radius:6px;cursor:pointer;color:#0f172a;}
+.pm-menu button:hover:not([disabled]){background:#eff6ff;}
+.pm-menu button[disabled]{opacity:.42;cursor:not-allowed;}
+.pm-menu small{color:#64748b;font-size:11px;white-space:nowrap;}
+.pm-menu hr{border:0;border-top:1px solid #e2e8f0;margin:4px 0;}
 hr.dv{border:none;border-top:1.5px solid var(--bd);margin:12px 0;}
 .dc{display:inline-block;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:600;background:#d1fae5;color:#065f46;margin:1px;}
 .pb{font-size:11px;font-weight:700;padding:2px 6px;border-radius:10px;}
@@ -5032,9 +5040,8 @@ function viewVisitRecord(vid){
     <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;padding:8px 14px;font-size:12px;color:#166534;font-weight:600;">
       🔒 Read-only view — this visit is ${v.status.replace(/_/g,' ')}
     </div>
-    <button onclick="printVisitReport('${v.id}')" class="bo" style="padding:6px 14px;">📄 Print Full Report</button>
+    ${_printMenuHTML()}
     <button onclick="openInvoicePrintModal('${v.id}')" class="bsm bo">🖨 Print Invoice</button>
-    ${(v.labs||[]).some(l=>l.done)?`<button onclick="printAllLabs('${v.id}')" class="bsm" style="background:var(--a);color:#fff;">🔬 Lab PDF</button>`:''}
     <button onclick="closeVisitRecord()" class="bd2" style="padding:6px 12px;">✕ Close</button>`;
   // Switch to queue tab so cons-form is visible
   const queueTab=document.querySelector('#sec-doctor .st');
@@ -5160,7 +5167,7 @@ function openCons(id){
   updateOrderSummary(v);
   // Actions
   const ab=document.getElementById('cons-actions');
-  ab.innerHTML=`<button onclick="saveClinical()" style="background:#475569;color:#fff;font-weight:600;">💾 Save Notes</button><button onclick="openAdmit()" class="bpu">🛏 Admit</button><button onclick="printPatientReport()" class="bo bsm">📄 Print Report</button><button onclick="printDischargeSummary()" class="bo bsm" style="border-color:#10b981;color:#10b981;">📋 Discharge Summary</button><button onclick="endVisit()" class="bd2" style="padding:6px 12px;font-size:13px;">✓ End Visit</button>`;
+  ab.innerHTML=`<button onclick="saveClinical()" style="background:#475569;color:#fff;font-weight:600;">💾 Save Notes</button><button onclick="openAdmit()" class="bpu">🛏 Admit</button>${_printMenuHTML()}<button onclick="endVisit()" class="bd2" style="padding:6px 12px;font-size:13px;">✓ End Visit</button>`;
   document.getElementById('queue-list-card').style.display='none';
   document.getElementById('cons-form').style.display='block';
   document.getElementById('cons-form').scrollIntoView({behavior:'smooth'});
@@ -5605,10 +5612,11 @@ function tClin(h){h.classList.toggle('open');h.nextElementSibling.classList.togg
 // Builds the printable HTML for a visit purely from its saved clinical data
 // (never touches on-screen form fields) — safe to call for any visit,
 // whether or not it's the one currently open in the consultation form.
-function _buildVisitReportHTML(v){
+function _buildVisitReportHTML(v,opt){
+  opt=opt||{};
   const p=patients.find(x=>x.id===v.patId);
   const cl=v.clinical||{};
-  return printHeader('PATIENT CLINICAL REPORT')+`
+  return printHeader(opt.title||'PATIENT CLINICAL REPORT')+`
     <div style="margin-bottom:12px;background:#f8fafc;border-radius:5px;padding:10px;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;">
         <div><b>Patient:</b> ${v.name}</div><div><b>Date:</b> ${v.date}</div>
@@ -5630,8 +5638,8 @@ function _buildVisitReportHTML(v){
     ${cl.fsh?`<div style="margin-bottom:8px;"><b>(FSH)</b> <div style="margin-top:3px;padding-left:10px;">${cl.fsh}</div></div>`:''}
     ${cl.drugHx||cl.allergies?`<div style="margin-bottom:8px;"><b>DRUG HISTORY:</b><div style="margin-top:3px;padding-left:10px;">${cl.drugHx||'—'}</div><b>ALLERGIES:</b> ${cl.allergies||'None known'}</div>`:''}
     ${cl.diffDx?`<div style="margin-bottom:8px;"><b>DIFFERENTIAL DIAGNOSIS:</b><div style="margin-top:3px;padding-left:10px;">${cl.diffDx}</div></div>`:''}
-    ${(v.labs||[]).filter(l=>l.name).length?`<div style="margin-bottom:8px;"><b>(Ix)</b><table class="pit"><tr><th>Test</th><th>Result</th><th>Status</th></tr>${(v.labs||[]).filter(l=>l.name).map(l=>`<tr><td>${l.name}</td><td>${l.result||'Pending'}</td><td>${l.done?'Done':'Pending'}</td></tr>`).join('')}</table></div>`:''}
-    ${(v.radiology||[]).filter(r=>r.name).length?`<div style="margin-bottom:8px;"><b>(Rad)</b><table class="pit"><tr><th>Procedure</th><th>Impression</th><th>Status</th></tr>${(v.radiology||[]).filter(r=>r.name).map(r=>{
+    ${opt.labs!==false&&(v.labs||[]).filter(l=>l.name).length?`<div style="margin-bottom:8px;"><b>(Ix)</b><table class="pit"><tr><th>Test</th><th>Result</th><th>Status</th></tr>${(v.labs||[]).filter(l=>l.name).map(l=>`<tr><td>${l.name}</td><td>${l.result||'Pending'}</td><td>${l.done?'Done':'Pending'}</td></tr>`).join('')}</table></div>`:''}
+    ${opt.rad!==false&&(v.radiology||[]).filter(r=>r.name).length?`<div style="margin-bottom:8px;"><b>(Rad)</b><table class="pit"><tr><th>Procedure</th><th>Impression</th><th>Status</th></tr>${(v.radiology||[]).filter(r=>r.name).map(r=>{
       // Extract only the IMPRESSION section from the full report text
       let impression = 'Pending';
       if(r.result){
@@ -5644,8 +5652,8 @@ function _buildVisitReportHTML(v){
     ${cl.notes?`<div style="margin-bottom:8px;"><b>(Mx)</b> <div style="margin-top:3px;padding-left:10px;">${cl.notes}</div></div>`:''}
     ${(cl.peGeneral||cl.peChest||cl.peAbdomen||cl.peCVS)?`<div style="margin-bottom:8px;"><b>(PE)</b> <table class="pit"><tr><th>System</th><th>Finding</th></tr>${[['General',cl.peGeneral],['Head/Neck',cl.peHead],['Respiratory',cl.peChest],['Cardiovascular',cl.peCVS],['Abdomen',cl.peAbdomen],['CNS',cl.peCNS],['Extremities',cl.peExtremities],['Skin',cl.peSkin],['Other',cl.peOther]].filter(x=>x[1]).map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td></tr>`).join('')}</table></div>`:''}
     ${cl.recommendations?`<div style="margin-bottom:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:5px;padding:9px;"><b>(Rec)</b> <div style="margin-top:4px;">${cl.recommendations}</div></div>`:''}
-    ${(v.prescriptions||[]).filter(r=>r.name).length?`<div style="margin-bottom:8px;"><b>PRESCRIPTION:</b><table class="pit"><tr><th>Drug</th><th>Strength</th><th>Form.</th><th>Qty</th><th>Duration</th><th>Date</th><th>Patient Instructions</th></tr>${(v.prescriptions||[]).filter(r=>r.name).map(r=>`<tr><td>${r.name}</td><td>${r.strength||'—'}</td><td>${r.formulation||'—'}</td><td>${r.qty}</td><td>${r.duration||'—'}</td><td>${v.date}</td><td>${r.patientInstructions||'—'}</td></tr>`).join('')}</table></div>`:''}
-    ${(v.procedures||[]).filter(p=>p.name).length?`<div style="margin-bottom:8px;">
+    ${opt.rx!==false&&(v.prescriptions||[]).filter(r=>r.name).length?`<div style="margin-bottom:8px;"><b>PRESCRIPTION:</b><table class="pit"><tr><th>Drug</th><th>Strength</th><th>Form.</th><th>Qty</th><th>Duration</th><th>Date</th><th>Patient Instructions</th></tr>${(v.prescriptions||[]).filter(r=>r.name).map(r=>`<tr><td>${r.name}</td><td>${r.strength||'—'}</td><td>${r.formulation||'—'}</td><td>${r.qty}</td><td>${r.duration||'—'}</td><td>${v.date}</td><td>${r.patientInstructions||'—'}</td></tr>`).join('')}</table></div>`:''}
+    ${opt.procs!==false&&(v.procedures||[]).filter(p=>p.name).length?`<div style="margin-bottom:8px;">
       <b>PROCEDURES ORDERED:</b>
       <table class="pit">
         <tr><th>Procedure</th><th>Ordered By</th><th>Date</th><th>Status</th><th>Completed By</th><th>Time</th><th>Observations</th></tr>
@@ -5660,9 +5668,85 @@ function _buildVisitReportHTML(v){
         </tr>`).join('')}
       </table>
     </div>`:''}
-    ${(v.treatmentChart||[]).length?`<div style="margin-bottom:8px;"><b>TREATMENT CHART:</b><table class="pit"><tr><th>Drug</th><th>Dose</th><th>Route</th><th>Time</th><th>Nurse</th><th>Notes</th></tr>${v.treatmentChart.map(e=>`<tr><td>${e.drug}</td><td>${e.dose}</td><td>${e.route}</td><td>${e.time}</td><td>${e.by}</td><td>${e.notes||'—'}</td></tr>`).join('')}</table></div>`:''}
+    ${opt.chart!==false&&(v.treatmentChart||[]).length?`<div style="margin-bottom:8px;"><b>TREATMENT CHART:</b><table class="pit"><tr><th>Drug</th><th>Dose</th><th>Route</th><th>Time</th><th>Nurse</th><th>Notes</th></tr>${v.treatmentChart.map(e=>`<tr><td>${e.drug}</td><td>${e.dose}</td><td>${e.route}</td><td>${e.time}</td><td>${e.by}</td><td>${e.notes||'—'}</td></tr>`).join('')}</table></div>`:''}
+    ${opt.sign?_signBlock(v):''}
     `+printFooter();
 }
+
+// ══════════════════════════════════════════════
+//  SEPARATE PRINT DOCUMENTS (consultation / lab / radiology / prescription / procedures)
+// ══════════════════════════════════════════════
+function _signBlock(v){
+  const who=(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)?currentUser.name:'';
+  return `<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:30px;font-size:12px;">
+    <div>Clinician: <b>${_pcEsc(who)}</b></div><div>Signature: ____________________</div><div>Date: ${_pcEsc(v.date||'')}</div></div>`;
+}
+function _patientStrip(v){
+  const p=patients.find(x=>x.id===v.patId);
+  return `<p style="font-size:12px;margin:8px 0 10px;padding:7px;background:#f8fafc;border-radius:5px;">
+    <b>Patient:</b> ${_pcEsc(v.name||'')} &nbsp;|&nbsp; <b>Age:</b> ${p?_pcEsc(p.ageVal+' '+p.ageUnit):'--'} &nbsp;|&nbsp;
+    <b>Gender:</b> ${p?_pcEsc(p.gender||'--'):'--'} &nbsp;|&nbsp; <b>Date:</b> ${_pcEsc(v.date||'')}</p>`;
+}
+function _printOut(html){
+  document.getElementById('pra-sub').innerText='';
+  document.getElementById('pra-con').innerHTML=html;
+  doPrint();
+}
+function _buildRxHTML(v){
+  const rx=(v.prescriptions||[]).filter(r=>r.name), al=(v.clinical||{}).allergies;
+  return printHeader('PRESCRIPTION')+_patientStrip(v)+
+   `<div style="font-size:12px;margin-bottom:8px;"><b>Allergies:</b> ${_pcEsc(al||'None known')}</div>
+    <table class="pit"><tr><th>#</th><th>Drug</th><th>Strength</th><th>Form</th><th>Qty</th><th>Duration</th><th>Instructions to patient</th></tr>
+    ${rx.map((r,i)=>`<tr><td>${i+1}</td><td><b>${_pcEsc(r.name)}</b></td><td>${_pcEsc(r.strength||'—')}</td><td>${_pcEsc(r.formulation||'—')}</td><td>${_pcEsc(r.qty??'')}</td><td>${_pcEsc(r.duration||'—')}</td><td>${_pcEsc(r.patientInstructions||'—')}</td></tr>`).join('')}</table>`
+   +_signBlock(v)+printFooter();
+}
+function _buildProcHTML(v){
+  const pr=(v.procedures||[]).filter(p=>p.name);
+  return printHeader('PROCEDURES')+_patientStrip(v)+
+   `<table class="pit"><tr><th>Procedure</th><th>Ordered by</th><th>Date</th><th>Status</th><th>Completed by</th><th>Time</th><th>Observations</th></tr>
+    ${pr.map(p=>`<tr><td><b>${_pcEsc(p.name)}</b></td><td>${_pcEsc(p.orderedBy||'—')}</td><td>${_pcEsc(p.orderedDate||v.date||'')}</td><td>${p.completed?'Completed':'Pending'}</td><td>${_pcEsc(p.completedBy||'—')}</td><td>${_pcEsc(p.completedTime||'—')}</td><td>${_pcEsc(p.notes||'—')}</td></tr>`).join('')}</table>`
+   +_signBlock(v)+printFooter();
+}
+function _printMenuHTML(){
+  return `<div class="pm-wrap"><button class="bo bsm" onclick="togglePrintMenu(event)">🖨 Print ▾</button><div class="pm-menu" id="pm-menu"></div></div>`;
+}
+function _fillPrintMenu(m){
+  const v=visits.find(x=>x.id===activeVid); if(!v){m.innerHTML='';return;}
+  const labs=(v.labs||[]).filter(l=>l.name), labDone=labs.filter(l=>l.done).length;
+  const rads=(v.radiology||[]).filter(r=>r.name), radDone=rads.filter(r=>r.done).length;
+  const rx=(v.prescriptions||[]).filter(r=>r.name).length, pr=(v.procedures||[]).filter(p=>p.name).length;
+  const it=(k,label,sub,ok)=>`<button ${ok?'':'disabled'} onclick="printDoc('${k}')"><span>${label}</span><small>${sub}</small></button>`;
+  m.innerHTML=
+    it('consult','📝 Consultation Note','clinical notes only',true)+
+    it('lab','🔬 Lab Report',labs.length?labDone+'/'+labs.length+' resulted':'none ordered',labDone>0)+
+    it('rad','🩻 Radiology Report',rads.length?radDone+'/'+rads.length+' reported':'none ordered',radDone>0)+
+    it('rx','💊 Prescription',rx?rx+' item(s)':'none',rx>0)+
+    it('proc','🩹 Procedures',pr?pr+' item(s)':'none',pr>0)+
+    '<hr>'+it('discharge','📋 Discharge Summary','',true)+it('full','🗂 Full Combined Report','everything in one',true);
+}
+function togglePrintMenu(e){
+  if(e)e.stopPropagation();
+  const m=document.getElementById('pm-menu'); if(!m)return;
+  if(m.classList.contains('open')){m.classList.remove('open');return;}
+  _fillPrintMenu(m); m.classList.add('open');
+}
+document.addEventListener('click',()=>{const m=document.getElementById('pm-menu');if(m)m.classList.remove('open');});
+function printDoc(kind){
+  document.getElementById('pm-menu')?.classList.remove('open');
+  const vid=activeVid; const v=visits.find(x=>x.id===vid); if(!v)return;
+  // flush on-screen edits first, but never when the record is open read-only
+  if(!window._consReadOnly&&['consult','rx','proc','full','discharge'].includes(kind)){try{saveClinical();}catch(e){}}
+  switch(kind){
+    case 'consult': return _printOut(_buildVisitReportHTML(v,{title:'CONSULTATION NOTE',labs:false,rad:false,rx:false,procs:false,chart:false,sign:true}));
+    case 'lab': return printAllLabs(vid);
+    case 'rad': return printRadResults(vid);
+    case 'rx':  return _printOut(_buildRxHTML(v));
+    case 'proc':return _printOut(_buildProcHTML(v));
+    case 'discharge': return printDischargeSummary(vid);
+    case 'full': return _printOut(_buildVisitReportHTML(v));
+  }
+}
+
 function printPatientReport(){
   const v=visits.find(x=>x.id===activeVid);if(!v)return;
   saveClinical(); // this IS the visit currently open for editing — flush the on-screen form into it first
