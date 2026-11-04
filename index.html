@@ -153,6 +153,10 @@ tr.emg-row td:first-child::before{content:'🚨 ';}
   .pit th{background:#1e3a8a;color:#fff;padding:6px 8px;text-align:left;}
   .pit td{padding:5px 8px;border-bottom:1px solid #e2e8f0;}
 }
+.lab-hl{background:#dbeafe;color:#1e3a8a;font-weight:800;padding:4px 8px;border-radius:4px;border-left:4px solid #1e3a8a;margin-bottom:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.lab-disc{font-size:11px;color:#475569;font-style:italic;border-top:1px dashed #94a3b8;margin-top:8px;padding-top:5px;}
+.lab-stage{font-size:10px;font-weight:700;padding:1px 7px;border-radius:9px;display:inline-block;margin-left:3px;}
+.ls-entered{background:#fef3c7;color:#92400e;}.ls-verified{background:#dbeafe;color:#1e40af;}.ls-released{background:#d1fae5;color:#065f46;}
 .voice-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);padding:3px 9px;border-radius:10px;font-size:11px;cursor:pointer;}
 .voice-badge:hover{background:rgba(255,255,255,.25);}
 .abbr-hdr{font-weight:800;color:var(--p);font-size:13px;}
@@ -1109,7 +1113,7 @@ document.addEventListener("DOMContentLoaded", function(){
           <div id="lab-res-panel" style="display:none;margin-bottom:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
               <h4 style="color:var(--a);margin:0;">🔬 Lab Results</h4>
-              <button onclick="printLabResults()" class="bsm bo">🖨 Print Lab PDF</button>
+              <button id="lab-pdf-btn" onclick="printLabResults()" class="bsm bo">🖨 Print Lab PDF</button>
             </div>
             <div id="lab-res-display"></div>
           </div>
@@ -1532,8 +1536,17 @@ document.addEventListener("DOMContentLoaded", function(){
         <h4 id="lab-hdr" style="color:var(--p);margin-bottom:9px;"></h4>
         <div id="lab-tests-entry"></div>
         <div class="ab">
-          <button onclick="updateLab()" class="bp">Release Results to Doctor</button>
+          <button onclick="updateLab()" class="bp">Save Results for Verification</button>
           <button onclick="document.getElementById('lab-entry').style.display='none'" style="background:#e2e8f0;color:#475569;">Cancel</button>
+        </div>
+      </div>
+      <div id="lab-verify" class="card" style="display:none;">
+        <h4 id="lab-verify-hdr" style="color:var(--p);margin-bottom:9px;"></h4>
+        <div id="lab-verify-body"></div>
+        <div class="ab">
+          <button onclick="verifyAllLab()" class="bp">✔ Verify All Entered</button>
+          <button onclick="releaseAllLab()" class="bp" style="background:#059669;">📤 Release Verified to Doctor</button>
+          <button onclick="document.getElementById('lab-verify').style.display='none'" style="background:#e2e8f0;color:#475569;">Close</button>
         </div>
       </div>
       <!-- Lab summary panel -->
@@ -4254,7 +4267,7 @@ function openChart(pId){
   document.getElementById('cm-visits').innerHTML=pv.map(v=>{
     const tot=totalBill(v);const bs=billStatus(v);
     const bcls=bs==='PAID'?'bpd':bs==='PARTIAL'?'bpa':'bp2';
-    const labItems=(v.labs||[]).filter(l=>l.name).map(l=>`<span class="tag tl">${l.name}${l.done?' ✓':''}</span>`).join(' ');
+    const labItems=(v.labs||[]).filter(l=>l.name).map(l=>`<span class="tag tl">${l.name}${labReleased(l)?' ✓':''}</span>`).join(' ');
     const radItems=(v.radiology||[]).filter(r=>r.name).map(r=>`<span class="tag tr2">${r.name}${r.done?' ✓':''}</span>`).join(' ');
     const rxItems=(v.prescriptions||[]).filter(r=>r.name).map(r=>`<span class="tag tm">${r.name} × ${r.qty}</span>`).join(' ');
     const tl=(v.timeline||[]).map(t=>`<div class="ti"><span class="tt">${t.time}</span><div><b>${t.act}</b>${t.val?' — <span style="color:#475569;font-size:12px;">'+t.val+'</span>':''} <span class="tb">(${t.by})</span></div></div>`).join('');
@@ -4266,7 +4279,7 @@ function openChart(pId){
           <button class="bsm" style="background:#6366f1;color:#fff;" onclick="cModal('chart-modal');viewVisitRecord('${v.id}')">📋 Notes</button>
           <button class="bsm bo" onclick="printVisitReport('${v.id}')">📄 Print</button>
           <button class="bsm bo" onclick="openInvoicePrintModal('${v.id}')">🖨 Invoice</button>
-          ${(v.labs||[]).some(l=>l.done)?`<button class="bsm" style="background:var(--a);color:#fff;" onclick="printAllLabs('${v.id}')">🔬 Labs PDF</button>`:''}
+          ${isLabUser()&&(v.labs||[]).some(l=>l.done&&labStage(l)!=='entered')?`<button class="bsm" style="background:var(--a);color:#fff;" onclick="printAllLabs('${v.id}')">🔬 Labs PDF</button>`:''}
           ${v.dischargeSnapshot||v.status==='DISCHARGED'?`<button class="bsm" style="background:#0c4a6e;color:#fff;" onclick="viewDischargeSnapshot('${v.id}')">📋 Discharge Summary</button>`:''}
         </div>
       </div>
@@ -5024,7 +5037,7 @@ function viewVisitRecord(vid){
   const radWithRes=(v.radiology||[]).filter(r=>r.done);
   document.getElementById('lab-res-panel').style.display=labsWithRes.length?'block':'none';
   document.getElementById('rad-res-panel').style.display=radWithRes.length?'block':'none';
-  if(labsWithRes.length)document.getElementById('lab-res-display').innerHTML=labsWithRes.map(l=>`<div class="lrc"><b>${l.name}</b><div style="margin-top:3px;white-space:pre-wrap;">${l.result}</div><div style="font-size:11px;color:var(--mu);margin-top:2px;">${l.resultTime} — ${l.resultBy}</div></div>`).join('');
+  document.getElementById('lab-res-display').innerHTML=labDocHtml(v);{const _b=document.getElementById('lab-pdf-btn');if(_b)_b.style.display=isLabUser()?'':'none';}
   if(radWithRes.length)document.getElementById('rad-res-display').innerHTML=radWithRes.map(r=>`<div class="lrc" style="border-color:var(--pu);"><b>${r.name}</b><div style="margin-top:3px;white-space:pre-wrap;">${r.result}</div><div style="font-size:11px;color:var(--mu);margin-top:2px;">${r.resultTime} — ${r.resultBy}</div></div>`).join('');
   document.getElementById('lab-order-sec').style.display='none';
   selectedLabTests=new Set();
@@ -5144,7 +5157,7 @@ function openCons(id){
   const radWithRes=(v.radiology||[]).filter(r=>r.done);
   document.getElementById('lab-res-panel').style.display=labsWithRes.length?'block':'none';
   document.getElementById('rad-res-panel').style.display=radWithRes.length?'block':'none';
-  if(labsWithRes.length)document.getElementById('lab-res-display').innerHTML=labsWithRes.map(l=>`<div class="lrc"><b>${l.name}</b><div style="margin-top:3px;white-space:pre-wrap;">${l.result}</div><div style="font-size:11px;color:var(--mu);margin-top:2px;">${l.resultTime} — ${l.resultBy}</div></div>`).join('');
+  document.getElementById('lab-res-display').innerHTML=labDocHtml(v);{const _b=document.getElementById('lab-pdf-btn');if(_b)_b.style.display=isLabUser()?'':'none';}
   if(radWithRes.length)document.getElementById('rad-res-display').innerHTML=radWithRes.map(r=>`<div class="lrc" style="border-color:var(--pu);"><b>${r.name}</b><div style="margin-top:3px;white-space:pre-wrap;">${r.result}</div><div style="font-size:11px;color:var(--mu);margin-top:2px;">${r.resultTime} — ${r.resultBy}</div></div>`).join('');
   // Lab order section visibility
   document.getElementById('lab-order-sec').style.display=(v.consultType==='LAB_ONLY'||v.consultType==='RADIOLOGY')?'none':'block';
@@ -5638,7 +5651,7 @@ function _buildVisitReportHTML(v,opt){
     ${cl.fsh?`<div style="margin-bottom:8px;"><b>(FSH)</b> <div style="margin-top:3px;padding-left:10px;">${cl.fsh}</div></div>`:''}
     ${cl.drugHx||cl.allergies?`<div style="margin-bottom:8px;"><b>DRUG HISTORY:</b><div style="margin-top:3px;padding-left:10px;">${cl.drugHx||'—'}</div><b>ALLERGIES:</b> ${cl.allergies||'None known'}</div>`:''}
     ${cl.diffDx?`<div style="margin-bottom:8px;"><b>DIFFERENTIAL DIAGNOSIS:</b><div style="margin-top:3px;padding-left:10px;">${cl.diffDx}</div></div>`:''}
-    ${opt.labs!==false&&(v.labs||[]).filter(l=>l.name).length?`<div style="margin-bottom:8px;"><b>(Ix)</b><table class="pit"><tr><th>Test</th><th>Result</th><th>Status</th></tr>${(v.labs||[]).filter(l=>l.name).map(l=>`<tr><td>${l.name}</td><td>${l.result||'Pending'}</td><td>${l.done?'Done':'Pending'}</td></tr>`).join('')}</table></div>`:''}
+    ${opt.labs!==false&&(v.labs||[]).filter(l=>l.name).length?`<div style="margin-bottom:8px;"><b>(Ix)</b><table class="pit"><tr><th>Test</th><th>Result</th><th>Status</th></tr>${(v.labs||[]).filter(l=>l.name).map(l=>`<tr><td>${l.name}</td><td>${labReleased(l)?l.result:(l.done?'Awaiting lab release':'Pending')}</td><td>${labReleased(l)?'Done':(l.done?'Awaiting release':'Pending')}</td></tr>`).join('')}</table><div class="lab-disc">${LAB_DISCLAIMER}</div></div>`:''}
     ${opt.rad!==false&&(v.radiology||[]).filter(r=>r.name).length?`<div style="margin-bottom:8px;"><b>(Rad)</b><table class="pit"><tr><th>Procedure</th><th>Impression</th><th>Status</th></tr>${(v.radiology||[]).filter(r=>r.name).map(r=>{
       // Extract only the IMPRESSION section from the full report text
       let impression = 'Pending';
@@ -6531,6 +6544,7 @@ function swLab(tab,btn){
   document.getElementById('lab-services-panel').style.display='none';
   document.getElementById('lab-labguide').style.display='none';
   document.getElementById('lab-entry').style.display='none';
+  const _lv=document.getElementById('lab-verify');if(_lv)_lv.style.display='none';
   if(tab==='summary'){document.getElementById('lab-summary-panel').style.display='block';renderLabSummary();return;}
   if(tab==='services'){document.getElementById('lab-services-panel').style.display='block';renderLabServices();return;}
   if(tab==='labguide'){document.getElementById('lab-labguide').style.display='block';renderLabGuide();return;}
@@ -6541,20 +6555,21 @@ function renderLab(){
   document.getElementById('lab-entry').style.display='none';
   if(labTab==='summary'){buildLabSummary();return;}
   let q;
-  if(labTab==='pending')q=_sortQueue(visits.filter(v=>(v.labs||[]).some(l=>l.name&&!l.done)));
-  else if(labTab==='completed')q=_sortQueue(visits.filter(v=>(v.labs||[]).some(l=>l.done)));
+  if(labTab==='pending')q=_sortQueue(visits.filter(v=>(v.labs||[]).some(l=>l.name&&!labReleased(l))));
+  else if(labTab==='completed')q=_sortQueue(visits.filter(v=>(v.labs||[]).some(l=>l.name&&labReleased(l))));
   else q=_sortQueue(visits.filter(v=>(v.labs||[]).some(l=>l.name)));
   let h=`<tr><th>Patient</th><th>Registered</th><th>Type</th><th>Pay Status</th><th>Tests</th><th>Status</th><th>Actions</th></tr>`;
   if(!q.length)h+=`<tr><td colspan="7" class="emp">No records</td></tr>`;
   q.forEach(v=>{
-    const labs=v.labs||[];const pending=labs.filter(l=>l.name&&!l.done);const done=labs.filter(l=>l.done);
-    const testsHtml=labs.filter(l=>l.name).map(l=>`<span class="badge ${l.done?'bpd':'bwn'}" style="font-size:10px;margin:1px;">${l.name}${l.done?' ✓':''}</span>`).join(' ');
+    const labs=v.labs||[];const pending=labs.filter(l=>l.name&&!l.done);const done=labs.filter(l=>l.done);const awaiting=labs.filter(l=>l.name&&l.done&&!labReleased(l));const printable=labs.filter(l=>l.name&&['verified','released'].includes(labStage(l)));
+    const testsHtml=labs.filter(l=>l.name).map(l=>`<span class="badge ${l.done?'bpd':'bwn'}" style="font-size:10px;margin:1px;">${l.name}${l.done?' ✓':''}</span>${labStageBadge(l)}`).join(' ');
     h+=`<tr><td><b style="cursor:pointer;color:var(--p);text-decoration:underline dotted;" onclick="openClinicalPeek('${v.id}','lab')">${v.name}</b></td><td style="white-space:nowrap;font-size:12px;">${_fmtReg(v)}</td><td>${ctBadge(v.consultType)}</td><td>${payBadge(v)}</td><td style="font-size:12px;">${testsHtml}</td>
-      <td>${pending.length?`<span class="badge bwn">${pending.length} Pending</span>`:`<span class="badge bpd">All Done</span>`}</td>
+      <td>${pending.length?`<span class="badge bwn">${pending.length} Pending</span>`:awaiting.length?`<span class="badge bwn">${awaiting.length} Awaiting release</span>`:`<span class="badge bpd">All Done</span>`}</td>
       <td><div style="display:flex;gap:3px;flex-wrap:wrap;">
         <button class="bsm" style="background:#6366f1;color:#fff;" onclick="openClinicalPeek('${v.id}','lab')">📋 Notes</button>
         ${pending.length?`<button class="bsm bp" onclick="openLab('${v.id}')">Enter Results</button>`:''}
-        ${done.length?`<button class="bsm bo" onclick="printAllLabs('${v.id}')">🖨 Print</button>`:''}
+        ${awaiting.length?`<button class="bsm" style="background:#059669;color:#fff;" onclick="openLabVerify('${v.id}')">✔ Verify / Release</button>`:''}
+        ${printable.length&&isLabUser()?`<button class="bsm bo" onclick="printAllLabs('${v.id}')">🖨 Print</button>`:''}
       </div></td></tr>`;
   });
   document.getElementById('table-lab').innerHTML=h;
@@ -8061,26 +8076,74 @@ function openLab(id){
   const v=visits.find(x=>x.id===id);
   const pending=(v.labs||[]).filter(l=>l.name&&!l.done);
   document.getElementById('lab-hdr').innerText=`Results — ${v.name}`;
-  document.getElementById('lab-tests-entry').innerHTML=pending.map((l,i)=>`<div style="margin-bottom:10px;"><label>${l.name} ${payBadge(v)}</label><textarea id="lab-result-${i}" data-lid="${l.id}" rows="3" placeholder="Enter results for ${l.name}..."></textarea></div>`).join('');
-  document.getElementById('lab-entry').style.display='block';
+  document.getElementById('lab-tests-entry').innerHTML=pending.map((l,i)=>`<div style="margin-bottom:10px;"><label class="lab-hl" style="text-transform:none;font-size:13px;color:#1e3a8a;">${l.name} ${payBadge(v)}</label><textarea id="lab-result-${i}" data-lid="${l.id}" rows="3" placeholder="Enter results for ${l.name}...">${l.result||''}</textarea></div>`).join('');
+  document.getElementById('lab-entry').style.display='block';{const _lv=document.getElementById('lab-verify');if(_lv)_lv.style.display='none';}
   document.getElementById('lab-entry').scrollIntoView({behavior:'smooth'});
+}
+const LAB_DISCLAIMER='All results are confidential, apply only to the specimen tested, and should be clinically correlated.';
+function isLabUser(){const u=currentUser||{};return !!u.isAdmin||/lab/i.test((u.staffRoleKey||'')+' '+(u.role||''));}
+function labStage(l){if(!l||!l.done)return 'pending';return l.stage||'released';}
+function labReleased(l){return labStage(l)==='released';}
+function labStageBadge(l){const s=labStage(l);if(s==='pending')return '';return `<span class="lab-stage ls-${s}">${s==='released'?'Released':s==='verified'?'Verified':'Entered'}</span>`;}
+function labDocHtml(v){
+  return (v.labs||[]).filter(l=>l.name&&l.done).map(l=>labReleased(l)
+    ?`<div class="lrc"><div class="lab-hl">${l.name}</div><div style="margin-top:3px;white-space:pre-wrap;">${l.result}</div><div style="font-size:11px;color:var(--mu);margin-top:2px;">${l.resultTime} — ${l.resultBy}${l.verifiedBy?' | Verified: '+l.verifiedBy:''}</div></div>`
+    :`<div class="lrc" style="border-color:#f59e0b;"><div class="lab-hl">${l.name}</div><div style="margin-top:3px;color:#92400e;font-size:12px;">⏳ Awaiting lab verification and release</div></div>`).join('')
+    +`<div class="lab-disc">${LAB_DISCLAIMER}</div>`;
 }
 function updateLab(){
   const v=visits.find(x=>x.id===activeVid);
   if(!v)return alert('No active visit selected.');
   const pending=(v.labs||[]).filter(l=>l.name&&!l.done);
   let count=0;
-  pending.forEach((l,i)=>{const res=document.getElementById(`lab-result-${i}`)?.value.trim();if(res){l.result=res;l.done=true;l.resultTime=new Date().toLocaleTimeString();l.resultBy=currentUser.name;count++;}});
+  pending.forEach((l,i)=>{const res=document.getElementById(`lab-result-${i}`)?.value.trim();if(res){l.result=res;l.done=true;l.stage='entered';l.resultTime=new Date().toLocaleTimeString();l.resultBy=currentUser.name;l.verifiedBy='';l.verifiedTime='';l.releasedBy='';l.releasedTime='';count++;}});
   if(!count)return alert('Enter at least one result.');
+  lg(v,'Lab Results Entered (awaiting verification)');
+  save();document.getElementById('lab-entry').style.display='none';renderLab();
+  alert('Results saved. Verify and release them so the doctor can view.');
+}
+function openLabVerify(id){
+  if(!isLabUser())return alert('Only laboratory staff can verify and release results.');
+  activeVid=id;const v=visits.find(x=>x.id===id);if(!v)return;
+  document.getElementById('lab-entry').style.display='none';
+  document.getElementById('lab-verify-hdr').innerText=`Verify & Release — ${v.name}`;
+  const items=(v.labs||[]).map((l,i)=>({l,i})).filter(o=>o.l.name&&o.l.done&&!labReleased(o.l));
+  document.getElementById('lab-verify-body').innerHTML=items.length?items.map(o=>{const l=o.l;return `<div class="lrc" style="margin-bottom:8px;"><div class="lab-hl" style="display:flex;justify-content:space-between;align-items:center;gap:6px;"><span>${l.name}</span>${labStageBadge(l)}</div><div style="white-space:pre-wrap;font-size:13px;margin-top:3px;">${l.result}</div><div style="font-size:11px;color:var(--mu);margin-top:3px;">Entered ${l.resultTime} — ${l.resultBy}${l.verifiedBy?' | Verified '+l.verifiedTime+' — '+l.verifiedBy:''}</div><button class="bsm bo" style="margin-top:4px;" onclick="sendBackLab('${v.id}',${o.i})">↩ Send back for correction</button></div>`;}).join(''):'<p style="color:var(--mu);">Nothing awaiting verification or release.</p>';
+  const el=document.getElementById('lab-verify');el.style.display='block';el.scrollIntoView({behavior:'smooth'});
+}
+function verifyAllLab(){
+  if(!isLabUser())return alert('Only laboratory staff can verify results.');
+  const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  const todo=(v.labs||[]).filter(l=>l.name&&l.done&&labStage(l)==='entered');
+  if(!todo.length)return alert('No entered results to verify.');
+  const me=currentUser.name;
+  if(todo.some(l=>l.resultBy===me)&&!confirm('You entered some of these results yourself. Verify them anyway?'))return;
+  todo.forEach(l=>{l.stage='verified';l.verifiedBy=me;l.verifiedTime=new Date().toLocaleTimeString();});
+  lg(v,'Lab Results Verified');save();renderLab();openLabVerify(v.id);
+}
+function releaseAllLab(){
+  if(!isLabUser())return alert('Only laboratory staff can release results.');
+  const v=visits.find(x=>x.id===activeVid);if(!v)return;
+  const todo=(v.labs||[]).filter(l=>l.name&&l.done&&labStage(l)==='verified');
+  if(!todo.length)return alert('Verify results before releasing them to the doctor.');
+  todo.forEach(l=>{l.stage='released';l.releasedBy=currentUser.name;l.releasedTime=new Date().toLocaleTimeString();});
   v.status='LAB_READY';if(!v.cleared.includes('Lab'))v.cleared.push('Lab');
   lg(v,'Lab Results Released');
-  speak(`Doctor attention. Lab results for patient ${v.name} are now ready for review.`);save();document.getElementById('lab-entry').style.display='none';renderLab();
-  alert('Results released to doctor queue.');
+  speak(`Doctor attention. Lab results for patient ${v.name} are now ready for review.`);
+  save();renderLab();document.getElementById('lab-verify').style.display='none';
+  alert('Verified results released to doctor queue.');
+}
+function sendBackLab(vid,idx){
+  const v=visits.find(x=>x.id===vid);const l=v&&(v.labs||[])[idx];if(!l)return;
+  l.done=false;delete l.stage;
+  lg(v,'Lab Result Sent Back for Correction: '+l.name);save();renderLab();openLabVerify(vid);
 }
 function printAllLabs(id){
+  if(!isLabUser())return alert('Official lab reports are printed by the Laboratory only. Doctors can view released results on screen.');
   const v=visits.find(x=>x.id===id);if(!v)return;
   const p=patients.find(x=>x.id===v.patId);
-  const done=(v.labs||[]).filter(l=>l.done);
+  const done=(v.labs||[]).filter(l=>l.name&&l.done&&['verified','released'].includes(labStage(l)));
+  if(!done.length)return alert('No verified results to print. Results must be verified by the lab first.');
   document.getElementById('pra-con').innerHTML=
     printHeader('LABORATORY RESULTS REPORT')+
     `<p style="font-size:12px;margin-bottom:10px;padding:7px;background:#f8fafc;border-radius:5px;">
@@ -8088,14 +8151,14 @@ function printAllLabs(id){
       <b>Age:</b> ${p?p.ageVal+' '+p.ageUnit:'—'} &nbsp;|&nbsp;
       <b>Gender:</b> ${p?p.gender:'—'} &nbsp;|&nbsp;
       <b>Date:</b> ${v.date}
-    </p>
-    ${done.length?done.map(l=>`
+    </p>`+
+    done.map(l=>`
       <div style="margin-bottom:12px;border:1px solid #e2e8f0;border-radius:6px;padding:10px;">
-        <h4 style="margin:0 0 6px 0;color:#1e3a8a;border-bottom:1px solid #e2e8f0;padding-bottom:4px;">${l.name}</h4>
+        <div class="lab-hl" style="font-size:14px;">${l.name}</div>
         <div style="white-space:pre-wrap;font-size:13px;line-height:1.7;">${l.result}</div>
-        <div style="font-size:10px;color:#64748b;margin-top:5px;">Reported: ${l.resultTime} &nbsp;|&nbsp; By: ${l.resultBy}</div>
-      </div>`).join(''):'<p style="color:#64748b;">No completed lab results.</p>'}
-    `+printFooter();
+        <div style="font-size:10px;color:#64748b;margin-top:5px;">Reported: ${l.resultTime} &nbsp;|&nbsp; By: ${l.resultBy} &nbsp;|&nbsp; Verified: ${l.verifiedBy||'—'}${l.verifiedTime?' ('+l.verifiedTime+')':''}</div>
+      </div>`).join('')+
+    `<div class="lab-disc">${LAB_DISCLAIMER}</div>`+printFooter();
   doPrint();
 }
 function printLabResults(){printAllLabs(activeVid);}
